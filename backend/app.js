@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 const allowedOrigins = [
-  "https://bluepeak-studio-frontend.onrender.com",
+  "https://bluepeakstudiowebsite.onrender.com/",
   "https://bluepeakstudio.in",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
