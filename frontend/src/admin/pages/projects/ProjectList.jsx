@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { getProjects, createProject, updateProject, deleteProject } from "../../api/projects.api";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -19,6 +19,8 @@ import toast from "react-hot-toast";
 
 export default function ProjectList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const presetClientId = searchParams.get("clientId");
   const [projects, setProjects] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pages: 1 });
   const [loading, setLoading] = useState(true);
@@ -44,6 +46,13 @@ export default function ProjectList() {
   useEffect(() => {
     fetch(1);
   }, [debouncedSearch, filters]);
+
+  useEffect(() => {
+    if (presetClientId) {
+      setEditing(null);
+      setModalOpen(true);
+    }
+  }, [presetClientId]);
 
   const handleCreate = async (payload) => {
     setSubmitting(true);
@@ -101,16 +110,33 @@ export default function ProjectList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-wrap gap-3">
-          <div className="min-w-[200px] flex-1">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:max-w-3xl lg:grid-cols-4">
+          <div className="sm:col-span-2 lg:col-span-1">
+            <label className="mb-1.5 block text-xs font-medium text-admin-textMuted">Search</label>
             <SearchInput value={search} onChange={setSearch} placeholder="Search projects..." />
           </div>
-          <FilterSelect label="Status" value={filters.workStatus} onChange={(v) => setFilters((f) => ({ ...f, workStatus: v }))} options={WORK_STATUSES} />
-          <FilterSelect label="Payment" value={filters.paymentStatus} onChange={(v) => setFilters((f) => ({ ...f, paymentStatus: v }))} options={PAYMENT_STATUSES} />
-          <FilterSelect label="Type" value={filters.projectType} onChange={(v) => setFilters((f) => ({ ...f, projectType: v }))} options={PROJECT_TYPES} />
+          <FilterSelect
+            label="Status"
+            value={filters.workStatus}
+            onChange={(v) => setFilters((f) => ({ ...f, workStatus: v }))}
+            options={WORK_STATUSES}
+          />
+          <FilterSelect
+            label="Payment"
+            value={filters.paymentStatus}
+            onChange={(v) => setFilters((f) => ({ ...f, paymentStatus: v }))}
+            options={PAYMENT_STATUSES}
+          />
+          <FilterSelect
+            label="Type"
+            value={filters.projectType}
+            onChange={(v) => setFilters((f) => ({ ...f, projectType: v }))}
+            options={PROJECT_TYPES}
+            className="sm:col-span-2 lg:col-span-1"
+          />
         </div>
-        <Button onClick={openCreate}>
+        <Button onClick={openCreate} className="w-full shrink-0 sm:w-auto">
           <Plus size={18} /> Add Project
         </Button>
       </div>
@@ -170,28 +196,20 @@ export default function ProjectList() {
           setEditing(null);
         }}
         title={editing ? "Edit Project" : "New Project"}
+        description="Set up client, scope, payment, and delivery details."
         size="xl"
       >
         <ProjectForm
-          key={editing?._id || "new"}
-          initial={editing}
+          key={editing?._id || presetClientId || "new"}
+          initial={editing || (presetClientId ? { clientId: presetClientId } : undefined)}
           onSubmit={editing ? handleUpdate : handleCreate}
           loading={submitting}
+          onCancel={() => {
+            setModalOpen(false);
+            setEditing(null);
+          }}
+          submitLabel={editing ? "Save changes" : "Create project"}
         />
-        <div className="mt-4 flex justify-end gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setModalOpen(false);
-              setEditing(null);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" form="project-form" loading={submitting}>
-            {editing ? "Save Changes" : "Create Project"}
-          </Button>
-        </div>
       </Modal>
 
       <ConfirmDialog

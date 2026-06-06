@@ -28,7 +28,12 @@ const getExpenses = asyncHandler(async (req, res) => {
   const filter = buildFilter(req.query);
 
   const [expenses, total] = await Promise.all([
-    Expense.find(filter).sort({ expenseDate: -1 }).skip(skip).limit(limit),
+    Expense.find(filter)
+      .select("title amount category expenseDate paidVia notes createdAt")
+      .sort({ expenseDate: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
     Expense.countDocuments(filter),
   ]);
 

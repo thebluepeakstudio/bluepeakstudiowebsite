@@ -45,6 +45,46 @@ export const DOCUMENT_CATEGORIES = [
 
 export const AVAILABILITY = ["Available", "Busy", "Unavailable"];
 
+export const CLIENT_STATUSES = ["Active", "Inactive"];
+
+export const LEAD_STAGES = [
+  "New",
+  "Contacted",
+  "Qualified",
+  "Proposal Sent",
+  "Negotiation",
+  "Won",
+  "Lost",
+  "On Hold",
+];
+
+export const LEAD_SOURCES = [
+  "Website",
+  "Referral",
+  "LinkedIn",
+  "Cold Outreach",
+  "Ads",
+  "Event",
+  "Other",
+];
+
+export const LEAD_PRIORITIES = ["Low", "Medium", "High"];
+
+export const LEAD_REQUIREMENTS = [
+  "Website",
+  "Marketing",
+  "Designing",
+  "Software",
+  "SEO",
+  "SMM",
+  "Branding",
+  "Video Editing",
+];
+
+export const FOLLOW_UP_STATUSES = ["Scheduled", "Completed", "Missed", "Cancelled"];
+
+export const ACTIVITY_TYPES = ["call", "meeting", "email", "note", "task"];
+
 /** Display label for a project (no title required). */
 export const getProjectLabel = (project) => {
   if (!project) return "—";

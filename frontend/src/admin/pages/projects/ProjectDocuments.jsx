@@ -69,13 +69,13 @@ export default function ProjectDocuments() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <Link to={`/admin-panel/projects/${id}`}>
-          <Button variant="ghost"><ArrowLeft size={18} /></Button>
+          <Button variant="ghost"><ArrowLeft size={18} /> Back</Button>
         </Link>
-        <div>
-          <h2 className="text-xl font-bold">Documents</h2>
-          <p className="text-sm text-admin-textMuted">{getProjectLabel(project)}</p>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-bold sm:text-xl">Documents</h2>
+          <p className="truncate text-sm text-admin-textMuted">{getProjectLabel(project)}</p>
         </div>
       </div>
 
@@ -109,14 +109,14 @@ export default function ProjectDocuments() {
           ) : (
             <ul className="divide-y divide-admin-border">
               {grouped[cat].map((doc) => (
-                <li key={doc._id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-medium">{doc.fileName}</p>
+                <li key={doc._id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="break-all text-sm font-medium">{doc.fileName}</p>
                     <p className="text-xs text-admin-textMuted">
                       {doc.uploadedBy} · {formatDate(doc.createdAt)}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex shrink-0 gap-2">
                     <a href={doc.fileUrl} target="_blank" rel="noreferrer">
                       <Button variant="ghost" size="sm"><ExternalLink size={14} /></Button>
                     </a>

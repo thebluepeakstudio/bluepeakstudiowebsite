@@ -4,6 +4,10 @@
   cursor: auto;
 }
 
+.admin-panel {
+  overflow-x: hidden;
+}
+
 .admin-panel button,
 .admin-panel a,
 .admin-panel [role="button"],
@@ -31,4 +35,17 @@
 .admin-panel input[type="search"],
 .admin-panel textarea {
   cursor: text;
+}
+
+/* Horizontal scroll hint for wide tables on tablet */
+.admin-table-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 639px) {
+  .admin-panel [data-sonner-toaster],
+  .admin-panel > div > section[aria-live] {
+    /* react-hot-toast: keep toasts within viewport */
+    max-width: calc(100vw - 1rem);
+  }
 }

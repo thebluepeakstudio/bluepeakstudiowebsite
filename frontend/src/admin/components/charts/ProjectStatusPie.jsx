@@ -1,4 +1,5 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import ChartContainer from "./ChartContainer";
 
 const COLORS = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#64748b"];
 
@@ -13,14 +14,15 @@ export default function ProjectStatusPie({ data }) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ChartContainer>
+    <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie
           data={chartData}
           cx="50%"
           cy="50%"
-          innerRadius={60}
-          outerRadius={90}
+          innerRadius={50}
+          outerRadius={75}
           paddingAngle={2}
           dataKey="value"
         >
@@ -29,8 +31,9 @@ export default function ProjectStatusPie({ data }) {
           ))}
         </Pie>
         <Tooltip />
-        <Legend />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
       </PieChart>
     </ResponsiveContainer>
+    </ChartContainer>
   );
 }

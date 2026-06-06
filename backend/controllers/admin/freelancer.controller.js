@@ -8,6 +8,10 @@ const {
   getFinancialsForFreelancer,
   attachFinancialsToList,
 } = require("../../utils/freelancerTotals");
+const {
+  getProjectFreelancerDue,
+  syncProjectFreelancerPaymentFields,
+} = require("../../utils/projectFreelancerPayment");
 
 const BASIC_FIELDS = [
   "name",
@@ -45,12 +49,20 @@ const getFreelancers = asyncHandler(async (req, res) => {
   if (req.query.availabilityStatus) filter.availabilityStatus = req.query.availabilityStatus;
   if (req.query.skill) filter.skills = req.query.skill;
 
+  const lite = req.query.lite === "1" || req.query.lite === "true";
+  const sort = lite ? { name: 1 } : { createdAt: -1 };
+
   const [freelancers, total] = await Promise.all([
-    Freelancer.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Freelancer.find(filter)
+      .select(lite ? "name skills availabilityStatus" : undefined)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .lean(),
     Freelancer.countDocuments(filter),
   ]);
 
-  const data = await attachFinancialsToList(freelancers);
+  const data = lite ? freelancers : await attachFinancialsToList(freelancers);
 
   res.json({
     success: true,
@@ -80,15 +92,19 @@ const getFreelancerProjects = asyncHandler(async (req, res) => {
     isOutsourced: true,
   })
     .select(
-      "clientName businessName projectType projectTitle workStatus outsourcingCost amountPaidToFreelancer createdAt"
+      "clientName businessName projectType projectTitle workStatus outsourcingCost amountPaidToFreelancer freelancerPaymentStatus createdAt"
     )
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
 
   const data = projects.map((p) => {
     const doc = p.toObject();
     const cost = doc.outsourcingCost || 0;
     const paid = doc.amountPaidToFreelancer || 0;
-    return { ...doc, projectDue: Math.max(0, cost - paid) };
+    return {
+      ...doc,
+      projectDue: getProjectFreelancerDue(cost, paid),
+    };
   });
 
   res.json({ success: true, data });
@@ -98,9 +114,11 @@ const getFreelancerPayments = asyncHandler(async (req, res) => {
   const freelancer = await Freelancer.findById(req.params.id);
   if (!freelancer) throw new ApiError(404, "Freelancer not found");
 
-  const payments = await FreelancerPayment.find({ freelancerId: req.params.id }).sort({
-    paymentDate: -1,
-  });
+  const payments = await FreelancerPayment.find({ freelancerId: req.params.id })
+    .populate("projectId", "clientName businessName projectType")
+    .sort({ paymentDate: -1 })
+    .limit(50)
+    .lean();
   const financials = await getFinancialsForFreelancer(req.params.id);
 
   res.json({ success: true, data: { payments, financials } });
@@ -110,21 +128,45 @@ const recordFreelancerPayment = asyncHandler(async (req, res) => {
   const freelancer = await Freelancer.findById(req.params.id);
   if (!freelancer) throw new ApiError(404, "Freelancer not found");
 
-  const amount = Number(req.body.amount);
+  const projectId = req.body.projectId;
+  if (!projectId) {
+    throw new ApiError(400, "Select a project to pay against");
+  }
+
+  const project = await Project.findOne({
+    _id: projectId,
+    freelancerId: req.params.id,
+    isOutsourced: true,
+  });
+  if (!project) {
+    throw new ApiError(400, "Invalid project for this freelancer");
+  }
+
+  const projectDue = getProjectFreelancerDue(
+    project.outsourcingCost,
+    project.amountPaidToFreelancer
+  );
+  if (projectDue <= 0) {
+    throw new ApiError(400, "Nothing due on this project");
+  }
+
+  const payFull = req.body.payFull === true || req.body.payFull === "true";
+  let amount = payFull ? projectDue : Number(req.body.amount);
+
   if (!amount || amount <= 0) {
     throw new ApiError(400, "Payment amount must be greater than 0");
   }
-
-  const financials = await getFinancialsForFreelancer(req.params.id);
-  if (amount > financials.amountDue) {
-    throw new ApiError(
-      400,
-      `Payment cannot exceed amount due (${financials.amountDue})`
-    );
+  if (amount > projectDue) {
+    throw new ApiError(400, `Payment cannot exceed amount due (${projectDue}) for this project`);
   }
+
+  project.amountPaidToFreelancer = (project.amountPaidToFreelancer || 0) + amount;
+  syncProjectFreelancerPaymentFields(project);
+  await project.save();
 
   const payment = await FreelancerPayment.create({
     freelancerId: req.params.id,
+    projectId: project._id,
     amount,
     paymentDate: req.body.paymentDate || new Date(),
     paidVia: req.body.paidVia || "UPI",
@@ -132,11 +174,13 @@ const recordFreelancerPayment = asyncHandler(async (req, res) => {
     recordedBy: req.admin.name,
   });
 
+  await payment.populate("projectId", "clientName businessName projectType");
+
   const updatedFinancials = await getFinancialsForFreelancer(req.params.id);
 
   res.status(201).json({
     success: true,
-    data: { payment, financials: updatedFinancials },
+    data: { payment, project, financials: updatedFinancials },
   });
 });
 

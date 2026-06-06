@@ -46,4 +46,12 @@ const getMe = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { login, getMe, loginValidators };
+const getAdmins = asyncHandler(async (req, res) => {
+  const admins = await Admin.find().select("name email").sort({ name: 1 });
+  res.json({
+    success: true,
+    data: admins.map((a) => ({ id: a._id, name: a.name, email: a.email })),
+  });
+});
+
+module.exports = { login, getMe, getAdmins, loginValidators };

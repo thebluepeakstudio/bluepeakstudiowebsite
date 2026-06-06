@@ -13,14 +13,18 @@ import Expenses from "./pages/Expenses";
 import Freelancers from "./pages/Freelancers";
 import ProfitLoss from "./pages/ProfitLoss";
 import Contacts from "./pages/Contacts";
-import Search from "./pages/Search";
+import ClientList from "./pages/clients/ClientList";
+import ClientDetail from "./pages/clients/ClientDetail";
+import LeadsPage from "./pages/leads/LeadsPage";
+import LeadDetail from "./pages/leads/LeadDetail";
 
 export default function AdminApp() {
   return (
     <AuthProvider>
       <div className="admin-panel min-h-screen bg-admin-muted text-admin-text">
         <Toaster
-          position="top-right"
+          position="top-center"
+          containerStyle={{ top: 12 }}
           toastOptions={{
             style: {
               background: "#fff",
@@ -35,6 +39,10 @@ export default function AdminApp() {
             <Route element={<AdminLayout />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="leads" element={<LeadsPage />} />
+              <Route path="leads/:id" element={<LeadDetail />} />
+              <Route path="clients" element={<ClientList />} />
+              <Route path="clients/:id" element={<ClientDetail />} />
               <Route path="projects" element={<ProjectList />} />
               <Route path="projects/:id" element={<ProjectDetail />} />
               <Route path="projects/:id/documents" element={<ProjectDocuments />} />
@@ -42,7 +50,6 @@ export default function AdminApp() {
               <Route path="freelancers" element={<Freelancers />} />
               <Route path="pl" element={<ProfitLoss />} />
               <Route path="contacts" element={<Contacts />} />
-              <Route path="search" element={<Search />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="dashboard" replace />} />

@@ -31,6 +31,7 @@ const attachmentSchema = new mongoose.Schema(
 
 const projectSchema = new mongoose.Schema(
   {
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: "Client" },
     clientName: { type: String, required: true, trim: true },
     businessName: { type: String, trim: true },
     contactNumber: { type: String, trim: true },
@@ -78,7 +79,12 @@ projectSchema.pre("save", function () {
   this.remainingAmount = Math.max(0, total - advance);
 });
 
+projectSchema.index({ clientId: 1 });
 projectSchema.index({ workStatus: 1, paymentStatus: 1, projectType: 1 });
+projectSchema.index({ dateOfOnboarding: 1 });
+projectSchema.index({ freelancerId: 1, isOutsourced: 1 });
+projectSchema.index({ createdAt: -1 });
+projectSchema.index({ paymentStatus: 1 });
 projectSchema.index({ clientName: "text", projectTitle: "text", businessName: "text" });
 
 module.exports = mongoose.model("Project", projectSchema);

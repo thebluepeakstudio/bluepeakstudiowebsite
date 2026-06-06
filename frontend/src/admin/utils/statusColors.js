@@ -14,6 +14,20 @@ const colorMap = {
   Available: "bg-emerald-100 text-emerald-800",
   Busy: "bg-amber-100 text-amber-800",
   Unavailable: "bg-red-100 text-red-800",
+  Active: "bg-emerald-100 text-emerald-800",
+  Inactive: "bg-slate-100 text-slate-600",
+  New: "bg-slate-100 text-slate-700",
+  Contacted: "bg-blue-100 text-blue-800",
+  Qualified: "bg-indigo-100 text-indigo-800",
+  "Proposal Sent": "bg-purple-100 text-purple-800",
+  Negotiation: "bg-amber-100 text-amber-800",
+  Won: "bg-emerald-100 text-emerald-800",
+  Lost: "bg-red-100 text-red-800",
+  "On Hold": "bg-orange-100 text-orange-800",
+  Scheduled: "bg-blue-100 text-blue-800",
+  Completed: "bg-emerald-100 text-emerald-800",
+  Missed: "bg-red-100 text-red-800",
+  Cancelled: "bg-slate-100 text-slate-600",
 };
 
 export const getStatusColor = (status) =>

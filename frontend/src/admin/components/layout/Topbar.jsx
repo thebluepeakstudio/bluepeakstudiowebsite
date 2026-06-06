@@ -13,25 +13,35 @@ export default function Topbar({ onMenuClick, title }) {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-admin-border bg-admin-surface/95 px-4 backdrop-blur lg:px-6">
-      <div className="flex items-center gap-3">
+    <header className="z-30 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-admin-border bg-admin-surface px-3 sm:h-16 sm:px-4 lg:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <button
+          type="button"
           onClick={onMenuClick}
-          className="rounded-lg p-2 text-admin-textMuted transition-colors hover:bg-admin-muted lg:hidden"
+          className="shrink-0 rounded-lg p-2 text-admin-textMuted transition-colors hover:bg-admin-muted lg:hidden"
+          aria-label="Open menu"
         >
           <Menu size={20} />
         </button>
-        <h1 className="text-lg font-semibold text-admin-text">{title}</h1>
+        <h1 className="truncate text-base font-semibold text-admin-text sm:text-lg">{title}</h1>
       </div>
-      <div className="flex items-center gap-3">
-        <button className="rounded-lg p-2 text-admin-textMuted transition-colors hover:bg-admin-muted">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+        <button
+          type="button"
+          className="hidden rounded-lg p-2 text-admin-textMuted transition-colors hover:bg-admin-muted sm:block"
+          aria-label="Notifications"
+        >
           <Bell size={18} />
         </button>
-        <div className="hidden text-right sm:block">
-          <p className="text-sm font-medium text-admin-text">{admin?.name}</p>
-          <p className="text-xs text-admin-textMuted">{admin?.email}</p>
+        <div className="hidden text-right md:block">
+          <p className="max-w-[140px] truncate text-sm font-medium text-admin-text lg:max-w-none">
+            {admin?.name}
+          </p>
+          <p className="max-w-[140px] truncate text-xs text-admin-textMuted lg:max-w-none">
+            {admin?.email}
+          </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleLogout}>
+        <Button variant="ghost" size="sm" onClick={handleLogout} className="shrink-0">
           <LogOut size={16} />
           <span className="hidden sm:inline">Logout</span>
         </Button>

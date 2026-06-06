@@ -17,6 +17,7 @@ import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { Input, Textarea, Select } from "../components/ui/Input";
+import { Form, FormSection, FormGrid, FormFooter, FormFileInput } from "../components/ui/Form";
 import Card, { StatCard } from "../components/ui/Card";
 import { EXPENSE_CATEGORIES, PAID_VIA } from "../utils/constants";
 import { formatCurrency, formatDate } from "../utils/formatCurrency";
@@ -49,20 +50,26 @@ export default function Expenses() {
   const [submitting, setSubmitting] = useState(false);
   const debouncedSearch = useDebounce(search);
 
+  const fetchSummary = () => {
+    const now = new Date();
+    getExpenseSummary({ month: now.getMonth() + 1, year: now.getFullYear() })
+      .then((sum) => setSummary(sum.data.data))
+      .catch(() => {});
+  };
+
   const fetch = (page = 1) => {
     setLoading(true);
-    const now = new Date();
-    Promise.all([
-      getExpenses({ page, limit: 10, search: debouncedSearch, category }),
-      getExpenseSummary({ month: now.getMonth() + 1, year: now.getFullYear() }),
-    ])
-      .then(([exp, sum]) => {
+    getExpenses({ page, limit: 10, search: debouncedSearch, category })
+      .then((exp) => {
         setExpenses(exp.data.data);
         setPagination(exp.data.pagination);
-        setSummary(sum.data.data);
       })
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    fetchSummary();
+  }, []);
 
   useEffect(() => {
     fetch(1);
@@ -101,6 +108,7 @@ export default function Expenses() {
       }
       setModalOpen(false);
       fetch(pagination.page);
+      fetchSummary();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed");
     } finally {
@@ -114,6 +122,7 @@ export default function Expenses() {
       toast.success("Deleted");
       setDeleteId(null);
       fetch(pagination.page);
+      fetchSummary();
     } catch {
       toast.error("Delete failed");
     }
@@ -130,7 +139,8 @@ export default function Expenses() {
 
       {pieData.length > 0 && (
         <Card title="Category Breakdown">
-          <ResponsiveContainer width="100%" height={220}>
+          <div className="h-[200px] w-full sm:h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
                 {pieData.map((_, i) => (
@@ -140,15 +150,23 @@ export default function Expenses() {
               <Tooltip formatter={(v) => formatCurrency(v)} />
             </PieChart>
           </ResponsiveContainer>
+          </div>
         </Card>
       )}
 
-      <div className="flex flex-wrap gap-3">
-        <div className="min-w-[200px] flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="min-w-0 flex-1 sm:min-w-[200px]">
           <SearchInput value={search} onChange={setSearch} placeholder="Search expenses..." />
         </div>
-        <FilterSelect value={category} onChange={setCategory} options={EXPENSE_CATEGORIES} />
-        <Button onClick={openCreate}><Plus size={18} /> Add Expense</Button>
+        <FilterSelect
+          className="w-full sm:w-auto sm:min-w-[160px]"
+          value={category}
+          onChange={setCategory}
+          options={EXPENSE_CATEGORIES}
+        />
+        <Button className="w-full sm:w-auto" onClick={openCreate}>
+          <Plus size={18} /> Add Expense
+        </Button>
       </div>
 
       {loading ? (
@@ -179,20 +197,74 @@ export default function Expenses() {
         </>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Edit Expense" : "Add Expense"}>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input label="Title *" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-          <Input label="Amount *" type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
-          <Select label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} options={EXPENSE_CATEGORIES} />
-          <Input label="Date" type="date" value={form.expenseDate} onChange={(e) => setForm({ ...form, expenseDate: e.target.value })} />
-          <Select label="Paid Via" value={form.paidVia} onChange={(e) => setForm({ ...form, paidVia: e.target.value })} options={PAID_VIA} />
-          <div>
-            <label className="mb-1 block text-sm font-medium">Receipt</label>
-            <input type="file" onChange={(e) => setForm({ ...form, receipt: e.target.files[0] })} className="text-sm" />
-          </div>
-          <Textarea label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          <Button type="submit" loading={submitting} className="w-full">{editing ? "Update" : "Create"}</Button>
-        </form>
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? "Edit Expense" : "Add Expense"}
+        description="Record a business expense with amount and payment details."
+        size="lg"
+      >
+        <Form onSubmit={handleSubmit}>
+          <FormSection title="Expense details">
+            <FormGrid cols={2}>
+              <Input
+                label="Title *"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                required
+              />
+              <Input
+                label="Amount (₹) *"
+                type="number"
+                min="0"
+                value={form.amount}
+                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                required
+              />
+              <Select
+                label="Category"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                options={EXPENSE_CATEGORIES}
+              />
+            </FormGrid>
+          </FormSection>
+
+          <FormSection title="Payment info">
+            <FormGrid cols={2}>
+              <Input
+                label="Date"
+                type="date"
+                value={form.expenseDate}
+                onChange={(e) => setForm({ ...form, expenseDate: e.target.value })}
+              />
+              <Select
+                label="Paid via"
+                value={form.paidVia}
+                onChange={(e) => setForm({ ...form, paidVia: e.target.value })}
+                options={PAID_VIA}
+              />
+            </FormGrid>
+            <FormFileInput
+              label="Receipt"
+              onChange={(e) => setForm({ ...form, receipt: e.target.files[0] })}
+            />
+          </FormSection>
+
+          <FormSection title="Notes">
+            <Textarea
+              label="Additional notes"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </FormSection>
+
+          <FormFooter
+            onCancel={() => setModalOpen(false)}
+            submitLabel={editing ? "Save changes" : "Add expense"}
+            loading={submitting}
+          />
+        </Form>
       </Modal>
 
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} message="Delete this expense?" danger />

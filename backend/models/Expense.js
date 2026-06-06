@@ -28,6 +28,7 @@ const expenseSchema = new mongoose.Schema(
 );
 
 expenseSchema.index({ category: 1, expenseDate: -1 });
+expenseSchema.index({ expenseDate: -1 });
 expenseSchema.index({ title: "text" });
 
 module.exports = mongoose.model("Expense", expenseSchema);

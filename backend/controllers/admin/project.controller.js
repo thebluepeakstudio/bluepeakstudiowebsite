@@ -1,8 +1,11 @@
 const Project = require("../../models/Project");
 const Freelancer = require("../../models/Freelancer");
+const FreelancerPayment = require("../../models/FreelancerPayment");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
+const { syncProjectFreelancerPaymentFields } = require("../../utils/projectFreelancerPayment");
+const { syncClientToProject } = require("../../utils/syncClientToProject");
 
 const projectLabel = (p) =>
   p.businessName ? `${p.clientName} — ${p.businessName}` : p.clientName || p.projectTitle || "Project";
@@ -12,6 +15,7 @@ const buildFilter = (query) => {
   if (query.workStatus) filter.workStatus = query.workStatus;
   if (query.paymentStatus) filter.paymentStatus = query.paymentStatus;
   if (query.projectType) filter.projectType = query.projectType;
+  if (query.clientId) filter.clientId = query.clientId;
   if (query.search) {
     filter.$or = [
       { clientName: { $regex: query.search, $options: "i" } },
@@ -38,10 +42,15 @@ const getProjects = asyncHandler(async (req, res) => {
 
   const [projects, total] = await Promise.all([
     Project.find(filter)
+      .select(
+        "clientName businessName projectTitle projectType workStatus paymentStatus totalAmount remainingAmount advanceReceived dateOfOnboarding clientId freelancerId isOutsourced createdAt"
+      )
       .populate("freelancerId", "name email")
+      .populate("clientId", "name companyName email phone")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit),
+      .limit(limit)
+      .lean(),
     Project.countDocuments(filter),
   ]);
 
@@ -77,13 +86,21 @@ const getProjectSummary = asyncHandler(async (req, res) => {
 });
 
 const getProject = asyncHandler(async (req, res) => {
-  const project = await Project.findById(req.params.id).populate(
-    "freelancerId",
-    "name email contactNumber skills"
-  );
+  const project = await Project.findById(req.params.id)
+    .select("-attachments")
+    .populate("freelancerId", "name email contactNumber skills")
+    .populate("clientId", "name companyName email phone website")
+    .lean();
   if (!project) throw new ApiError(404, "Project not found");
   res.json({ success: true, data: project });
 });
+
+const stripFreelancerPaymentOverrides = (body) => {
+  const next = { ...body };
+  delete next.amountPaidToFreelancer;
+  delete next.freelancerPaymentStatus;
+  return next;
+};
 
 const applyPaymentFields = (body, existing = {}) => {
   const total = Number(body.totalAmount ?? existing.totalAmount ?? 0) || 0;
@@ -101,8 +118,16 @@ const applyPaymentFields = (body, existing = {}) => {
 };
 
 const createProject = asyncHandler(async (req, res) => {
-  const body = applyPaymentFields({ ...req.body });
+  if (!req.body.clientId && !req.body.clientName) {
+    throw new ApiError(400, "Client is required");
+  }
+  let body = applyPaymentFields(stripFreelancerPaymentOverrides({ ...req.body }));
+  if (body.clientId) body = await syncClientToProject(body);
   const project = await Project.create(body);
+  if (project.isOutsourced) {
+    syncProjectFreelancerPaymentFields(project);
+    await project.save();
+  }
   if (project.freelancerId) await updateFreelancerCount(project.freelancerId, 1);
   res.status(201).json({ success: true, data: project });
 });
@@ -114,12 +139,20 @@ const updateProject = asyncHandler(async (req, res) => {
   const oldFreelancer = existing.freelancerId?.toString();
   const newFreelancer = req.body.freelancerId?.toString();
 
-  const body = applyPaymentFields({ ...req.body }, existing);
+  let body = applyPaymentFields(stripFreelancerPaymentOverrides({ ...req.body }), existing);
+  if (body.clientId) body = await syncClientToProject(body);
 
   const project = await Project.findByIdAndUpdate(req.params.id, body, {
     new: true,
     runValidators: true,
-  }).populate("freelancerId", "name email");
+  })
+    .populate("freelancerId", "name email")
+    .populate("clientId", "name companyName email phone");
+
+  if (project.isOutsourced) {
+    syncProjectFreelancerPaymentFields(project);
+    await project.save();
+  }
 
   if (oldFreelancer !== newFreelancer) {
     if (oldFreelancer) await updateFreelancerCount(oldFreelancer, -1);
@@ -138,6 +171,7 @@ const deleteProject = asyncHandler(async (req, res) => {
   }
   if (project.freelancerId) await updateFreelancerCount(project.freelancerId, -1);
 
+  await FreelancerPayment.deleteMany({ projectId: project._id });
   await Project.findByIdAndDelete(req.params.id);
 
   res.json({ success: true, message: "Project deleted" });

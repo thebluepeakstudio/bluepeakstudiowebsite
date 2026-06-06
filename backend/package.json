@@ -7,6 +7,7 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "seed:admin": "node utils/seedAdmin.js",
+    "migrate:clients": "node utils/migrateProjectsToClients.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

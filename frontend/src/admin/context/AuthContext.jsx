@@ -5,8 +5,20 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [admin, setAdmin] = useState(() => {
-    const stored = localStorage.getItem("adminUser");
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem("adminUser");
+      if (!stored) return null;
+      const parsed = JSON.parse(stored);
+      if (!parsed || typeof parsed !== "object" || !parsed.email) {
+        localStorage.removeItem("adminUser");
+        return null;
+      }
+      return parsed;
+    } catch {
+      localStorage.removeItem("adminUser");
+      localStorage.removeItem("adminToken");
+      return null;
+    }
   });
   const [loading, setLoading] = useState(true);
 

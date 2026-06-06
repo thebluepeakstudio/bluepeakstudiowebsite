@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -5,22 +6,31 @@ import {
   Receipt,
   Users,
   TrendingUp,
-  MessageSquare,
-  Search,
+  Building2,
+  Target,
   X,
 } from "lucide-react";
 
 const navItems = [
   { to: "/admin-panel/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/admin-panel/clients", icon: Building2, label: "Clients" },
   { to: "/admin-panel/projects", icon: FolderKanban, label: "Projects" },
   { to: "/admin-panel/expenses", icon: Receipt, label: "Expenses" },
   { to: "/admin-panel/freelancers", icon: Users, label: "Freelancers" },
+  { to: "/admin-panel/leads", icon: Target, label: "Leads" },
   { to: "/admin-panel/pl", icon: TrendingUp, label: "P&L" },
-  { to: "/admin-panel/contacts", icon: MessageSquare, label: "Contacts" },
-  { to: "/admin-panel/search", icon: Search, label: "Search" },
 ];
 
 export default function Sidebar({ open, onClose }) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   return (
     <>
       {open && (
@@ -30,8 +40,8 @@ export default function Sidebar({ open, onClose }) {
         />
       )}
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-full w-64 flex-col border-r border-admin-border bg-admin-surface transition-transform duration-300 lg:static lg:translate-x-0 ${
-          open ? "translate-x-0" : "-translate-x-full"
+        className={`fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-admin-border bg-admin-surface transition-transform duration-300 lg:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
         <div className="flex h-16 items-center justify-between border-b border-admin-border px-6">

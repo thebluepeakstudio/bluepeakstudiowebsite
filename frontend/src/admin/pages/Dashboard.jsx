@@ -11,28 +11,32 @@ import {
   Clock,
 } from "lucide-react";
 import { getDashboard } from "../api/analytics.api";
+import { getLeadMetrics } from "../api/leads.api";
+import LeadMetricsCards from "../components/leads/LeadMetricsCards";
 import { StatCard } from "../components/ui/Card";
 import Card from "../components/ui/Card";
 import Table from "../components/ui/Table";
 import Badge from "../components/ui/Badge";
 import { CardSkeleton } from "../components/ui/Skeleton";
-import RevenueChart from "../components/charts/RevenueChart";
-import ExpenseChart from "../components/charts/ExpenseChart";
-import ProfitChart from "../components/charts/ProfitChart";
-import ProjectStatusPie from "../components/charts/ProjectStatusPie";
-import ServiceRevenueBar from "../components/charts/ServiceRevenueBar";
 import { formatCurrency } from "../utils/formatCurrency";
 import { getProjectLabel } from "../utils/constants";
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [leadMetrics, setLeadMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [leadsLoading, setLeadsLoading] = useState(true);
 
   useEffect(() => {
     getDashboard()
-      .then(({ data: res }) => setData(res.data))
+      .then((dashRes) => setData(dashRes.data.data))
       .catch(console.error)
       .finally(() => setLoading(false));
+
+    getLeadMetrics()
+      .then((leadRes) => setLeadMetrics(leadRes.data.data))
+      .catch(console.error)
+      .finally(() => setLeadsLoading(false));
   }, []);
 
   if (loading) {
@@ -60,24 +64,23 @@ export default function Dashboard() {
         <StatCard title="Freelancers" value={cards.totalFreelancers} icon={Users} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Revenue Overview">
-          <RevenueChart data={data?.monthlyRevenue || []} />
-        </Card>
-        <Card title="Expense Breakdown">
-          <ExpenseChart data={data?.monthlyExpenses || []} />
-        </Card>
-        <Card title="Monthly Profit">
-          <ProfitChart data={data?.monthlyProfit || []} />
-        </Card>
-        <Card title="Project Status">
-          <ProjectStatusPie data={data?.workStatusDist} />
-        </Card>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-admin-text">Lead pipeline</h2>
+          <Link to="/admin-panel/leads" className="text-sm text-admin-primary hover:underline">
+            Manage leads
+          </Link>
+        </div>
+        {leadsLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
+          <LeadMetricsCards metrics={leadMetrics} />
+        )}
       </div>
-
-      <Card title="Service-wise Revenue">
-        <ServiceRevenueBar data={data?.serviceDist} />
-      </Card>
 
       <Card
         title="Latest Projects"

@@ -4,16 +4,18 @@ import Button from "./Button";
 export default function Pagination({ page, pages, onPageChange }) {
   if (pages <= 1) return null;
   return (
-    <div className="flex items-center justify-center gap-2 pt-4">
+    <div className="flex flex-wrap items-center justify-center gap-2 pt-4">
       <Button
         variant="secondary"
         size="sm"
         onClick={() => onPageChange(page - 1)}
         disabled={page <= 1}
+        aria-label="Previous page"
       >
         <ChevronLeft size={16} />
+        <span className="sr-only sm:not-sr-only sm:inline">Prev</span>
       </Button>
-      <span className="text-sm text-admin-textMuted">
+      <span className="px-2 text-sm text-admin-textMuted">
         Page {page} of {pages}
       </span>
       <Button
@@ -21,7 +23,9 @@ export default function Pagination({ page, pages, onPageChange }) {
         size="sm"
         onClick={() => onPageChange(page + 1)}
         disabled={page >= pages}
+        aria-label="Next page"
       >
+        <span className="sr-only sm:not-sr-only sm:inline">Next</span>
         <ChevronRight size={16} />
       </Button>
     </div>

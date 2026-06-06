@@ -8,6 +8,8 @@ Production-ready admin dashboard for managing projects, expenses, freelancers, d
 |------|-----|
 | Login | `/admin-panel/login` |
 | Dashboard | `/admin-panel/dashboard` |
+| Leads | `/admin-panel/leads` |
+| Clients | `/admin-panel/clients` |
 | Projects | `/admin-panel/projects` |
 | Expenses | `/admin-panel/expenses` |
 | Freelancers | `/admin-panel/freelancers` |
@@ -72,9 +74,19 @@ All admin endpoints are under `/api/admin` and require `Authorization: Bearer <t
 | Expenses | `/api/admin/expenses` |
 | Freelancers | `/api/admin/freelancers` |
 | Analytics | `/api/admin/analytics` |
-| Contacts | `/api/admin/contacts` |
+| Contacts | `/api/admin/contacts` (website form inbox — not CRM) |
+| Clients | `/api/admin/clients` |
+| Leads | `/api/admin/leads` |
 
 Public site APIs (`POST /api/contact`, `POST /api/testimonial`) are unchanged.
+
+### Clients vs Leads vs Contacts
+
+- **Leads** — pre-sale pipeline (table + Kanban, activities, follow-ups, conversion).
+- **Clients** — post-conversion system of record; projects link via `clientId`.
+- **Contacts** — inbound messages from the public website contact form only.
+
+After deploying the Clients module, run once: `npm run migrate:clients` (from `backend/`) to attach existing projects to client records.
 
 ## Production deployment
 
@@ -94,7 +106,7 @@ Public site APIs (`POST /api/contact`, `POST /api/testimonial`) are unchanged.
 
 ```
 backend/
-  models/          Admin, Project, Expense, Freelancer, Document
+  models/          Admin, Project, Client, Lead, Expense, Freelancer, Document
   controllers/admin/
   routes/admin/
   middleware/

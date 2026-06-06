@@ -17,9 +17,18 @@ const seed = async () => {
 
   await connectDB();
 
-  const existing = await Admin.findOne({ email });
+  const reset = process.argv.includes("--reset");
+  const existing = await Admin.findOne({ email }).select("+password");
+
   if (existing) {
+    if (reset) {
+      existing.password = password;
+      await existing.save();
+      console.log("Admin password reset:", email);
+      process.exit(0);
+    }
     console.log("Admin already exists:", email);
+    console.log("Run: npm run seed:admin -- --reset  (to sync password from ADMIN_SEED_PASSWORD)");
     process.exit(0);
   }
 
