@@ -39,7 +39,7 @@ const empty = {
 
 const emptyPayment = {
   projectId: "",
-  payMode: "partial",
+  payMode: "full",
   amount: "",
   paymentDate: new Date().toISOString().slice(0, 10),
   paidVia: "UPI",
@@ -137,6 +137,7 @@ export default function Freelancers() {
   };
 
   const projectsWithDue = outsourcedProjects.filter((p) => p.projectDue > 0);
+  const settledProjects = outsourcedProjects.filter((p) => p.projectDue <= 0 && (p.outsourcingCost || 0) > 0);
   const selectedPayProject = outsourcedProjects.find((p) => p._id === paymentForm.projectId);
   const selectedProjectDue = selectedPayProject?.projectDue ?? 0;
 
@@ -146,10 +147,8 @@ export default function Freelancers() {
     setPaymentForm((f) => ({
       ...f,
       projectId,
-      amount:
-        f.payMode === "full" && project.projectDue > 0
-          ? String(project.projectDue)
-          : f.amount,
+      payMode: "full",
+      amount: project.projectDue > 0 ? String(project.projectDue) : "",
     }));
   };
 
@@ -377,6 +376,7 @@ export default function Freelancers() {
           setPaying(null);
         }}
         title={paying ? `Pay — ${paying.name}` : "Make Payment"}
+        description="Select a project with pending dues, then pay in full or partially."
         size="xl"
       >
         {payFinancials && (
@@ -396,30 +396,36 @@ export default function Freelancers() {
           </div>
         )}
 
-        {outsourcedProjects.length > 0 && (
+        {projectsWithDue.length > 0 ? (
           <div className="mb-6">
-            <h3 className="mb-2 text-sm font-semibold text-admin-text">Outsourced projects</h3>
-            <div className="overflow-x-auto rounded-lg border border-admin-border">
+            <h3 className="mb-1 text-base font-bold text-admin-text">Pending dues by project</h3>
+            <p className="mb-3 text-sm text-admin-textMuted">
+              Each outsourced project with an outstanding balance is listed below.
+            </p>
+            <div className="overflow-x-auto rounded-xl border border-admin-border">
               <table className="w-full text-left text-sm">
                 <thead className="bg-admin-muted">
                   <tr>
-                    <th className="px-3 py-2">Client</th>
-                    <th className="px-3 py-2">Cost</th>
-                    <th className="px-3 py-2">Paid</th>
-                    <th className="px-3 py-2">Due</th>
-                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2.5 font-medium">Project</th>
+                    <th className="px-3 py-2.5 font-medium">Outsourcing cost</th>
+                    <th className="px-3 py-2.5 font-medium">Paid</th>
+                    <th className="px-3 py-2.5 font-medium">Due</th>
+                    <th className="px-3 py-2.5 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {outsourcedProjects.map((p) => (
+                  {projectsWithDue.map((p) => (
                     <tr key={p._id} className="border-t border-admin-border">
-                      <td className="px-3 py-2">{getProjectLabel(p)}</td>
-                      <td className="px-3 py-2">{formatCurrency(p.outsourcingCost)}</td>
-                      <td className="px-3 py-2">{formatCurrency(p.amountPaidToFreelancer)}</td>
-                      <td className="px-3 py-2 font-medium text-amber-700">
+                      <td className="px-3 py-2.5">
+                        <p className="font-medium">{getProjectLabel(p)}</p>
+                        <p className="text-xs text-admin-textMuted">{p.projectType}</p>
+                      </td>
+                      <td className="px-3 py-2.5">{formatCurrency(p.outsourcingCost)}</td>
+                      <td className="px-3 py-2.5">{formatCurrency(p.amountPaidToFreelancer)}</td>
+                      <td className="px-3 py-2.5 font-semibold text-amber-700">
                         {formatCurrency(p.projectDue)}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2.5">
                         <Badge status={p.freelancerPaymentStatus} />
                       </td>
                     </tr>
@@ -428,21 +434,43 @@ export default function Freelancers() {
               </table>
             </div>
           </div>
+        ) : outsourcedProjects.length > 0 ? (
+          <p className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            All outsourced projects are fully paid.
+          </p>
+        ) : (
+          <p className="mb-6 rounded-lg border border-admin-border bg-admin-muted/40 px-4 py-3 text-sm text-admin-textMuted">
+            No outsourced projects assigned to this freelancer yet.
+          </p>
         )}
 
-        <form onSubmit={handlePayment} className="space-y-4 rounded-lg border border-admin-border bg-admin-muted/50 p-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-admin-text">
-            <Wallet size={16} /> Record payment
+        {settledProjects.length > 0 && (
+          <div className="mb-6">
+            <h3 className="mb-2 text-sm font-semibold text-admin-textMuted">Fully paid projects</h3>
+            <div className="overflow-x-auto rounded-lg border border-admin-border">
+              <table className="w-full text-left text-sm">
+                <tbody>
+                  {settledProjects.map((p) => (
+                    <tr key={p._id} className="border-t border-admin-border first:border-t-0">
+                      <td className="px-3 py-2">{getProjectLabel(p)}</td>
+                      <td className="px-3 py-2 text-emerald-700">{formatCurrency(p.outsourcingCost)} paid</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handlePayment} className="space-y-4 rounded-xl border border-admin-border bg-admin-muted/30 p-4 sm:p-5">
+          <h3 className="flex items-center gap-2 text-base font-bold text-admin-text">
+            <Wallet size={18} /> Record payment
           </h3>
 
-          {projectsWithDue.length === 0 ? (
-            <p className="text-sm text-emerald-700">All outsourced projects are fully paid.</p>
-          ) : (
+          {projectsWithDue.length === 0 ? null : (
             <>
               <div>
-                <p className="mb-2 text-xs font-medium text-admin-textMuted">
-                  Pay against which project? *
-                </p>
+                <p className="mb-2 text-sm font-medium text-admin-text">Select project to pay *</p>
                 <div className="space-y-2">
                   {projectsWithDue.map((p) => {
                     const selected = paymentForm.projectId === p._id;
@@ -465,7 +493,10 @@ export default function Freelancers() {
                           />
                           <div>
                             <p className="font-medium text-admin-text">{getProjectLabel(p)}</p>
-                            <p className="text-xs text-admin-textMuted">{p.projectType}</p>
+                            <p className="text-xs text-admin-textMuted">
+                              {p.projectType} · Paid {formatCurrency(p.amountPaidToFreelancer)} of{" "}
+                              {formatCurrency(p.outsourcingCost)}
+                            </p>
                           </div>
                         </div>
                         <div className="pl-7 text-sm sm:pl-0 sm:text-right">
@@ -475,9 +506,7 @@ export default function Freelancers() {
                               {formatCurrency(p.projectDue)}
                             </span>
                           </p>
-                          <p className="text-xs text-admin-textMuted">
-                            of {formatCurrency(p.outsourcingCost)}
-                          </p>
+                          <Badge status={p.freelancerPaymentStatus} />
                         </div>
                       </label>
                     );
@@ -488,7 +517,7 @@ export default function Freelancers() {
               {paymentForm.projectId && (
                 <>
                   <div>
-                    <p className="mb-2 text-xs font-medium text-admin-textMuted">Payment type</p>
+                    <p className="mb-2 text-sm font-medium text-admin-text">Payment type</p>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -510,9 +539,14 @@ export default function Freelancers() {
                             : "border-admin-border bg-admin-surface"
                         }`}
                       >
-                        Pay partial
+                        Pay partial amount
                       </button>
                     </div>
+                    {paymentForm.payMode === "partial" && (
+                      <p className="mt-2 text-xs text-admin-textMuted">
+                        Remaining due for this project will update after a partial payment.
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">

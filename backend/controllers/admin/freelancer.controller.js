@@ -98,16 +98,20 @@ const getFreelancerProjects = asyncHandler(async (req, res) => {
     .lean();
 
   const data = projects.map((p) => {
-    const doc = p.toObject();
-    const cost = doc.outsourcingCost || 0;
-    const paid = doc.amountPaidToFreelancer || 0;
+    const cost = p.outsourcingCost || 0;
+    const paid = p.amountPaidToFreelancer || 0;
     return {
-      ...doc,
+      ...p,
       projectDue: getProjectFreelancerDue(cost, paid),
     };
   });
 
-  res.json({ success: true, data });
+  const filtered =
+    req.query.pendingOnly === "1" || req.query.pendingOnly === "true"
+      ? data.filter((p) => p.projectDue > 0)
+      : data;
+
+  res.json({ success: true, data: filtered });
 });
 
 const getFreelancerPayments = asyncHandler(async (req, res) => {

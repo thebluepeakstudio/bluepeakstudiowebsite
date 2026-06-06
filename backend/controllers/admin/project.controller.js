@@ -4,7 +4,12 @@ const FreelancerPayment = require("../../models/FreelancerPayment");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
-const { syncProjectFreelancerPaymentFields } = require("../../utils/projectFreelancerPayment");
+const {
+  getProjectFreelancerDue,
+  syncProjectFreelancerPaymentFields,
+  resetFreelancerPaymentFields,
+  shouldResetFreelancerPayment,
+} = require("../../utils/projectFreelancerPayment");
 const { syncClientToProject } = require("../../utils/syncClientToProject");
 
 const projectLabel = (p) =>
@@ -124,7 +129,8 @@ const createProject = asyncHandler(async (req, res) => {
   let body = applyPaymentFields(stripFreelancerPaymentOverrides({ ...req.body }));
   if (body.clientId) body = await syncClientToProject(body);
   const project = await Project.create(body);
-  if (project.isOutsourced) {
+  if (project.isOutsourced && project.freelancerId) {
+    resetFreelancerPaymentFields(project);
     syncProjectFreelancerPaymentFields(project);
     await project.save();
   }
@@ -149,8 +155,14 @@ const updateProject = asyncHandler(async (req, res) => {
     .populate("freelancerId", "name email")
     .populate("clientId", "name companyName email phone");
 
-  if (project.isOutsourced) {
+  if (project.isOutsourced && project.freelancerId) {
+    if (shouldResetFreelancerPayment(existing, project)) {
+      resetFreelancerPaymentFields(project);
+    }
     syncProjectFreelancerPaymentFields(project);
+    await project.save();
+  } else if (!project.isOutsourced) {
+    resetFreelancerPaymentFields(project);
     await project.save();
   }
 
