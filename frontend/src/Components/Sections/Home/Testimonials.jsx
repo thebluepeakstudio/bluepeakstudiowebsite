@@ -4,6 +4,11 @@ import SectionHeader from "../../UI/SectionHeader"
 
 const testimonials = [
   {
+    name: "Chikoo Constructions Ltd",
+    text: "We had a great experience working with Bluepeak Studios on our website, chikooconstructions.com. They were professional, responsive, and understood exactly what we wanted for our business. The website looks modern, runs smoothly, and was delivered with great attention to detail. We’re very happy with the final result and would highly recommend Bluepeak Studios to anyone looking for quality web design services.",
+    img: "https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/Chikoo%20Constructions.jpeg"
+  },
+  {
     name: "Tvastih Studio",
     text: "Had a really great experience working with BluePeak Studio—they understood exactly what we wanted and delivered a clean, modern website that looks great and works smoothly. Very happy with the final result and would definitely recommend them.",
     img: "https://ik.imagekit.io/bluepeakstudio/Chikoo%20Constructions/Logo.jpg"
