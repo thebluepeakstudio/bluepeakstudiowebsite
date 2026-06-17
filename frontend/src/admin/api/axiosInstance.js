@@ -1,11 +1,9 @@
 import axios from "axios";
+import { getApiBaseUrl } from "../../utils/apiBase";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL?.trim();
+const backendUrl = getApiBaseUrl();
 
-// In dev, fall back to Vite proxy (/api → localhost:10000) if env is missing or broken
-const baseURL = backendUrl
-  ? `${backendUrl.replace(/\/$/, "")}/api/admin`
-  : "/api/admin";
+const baseURL = backendUrl ? `${backendUrl}/api/admin` : "/api/admin";
 
 if (!backendUrl && import.meta.env.DEV) {
   console.warn(

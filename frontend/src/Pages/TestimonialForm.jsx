@@ -1,14 +1,13 @@
 import React, { useState, useCallback } from "react";
 import Button from "../Components/UI/Button";
 import toast from "react-hot-toast";
+import { apiUrl } from "../utils/apiBase";
 
 const TestimonialForm = () => {
-  const BASE_URL = import.meta.env.VITE_BACKEND_URL;
-
   const [formData, setFormData] = useState({
     companyName: "",
     testimonial: "",
-    rating: 5   `~11111111111111111111111111111`,
+    rating: 5,
   });
 
   const [hover, setHover] = useState(0);
@@ -33,7 +32,7 @@ const TestimonialForm = () => {
     try {
       setLoading(true);
 
-      const res = await fetch(`${BASE_URL}/api/testimonial`, {
+      const res = await fetch(apiUrl("/api/testimonial"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

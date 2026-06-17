@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 10000;
 const allowedOrigins = [
   "https://bluepeakstudiowebsite.onrender.com",
   "https://bluepeakstudio.in",
+  "https://www.bluepeakstudio.in",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ];
@@ -34,6 +35,16 @@ app.use(express.urlencoded({ extended: true }));
 
 app.get("/", (req, res) => {
   res.send("Backend running");
+});
+
+app.get("/api/health", (req, res) => {
+  const dbReady = require("mongoose").connection.readyState === 1;
+  res.status(200).json({
+    status: "ok",
+    service: "bluepeak-api",
+    db: dbReady ? "connected" : "disconnected",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 connectDB().catch((err) => {
