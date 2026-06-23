@@ -4,30 +4,35 @@ import Button from "./Button";
 export default function Pagination({ page, pages, onPageChange }) {
   if (pages <= 1) return null;
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 pt-4">
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => onPageChange(page - 1)}
-        disabled={page <= 1}
-        aria-label="Previous page"
-      >
-        <ChevronLeft size={16} />
-        <span className="sr-only sm:not-sr-only sm:inline">Prev</span>
-      </Button>
-      <span className="px-2 text-sm text-admin-textMuted">
-        Page {page} of {pages}
-      </span>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => onPageChange(page + 1)}
-        disabled={page >= pages}
-        aria-label="Next page"
-      >
-        <span className="sr-only sm:not-sr-only sm:inline">Next</span>
-        <ChevronRight size={16} />
-      </Button>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-admin-border/80 bg-white px-4 py-3 shadow-sm shadow-slate-200/30">
+      <p className="text-sm text-admin-textMuted">
+        Page <span className="font-semibold text-admin-text">{page}</span> of{" "}
+        <span className="font-semibold text-admin-text">{pages}</span>
+      </p>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+          aria-label="Previous page"
+          className="rounded-xl"
+        >
+          <ChevronLeft size={16} />
+          <span className="hidden sm:inline">Previous</span>
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= pages}
+          aria-label="Next page"
+          className="rounded-xl"
+        >
+          <span className="hidden sm:inline">Next</span>
+          <ChevronRight size={16} />
+        </Button>
+      </div>
     </div>
   );
 }

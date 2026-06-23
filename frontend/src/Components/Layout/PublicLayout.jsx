@@ -1,10 +1,14 @@
 import React, { lazy, Suspense, useEffect, useState } from "react";
 import Header from "./Header";
 import { Routes, Route } from "react-router-dom";
-import NeonCursor from "../UI/NeonCursor";
-import Footer from "./Footer";
 import { Toaster } from "react-hot-toast";
 import ScrollTop from "../UI/ScrollTop";
+import Footer from "./Footer";
+import GlobalSeo from "../SEO/GlobalSeo";
+import SeoRouteHandler from "../SEO/SeoRouteHandler";
+import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion";
+
+const NeonCursor = lazy(() => import("../UI/NeonCursor"));
 
 const Home = lazy(() => import("../../Pages/Home"));
 const Projects = lazy(() => import("../../Pages/Projects"));
@@ -13,6 +17,9 @@ const About = lazy(() => import("../../Pages/About"));
 const Contact = lazy(() => import("../../Pages/Contact"));
 const PrivacyPolicy = lazy(() => import("../../Pages/PrivacyPolicy"));
 const TestimonialForm = lazy(() => import("../../Pages/TestimonialForm"));
+const Blogs = lazy(() => import("../../Pages/Blogs"));
+const BlogPost = lazy(() => import("../../Pages/BlogPost"));
+const NotFound = lazy(() => import("../../Pages/NotFound"));
 
 const PageLoader = () => (
   <div className="flex min-h-[50vh] items-center justify-center">
@@ -22,6 +29,7 @@ const PageLoader = () => (
 
 export default function PublicLayout() {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth > 1024);
@@ -31,6 +39,8 @@ export default function PublicLayout() {
 
   return (
     <div className="public-site min-h-screen bg-gradient-to-br from-[#050816] via-[#0f172a] to-[#1e3a8a] text-white">
+      <GlobalSeo />
+      <SeoRouteHandler />
       <Toaster
         position="top-center"
         toastOptions={{
@@ -42,7 +52,11 @@ export default function PublicLayout() {
         }}
       />
       <ScrollTop />
-      {isDesktop && <NeonCursor />}
+      {isDesktop && !reducedMotion && (
+        <Suspense fallback={null}>
+          <NeonCursor />
+        </Suspense>
+      )}
       <Header />
       <main>
         <Suspense fallback={<PageLoader />}>
@@ -52,8 +66,11 @@ export default function PublicLayout() {
             <Route path="/services" element={<Services />} />
             <Route path="/about-us" element={<About />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/blogs" element={<Blogs />} />
+            <Route path="/blogs/:slug" element={<BlogPost />} />
             <Route path="/testimonial" element={<TestimonialForm />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </main>

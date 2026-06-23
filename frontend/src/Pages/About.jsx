@@ -1,12 +1,17 @@
-import React from 'react'
-import Hero from '../Components/Sections/About/Hero'
+import Hero from "../Components/Sections/About/Hero";
+import AboutCta from "../Components/Sections/About/AboutCta";
+import Reveal from "../Components/UI/Reveal";
 
 const About = () => {
   return (
     <div>
       <Hero />
-    </div>
-  )
-}
 
-export default About
+      <Reveal>
+        <AboutCta />
+      </Reveal>
+    </div>
+  );
+};
+
+export default About;

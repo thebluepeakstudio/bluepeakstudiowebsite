@@ -1,15 +1,28 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-// https://vite.dev/config/
+const backendTarget = "http://localhost:10000";
+
 export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:10000",
+        target: backendTarget,
+        changeOrigin: true,
+      },
+      "/sitemap.xml": {
+        target: backendTarget,
+        changeOrigin: true,
+      },
+      "/robots.txt": {
+        target: backendTarget,
+        changeOrigin: true,
+      },
+      "/rss.xml": {
+        target: backendTarget,
         changeOrigin: true,
       },
     },
   },
-})
+});

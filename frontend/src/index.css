@@ -5,68 +5,6 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: "Myriad";
-  src: url("./Assets/Fonts/MYRIADPRO-BOLDCOND.woff") format("woff");
-  font-weight: 800;
-}
-
-@font-face {
-  font-family: "Wagon";
-  src: url("../fonts/Wagon\ Free\ Personal\ Use/Wagon-Bold.otf") format("opentype");
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: "Flaviotte";
-  src: url("../fonts/Flaviotte\ Font/OpenType-PS/Flaviotte.otf") format("opentype");
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: "fogtwono5";
-  src: url("../fonts/fogtwono5/FogtwoNo5.otf") format("opentype");
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: "absans";
-  src: url("../fonts/absans-font/absans-regular.otf") format("opentype");
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: "round8";
-  src: url("../fonts/round-8-font/round8-four") format("opentype");
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: "newake";
-  src: url("../fonts/Newake/newake-demo-400") format("opentype");
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: "thunder";
-  src: url("../fonts/thunder/THUNDER/Fonts/OpenType-TT/Thunder-BoldLC.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: "groteskly";
-  src: url("../fonts/groteskly-yours-resist-sans-display/Groteskly") format("opentype");
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
   font-family: "azonix";
   src: url("../fonts/azonix/Azonix.otf") format("opentype");
   font-weight: normal;
@@ -78,11 +16,6 @@
   src: url("../fonts/dual/Dual-300.otf") format("opentype");
   font-weight: normal;
   font-style: normal;
-}
-
-@font-face {
-  font-family: "humane";
-  src: url("../fonts/HUMANE-Typeface/Humane-Bold.ttf") format("truetype");
 }
 
 .dm-sans {
@@ -138,8 +71,16 @@ body {
   pointer-events: none;
 }
 
+.text-gradient-about {
+  background: linear-gradient(135deg, #5dcaa5 0%, #378add 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 .contact-us-form input,
-.contact-us-form textarea {
+.contact-us-form textarea,
+.contact-us-form select {
   background: #050816;
   border-radius: 10px;
   width: 100%;
@@ -150,7 +91,8 @@ body {
 }
 
 .contact-us-form input:focus,
-.contact-us-form textarea:focus {
+.contact-us-form textarea:focus,
+.contact-us-form select:focus {
   border-color: #1e3a8a;
   box-shadow: 0 0 16px rgba(30, 58, 138, 0.4);
   outline: none;
@@ -181,5 +123,12 @@ body {
 @media (max-width: 768px) {
   .services-page-left-side{
     text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-scroll-left,
+  .animate-scroll-right {
+    animation: none;
   }
 }

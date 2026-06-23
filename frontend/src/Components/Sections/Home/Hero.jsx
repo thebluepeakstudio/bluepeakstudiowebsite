@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Button from '../../UI/Button';
+import { imageKitUrl } from '../../../utils/imageKit';
 import './Hero.css';
 
 const Hero = () => {
   const heroRef = useRef(null);
   const [counts, setCounts] = useState({ projects: 0, satisfaction: 0, lift: 0 });
 
-  const words = ["Design", "Build", "Elevate"];
+  const words = ["Build", "Automate", "Elevate"];
   const [index, setIndex] = useState(0);
   const [subIndex, setSubIndex] = useState(0);
   const [reverse, setReverse] = useState(false);
@@ -63,7 +64,7 @@ const Hero = () => {
       <div className="hero-content-wrapper" ref={heroRef}>
         <div className="hero-left">
           <div className="badge-reveal-wrapper">
-            <span className="hero-badge">Web Development Agency</span>
+            <span className="hero-badge">Web & Software Studio</span>
           </div>
 
           <h1 className="hero-headline">
@@ -78,8 +79,8 @@ const Hero = () => {
           </h1>
 
           <p className="hero-sub">
-            High-performance web applications tailored for startups and businesses 
-            that need to scale fast and look incredible.
+            We build websites that grow your brand and custom software that runs your business —
+            from admin panels and CRMs to web apps your team uses every day.
           </p>
 
           <div className="hero-cta-wrapper">
@@ -109,8 +110,12 @@ const Hero = () => {
         <div className="hero-right">
           <div className="hero-logo-glow">
             <img 
-              src="https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/BPS.png?updatedAt=1773667763921" 
-              alt="BluePeak Studio Logo" 
+              src={imageKitUrl("https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/BPS.png?updatedAt=1773667763921", 400)} 
+              alt="BluePeak Studio Logo"
+              width={400}
+              height={400}
+              fetchPriority="high"
+              decoding="async"
             />
           </div>
         </div>

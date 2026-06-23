@@ -1,18 +1,24 @@
 import { Search } from "lucide-react";
 
-export default function SearchInput({ value, onChange, placeholder = "Search..." }) {
+const inputClass =
+  "h-10 w-full rounded-xl border border-admin-border/80 bg-white pl-10 pr-4 text-sm shadow-sm shadow-slate-200/20 transition-all placeholder:text-slate-400 focus:border-admin-primary focus:outline-none focus:ring-2 focus:ring-blue-100/80";
+
+export default function SearchInput({ value, onChange, placeholder = "Search...", label, className = "" }) {
   return (
-    <div className="relative">
+    <div className={`relative min-w-0 ${className}`}>
+      {label && (
+        <label className="mb-1.5 block text-xs font-medium text-admin-textMuted">{label}</label>
+      )}
       <Search
-        size={18}
-        className="absolute left-3 top-1/2 -translate-y-1/2 text-admin-textMuted"
+        size={17}
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-admin-textMuted"
       />
       <input
-        type="text"
+        type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-10 w-full rounded-lg border border-admin-border bg-admin-surface pl-10 pr-4 text-sm transition-colors focus:border-admin-primary focus:outline-none focus:ring-2 focus:ring-blue-100"
+        className={inputClass}
       />
     </div>
   );

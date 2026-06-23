@@ -104,8 +104,12 @@ const getLeads = asyncHandler(async (req, res) => {
 const getKanban = asyncHandler(async (req, res) => {
   const filter = buildFilter(req.query);
   const leads = await Lead.find(filter)
+    .select(
+      "fullName companyName priority estimatedProjectValue nextFollowUpDate status assignedTo updatedAt"
+    )
     .populate("assignedTo", "name email")
-    .sort({ updatedAt: -1 });
+    .sort({ updatedAt: -1 })
+    .lean();
 
   const grouped = {};
   LEAD_STAGES.forEach((s) => {
@@ -121,29 +125,33 @@ const getKanban = asyncHandler(async (req, res) => {
 const getLeadMetrics = asyncHandler(async (req, res) => {
   const openStatuses = LEAD_STAGES.filter((s) => !["Won", "Lost"].includes(s));
 
-  const [
-    totalLeads,
-    newLeads,
-    qualifiedLeads,
-    wonLeads,
-    lostLeads,
-    pipelineAgg,
-    bySource,
-  ] = await Promise.all([
-    Lead.countDocuments(),
-    Lead.countDocuments({ status: "New" }),
-    Lead.countDocuments({ status: "Qualified" }),
-    Lead.countDocuments({ status: "Won" }),
-    Lead.countDocuments({ status: "Lost" }),
-    Lead.aggregate([
-      { $match: { status: { $in: openStatuses } } },
-      { $group: { _id: null, total: { $sum: "$estimatedProjectValue" } } },
-    ]),
-    Lead.aggregate([
-      { $group: { _id: "$leadSource", count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]),
+  const [facetResult] = await Lead.aggregate([
+    {
+      $facet: {
+        total: [{ $count: "count" }],
+        byStatus: [{ $group: { _id: "$status", count: { $sum: 1 } } }],
+        pipeline: [
+          { $match: { status: { $in: openStatuses } } },
+          { $group: { _id: null, total: { $sum: "$estimatedProjectValue" } } },
+        ],
+        bySource: [
+          { $group: { _id: "$leadSource", count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+        ],
+      },
+    },
   ]);
+
+  const statusMap = Object.fromEntries(
+    (facetResult.byStatus || []).map((row) => [row._id, row.count])
+  );
+  const totalLeads = facetResult.total[0]?.count || 0;
+  const newLeads = statusMap.New || 0;
+  const qualifiedLeads = statusMap.Qualified || 0;
+  const wonLeads = statusMap.Won || 0;
+  const lostLeads = statusMap.Lost || 0;
+  const pipelineAgg = facetResult.pipeline;
+  const bySource = facetResult.bySource;
 
   const closed = wonLeads + lostLeads;
   const conversionRate = closed > 0 ? Math.round((wonLeads / closed) * 1000) / 10 : 0;
@@ -214,6 +222,24 @@ const getLead = asyncHandler(async (req, res) => {
     .populate("convertedClientId", "name companyName");
   if (!lead) throw new ApiError(404, "Lead not found");
   res.json({ success: true, data: lead });
+});
+
+const getLeadOverview = asyncHandler(async (req, res) => {
+  const lead = await Lead.findById(req.params.id)
+    .populate("assignedTo", "name email")
+    .populate("convertedClientId", "name companyName");
+  if (!lead) throw new ApiError(404, "Lead not found");
+
+  const [activities, attachments, history] = await Promise.all([
+    LeadActivity.find({ leadId: lead._id }).sort({ occurredAt: -1 }),
+    LeadAttachment.find({ leadId: lead._id }).sort({ createdAt: -1 }),
+    LeadStatusHistory.find({ leadId: lead._id }).sort({ createdAt: -1 }),
+  ]);
+
+  res.json({
+    success: true,
+    data: { lead, activities, attachments, history },
+  });
 });
 
 const createLead = asyncHandler(async (req, res) => {
@@ -439,6 +465,7 @@ module.exports = {
   getLeadMetrics,
   getFollowUps,
   getLead,
+  getLeadOverview,
   createLead,
   updateLead,
   updateLeadStatus,

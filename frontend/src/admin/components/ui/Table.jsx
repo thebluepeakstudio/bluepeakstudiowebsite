@@ -15,8 +15,8 @@ export default function Table({
 }) {
   if (!data?.length) {
     return (
-      <div className="rounded-lg border border-admin-border bg-admin-muted/50 py-12 text-center text-admin-textMuted">
-        {emptyMessage}
+      <div className="admin-table-empty flex flex-col items-center justify-center rounded-2xl border border-dashed border-admin-border bg-slate-50/60 px-6 py-14 text-center">
+        <p className="text-sm font-medium text-admin-textMuted">{emptyMessage}</p>
       </div>
     );
   }
@@ -31,14 +31,13 @@ export default function Table({
 
   return (
     <>
-      {/* Mobile: card list */}
       <div className="space-y-3 md:hidden">
         {data.map((row, i) => (
           <div
             key={row._id || i}
             onClick={() => onRowClick?.(row)}
-            className={`rounded-xl border border-admin-border bg-admin-surface p-4 shadow-sm ${
-              onRowClick ? "cursor-pointer active:bg-blue-50/30" : ""
+            className={`rounded-2xl border border-admin-border/80 bg-white p-4 shadow-sm shadow-slate-200/30 ${
+              onRowClick ? "cursor-pointer transition-colors active:bg-blue-50/40" : ""
             }`}
           >
             <div className="flex items-start justify-between gap-3">
@@ -53,7 +52,7 @@ export default function Table({
                   </div>
                 )}
                 {titleKey && (
-                  <div className="font-medium text-admin-text">
+                  <div className="font-semibold text-admin-text">
                     {cellContent(
                       dataColumns.find((c) => c.key === titleKey) || { key: titleKey },
                       row
@@ -71,7 +70,7 @@ export default function Table({
                 </div>
               )}
             </div>
-            <dl className="mt-3 space-y-2 border-t border-admin-border pt-3">
+            <dl className="mt-3 space-y-2 border-t border-admin-border/70 pt-3">
               {displayColumns
                 .filter((col) => col.key !== titleKey)
                 .map((col) => (
@@ -87,32 +86,31 @@ export default function Table({
         ))}
       </div>
 
-      {/* Desktop: table */}
-      <div className="admin-table-scroll hidden overflow-x-auto rounded-xl border border-admin-border md:block">
+      <div className="admin-table-scroll hidden overflow-hidden rounded-2xl border border-admin-border/80 bg-white shadow-sm shadow-slate-200/30 md:block">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
-            <tr className="border-b border-admin-border bg-admin-muted">
+            <tr className="border-b border-admin-border/80 bg-slate-50/90">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="whitespace-nowrap px-4 py-3 font-semibold text-admin-textMuted"
+                  className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-admin-textMuted"
                 >
                   {col.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-admin-border/60">
             {data.map((row, i) => (
               <tr
                 key={row._id || i}
                 onClick={() => onRowClick?.(row)}
-                className={`border-b border-admin-border transition-colors last:border-0 ${
-                  onRowClick ? "cursor-pointer hover:bg-blue-50/50" : ""
+                className={`bg-white transition-colors ${
+                  onRowClick ? "cursor-pointer hover:bg-blue-50/40" : ""
                 }`}
               >
                 {columns.map((col) => (
-                  <td key={col.key} className="px-4 py-3 text-admin-text">
+                  <td key={col.key} className="px-4 py-3.5 text-admin-text">
                     {cellContent(col, row)}
                   </td>
                 ))}

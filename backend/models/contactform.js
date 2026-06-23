@@ -1,5 +1,3 @@
-// models/contactform.js
-
 const mongoose = require("mongoose");
 
 const contactFormSchema = new mongoose.Schema({
@@ -19,10 +17,17 @@ const contactFormSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  projectType: {
+    type: String,
+    trim: true,
+    default: "Not sure yet",
+  },
   createdAt: {
     type: Date,
     default: Date.now,
   },
 });
+
+contactFormSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("ContactForm", contactFormSchema);

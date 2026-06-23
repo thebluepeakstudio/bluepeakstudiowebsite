@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Plus, Upload, Trash2, FolderKanban } from "lucide-react";
 import {
-  getClient,
-  getClientProjects,
+  getClientOverview,
   getClientActivities,
-  getClientAttachments,
   logClientActivity,
   uploadClientAttachments,
   deleteClientAttachment,
@@ -39,16 +37,12 @@ export default function ClientDetail() {
   const load = async () => {
     setLoading(true);
     try {
-      const [c, p, a, att] = await Promise.all([
-        getClient(id),
-        getClientProjects(id),
-        getClientActivities(id),
-        getClientAttachments(id),
-      ]);
-      setClient(c.data.data);
-      setProjects(p.data.data);
-      setActivities(a.data.data);
-      setAttachments(att.data.data);
+      const { data: res } = await getClientOverview(id);
+      const overview = res.data;
+      setClient(overview.client);
+      setProjects(overview.projects);
+      setActivities(overview.activities);
+      setAttachments(overview.attachments);
     } catch {
       toast.error("Client not found");
       navigate("/admin-panel/clients");

@@ -5,7 +5,7 @@ const ContactForm = require("../models/contactform");
 module.exports.createContactForm = async (req, res) => {
   try {
 
-    const { name, contactNo, email, message } = req.body;
+    const { name, contactNo, email, message, projectType } = req.body;
 
     // ✅ Validation
     if (!name || !contactNo || !email || !message) {
@@ -15,14 +15,13 @@ module.exports.createContactForm = async (req, res) => {
       });
     }
 
-    const saved = await ContactForm.create({
+    await ContactForm.create({
       name,
       contactNo,
       email,
       message,
+      projectType: projectType || "Not sure yet",
     });
-
-    console.log("✅ SAVED:", saved);
 
     res.status(200).json({
       success: true,

@@ -11,7 +11,7 @@ const segmentTitles = {
   expenses: "Expenses",
   freelancers: "Freelancers",
   pl: "Profit & Loss",
-  contacts: "Contacts",
+  blog: "Blog",
   documents: "Documents",
 };
 
@@ -28,6 +28,12 @@ function resolveTitle(pathname) {
     if (parent === "projects" && child !== "projects") {
       return segments[2] === "documents" ? "Project Documents" : "Project Details";
     }
+    if (parent === "blog") {
+      if (child === "new") return "New Blog";
+      if (child === "categories") return "Blog Categories";
+      if (segments[2] === "edit") return "Edit Blog";
+      return "Blog";
+    }
   }
 
   const last = segments[segments.length - 1] || "dashboard";
@@ -40,12 +46,18 @@ export default function AdminLayout() {
   const title = resolveTitle(location.pathname);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-admin-muted">
+    <div className="flex h-screen overflow-hidden bg-[#f4f6f9]">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-64">
-        <Topbar onMenuClick={() => setSidebarOpen(true)} title={title} />
-        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 lg:p-6">
-          <Outlet />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-[17.5rem]">
+        <Topbar
+          onMenuClick={() => setSidebarOpen(true)}
+          title={title}
+          pathname={location.pathname}
+        />
+        <main className="admin-main min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+          <div className="admin-content-inner mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-5 sm:py-6 lg:px-8 lg:py-7">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

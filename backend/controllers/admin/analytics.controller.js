@@ -2,11 +2,18 @@ const Project = require("../../models/Project");
 const Expense = require("../../models/Expense");
 const Freelancer = require("../../models/Freelancer");
 const asyncHandler = require("../../utils/asyncHandler");
+const { get, set, invalidatePrefix } = require("../../utils/responseCache");
 const { sumRecognizedRevenue, sumRecognizedRevenueByField } = require("../../utils/revenue");
 const { sumOutsourcingCost, outsourcedCostMatch } = require("../../utils/freelancerCosts");
 const { last12MonthsRange, buildMonthlyTrends } = require("../../utils/monthlyAnalytics");
 
 const getDashboard = asyncHandler(async (req, res) => {
+  const cacheKey = "analytics:dashboard";
+  const cached = get(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
   const months = last12MonthsRange();
 
   const [
@@ -67,7 +74,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     profit: m.profit,
   }));
 
-  res.json({
+  const payload = {
     success: true,
     data: {
       cards: {
@@ -89,10 +96,19 @@ const getDashboard = asyncHandler(async (req, res) => {
       monthlyExpenses,
       monthlyProfit,
     },
-  });
+  };
+
+  set(cacheKey, payload);
+  res.json(payload);
 });
 
 const getPL = asyncHandler(async (req, res) => {
+  const cacheKey = "analytics:pl";
+  const cached = get(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
   const months = last12MonthsRange();
 
   const [revenue, expenses, pending, freelancerCosts, monthlyTrends, serviceRevenue] =
@@ -122,7 +138,7 @@ const getPL = asyncHandler(async (req, res) => {
     profit: m.profit,
   }));
 
-  res.json({
+  const payload = {
     success: true,
     data: {
       totalRevenue,
@@ -134,7 +150,10 @@ const getPL = asyncHandler(async (req, res) => {
       monthly,
       serviceRevenue,
     },
-  });
+  };
+
+  set(cacheKey, payload);
+  res.json(payload);
 });
 
 const globalSearch = asyncHandler(async (req, res) => {
@@ -161,4 +180,4 @@ const globalSearch = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { projects, freelancers, expenses } });
 });
 
-module.exports = { getDashboard, getPL, globalSearch };
+module.exports = { getDashboard, getPL, globalSearch, invalidateAnalyticsCache: () => invalidatePrefix("analytics:") };

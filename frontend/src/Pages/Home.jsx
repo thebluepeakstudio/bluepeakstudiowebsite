@@ -6,7 +6,6 @@ import Trust from '../Components/Sections/Home/Trust';
 import SkillsSlider from '../Components/UI/SkillsSlider';
 import Testimonials from '../Components/Sections/Home/Testimonials';
 import Contact from '../Components/Sections/Home/Contact';
-import Footer from '../Components/Layout/Footer';
 import Reveal from '../Components/UI/Reveal';
 
 const Home = () => {

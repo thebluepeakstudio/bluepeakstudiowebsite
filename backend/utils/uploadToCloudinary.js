@@ -1,10 +1,14 @@
 const cloudinary = require("../config/cloudinary");
 const { Readable } = require("stream");
 
-const uploadToCloudinary = (buffer, folder = "bluepeak-admin") => {
+const uploadToCloudinary = (buffer, folder = "bluepeak-admin", options = {}) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: "auto" },
+      {
+        folder,
+        resource_type: "auto",
+        ...options,
+      },
       (error, result) => {
         if (error) return reject(error);
         resolve(result);

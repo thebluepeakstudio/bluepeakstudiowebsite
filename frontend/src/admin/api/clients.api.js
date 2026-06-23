@@ -2,6 +2,7 @@ import api from "./axiosInstance";
 
 export const getClients = (params) => api.get("/clients", { params });
 export const getClient = (id) => api.get(`/clients/${id}`);
+export const getClientOverview = (id) => api.get(`/clients/${id}/overview`);
 export const getClientProjects = (id) => api.get(`/clients/${id}/projects`);
 export const getClientActivities = (id) => api.get(`/clients/${id}/activities`);
 export const getClientAttachments = (id) => api.get(`/clients/${id}/attachments`);

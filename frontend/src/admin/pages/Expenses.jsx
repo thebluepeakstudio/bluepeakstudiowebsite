@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { Plus } from "lucide-react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import {
   getExpenses,
   createExpense,
@@ -24,7 +23,7 @@ import { formatCurrency, formatDate } from "../utils/formatCurrency";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import toast from "react-hot-toast";
 
-const COLORS = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#64748b", "#06b6d4", "#84cc16"];
+const ExpenseCategoryPie = lazy(() => import("../components/charts/ExpenseCategoryPie"));
 
 const emptyExpense = {
   title: "",
@@ -139,18 +138,15 @@ export default function Expenses() {
 
       {pieData.length > 0 && (
         <Card title="Category Breakdown">
-          <div className="h-[200px] w-full sm:h-[220px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
-                {pieData.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v) => formatCurrency(v)} />
-            </PieChart>
-          </ResponsiveContainer>
-          </div>
+          <Suspense
+            fallback={
+              <div className="flex h-[200px] items-center justify-center sm:h-[220px]">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+              </div>
+            }
+          >
+            <ExpenseCategoryPie data={pieData} />
+          </Suspense>
         </Card>
       )}
 
@@ -208,13 +204,13 @@ export default function Expenses() {
           <FormSection title="Expense details">
             <FormGrid cols={2}>
               <Input
-                label="Title *"
+                label="Title"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 required
               />
               <Input
-                label="Amount (₹) *"
+                label="Amount (₹)"
                 type="number"
                 min="0"
                 value={form.amount}

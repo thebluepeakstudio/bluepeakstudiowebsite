@@ -30,13 +30,14 @@ export default function Contact() {
           
           <div className="banner-grid">
             <div className="banner-content">
-              <span className="banner-badge">Start Your Digital Journey</span>
+              <span className="banner-badge">Start Your Project</span>
               <h2 className="banner-headline">
-                Ready to build<br />
-                <span>Something Great?</span>
+                Need a website,<br />
+                <span>or custom software?</span>
               </h2>
               <p className="banner-sub">
-                Tell us about your project. We'll get back to you within 24 hours with a clear plan, timeline, and no-obligation quote.
+                Tell us what you&apos;re trying to solve — a new site, admin panel, CRM, booking app, or internal tool.
+                We&apos;ll get back within 24 hours with a clear plan and no-obligation quote.
               </p>
 
               <div className="banner-trust-bar">

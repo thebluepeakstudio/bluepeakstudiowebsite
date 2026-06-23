@@ -10,6 +10,7 @@ const {
 const {
   getClients,
   getClient,
+  getClientOverview,
   getClientProjects,
   getClientActivities,
   getClientAttachments,
@@ -26,6 +27,7 @@ router.use(protect);
 
 router.get("/", getClients);
 router.post("/", createClientValidators, createClient);
+router.get("/:id/overview", mongoIdParam, getClientOverview);
 router.get("/:id/projects", mongoIdParam, getClientProjects);
 router.get("/:id/activities", mongoIdParam, getClientActivities);
 router.post("/:id/activities", activityValidators, logClientActivity);

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Button from "./Button";
+import FormFieldLabel from "./FormFieldLabel";
 import toast from "react-hot-toast";
 import { apiUrl } from "../../utils/apiBase";
 
@@ -68,7 +69,7 @@ const ContactForm = () => {
         className="contact-us-form dm-sans flex flex-col justify-center gap-3"
       >
         <div>
-          <h2>Name</h2>
+          <FormFieldLabel required>Name</FormFieldLabel>
           <input
             type="text"
             name="name"
@@ -79,7 +80,7 @@ const ContactForm = () => {
         </div>
 
         <div>
-          <h2>Contact Number</h2>
+          <FormFieldLabel required>Contact Number</FormFieldLabel>
           <input
             type="text"
             name="contactNo"
@@ -90,7 +91,7 @@ const ContactForm = () => {
         </div>
 
         <div>
-          <h2>Email</h2>
+          <FormFieldLabel required>Email</FormFieldLabel>
           <input
             type="email"
             name="email"
@@ -101,7 +102,7 @@ const ContactForm = () => {
         </div>
 
         <div>
-          <h2>Message</h2>
+          <FormFieldLabel required>Message</FormFieldLabel>
           <textarea
             name="message"
             value={formData.message}

@@ -7,7 +7,7 @@ export default function Button({
   ...props
 }) {
   const variants = {
-    primary: "bg-admin-primary text-white hover:bg-admin-primaryDark",
+    primary: "bg-admin-primary text-white shadow-sm shadow-blue-500/20 hover:bg-admin-primaryDark hover:shadow-md hover:shadow-blue-500/25",
     secondary: "bg-admin-muted text-admin-text hover:bg-admin-border",
     danger: "bg-red-600 text-white hover:bg-red-700",
     ghost: "text-admin-textMuted hover:bg-admin-muted hover:text-admin-text",
@@ -19,7 +19,7 @@ export default function Button({
   };
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={loading || props.disabled}
       {...props}
     >

@@ -150,7 +150,7 @@ export default function ProjectForm({
       <FormSection title="Client & project" description="Link to an existing client or enter details manually.">
         <FormGrid cols={2}>
           <Select
-            label="Client *"
+            label="Client"
             value={form.clientId}
             onChange={(e) => onClientChange(e.target.value)}
             options={[
@@ -162,7 +162,8 @@ export default function ProjectForm({
             ]}
           />
           <Select
-            label="Project type *"
+            label="Project type"
+            required
             value={form.projectType}
             onChange={(e) => {
               const projectType = e.target.value;
@@ -179,7 +180,7 @@ export default function ProjectForm({
         {!form.clientId && (
           <FormGrid cols={2}>
             <Input
-              label="Client name *"
+              label="Client name"
               value={form.clientName}
               onChange={(e) => set("clientName", e.target.value)}
               required

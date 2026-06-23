@@ -7,11 +7,14 @@ const Footer = () => {
   return (
     <footer className="relative overflow-hidden py-28">
 
-      {/* BIG BACKGROUND TEXT */}
-      <h1 className="absolute top:0 lg:bottom-0 left-1/2 -translate-x-1/2 
-      text-[5rem] md:text-[6rem] lg:text-[20vw] font-bold text-white/5 select-none pointer-events-none">
+      {/* BIG BACKGROUND TEXT — decorative only, not a heading */}
+      <div
+        aria-hidden="true"
+        className="absolute top:0 lg:bottom-0 left-1/2 -translate-x-1/2 
+      text-[5rem] md:text-[6rem] lg:text-[20vw] font-bold text-white/5 select-none pointer-events-none"
+      >
         bluepeak
-      </h1>
+      </div>
 
       <div className="max-w-[1300px] mx-auto px-6 relative z-10 dm-sans">
 
@@ -69,13 +72,21 @@ const Footer = () => {
                 </NavLink>
               </li>
 
-              {/* <li>
+              <li>
                 <NavLink to="/about-us" className={({ isActive }) =>
                   isActive ? "text-yellow-400 font-semibold" : "hover:text-white"
                 }>
                   About
                 </NavLink>
-              </li> */}
+              </li>
+
+              <li>
+                <NavLink to="/blogs" className={({ isActive }) =>
+                  isActive ? "text-yellow-400 font-semibold" : "hover:text-white"
+                }>
+                  Blog
+                </NavLink>
+              </li>
 
               <li>
                 <NavLink to="/contact" className={({ isActive }) =>
@@ -95,10 +106,11 @@ const Footer = () => {
             </p>
 
             <ul className="space-y-3 text-white/80">
+              <li>Custom Software & Apps</li>
               <li>Website Development</li>
               <li>UI/UX Design</li>
-              <li>Performance Optimization</li>
-              <li>SEO Ready Websites</li>
+              <li>Business Dashboards</li>
+              <li>E-Commerce Solutions</li>
             </ul>
           </div>
 

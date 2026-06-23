@@ -24,7 +24,7 @@ const projects = [
   },
   {
     title: 'Tvastih Studio',
-    category: 'E-Commerce',
+    category: 'Custom Software',
     desc: 'Enterprise-grade project management dashboard featuring high-performance Kanban systems.',
     tags: ['Wix'],
     color: '#5DCAA5',
@@ -44,7 +44,7 @@ const projects = [
   },
 ]
 
-const filters = ['All', 'E-Commerce', 'Real Estate', 'Landing Page', 'Web App', 'Manufacturing']
+const filters = ['All', 'Custom Software', 'Web App', 'E-Commerce', 'Real Estate', 'Landing Page', 'Manufacturing']
 
 export default function WebProjectSection() {
   const [active, setActive] = useState('All')

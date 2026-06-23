@@ -1,7 +1,8 @@
 import Button from "./Button";
+import { RequiredMark } from "./Input";
 
 const fieldClass =
-  "w-full rounded-lg border border-admin-border bg-admin-surface px-3 py-2.5 text-sm transition-colors focus:border-admin-primary focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-admin-muted disabled:text-admin-textMuted";
+  "w-full rounded-xl border border-admin-border/80 bg-white px-3 py-2.5 text-sm shadow-sm shadow-slate-200/20 transition-all focus:border-admin-primary focus:outline-none focus:ring-2 focus:ring-blue-100/80 disabled:cursor-not-allowed disabled:bg-admin-muted disabled:text-admin-textMuted";
 
 export function Form({ id, onSubmit, children, className = "" }) {
   return (
@@ -97,15 +98,22 @@ export function FormCheckbox({ label, description, checked, onChange, children }
   );
 }
 
-export function FormFileInput({ label, accept, onChange, className = "" }) {
+export function FormFileInput({ label, required, accept, onChange, className = "", multiple, ...props }) {
   return (
     <div className={className}>
-      {label && <label className="mb-1 block text-sm font-medium text-admin-text">{label}</label>}
+      {label && (
+        <label className="mb-1 block text-sm font-medium text-admin-text">
+          {label}
+          {required && <RequiredMark />}
+        </label>
+      )}
       <input
         type="file"
         accept={accept}
+        multiple={multiple}
         onChange={onChange}
         className={`${fieldClass} file:mr-3 file:rounded-md file:border-0 file:bg-admin-muted file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-admin-text hover:file:bg-admin-border`}
+        {...props}
       />
     </div>
   );

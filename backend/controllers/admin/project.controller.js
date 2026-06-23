@@ -11,6 +11,7 @@ const {
   shouldResetFreelancerPayment,
 } = require("../../utils/projectFreelancerPayment");
 const { syncClientToProject } = require("../../utils/syncClientToProject");
+const { invalidateAnalyticsCache } = require("./analytics.controller");
 
 const projectLabel = (p) =>
   p.businessName ? `${p.clientName} — ${p.businessName}` : p.clientName || p.projectTitle || "Project";
@@ -135,6 +136,7 @@ const createProject = asyncHandler(async (req, res) => {
     await project.save();
   }
   if (project.freelancerId) await updateFreelancerCount(project.freelancerId, 1);
+  invalidateAnalyticsCache();
   res.status(201).json({ success: true, data: project });
 });
 
@@ -171,6 +173,7 @@ const updateProject = asyncHandler(async (req, res) => {
     if (newFreelancer) await updateFreelancerCount(newFreelancer, 1);
   }
 
+  invalidateAnalyticsCache();
   res.json({ success: true, data: project });
 });
 
@@ -186,6 +189,7 @@ const deleteProject = asyncHandler(async (req, res) => {
   await FreelancerPayment.deleteMany({ projectId: project._id });
   await Project.findByIdAndDelete(req.params.id);
 
+  invalidateAnalyticsCache();
   res.json({ success: true, message: "Project deleted" });
 });
 

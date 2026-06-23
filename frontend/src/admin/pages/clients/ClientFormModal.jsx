@@ -27,7 +27,7 @@ export default function ClientFormModal({ open, onClose, form, setForm, onSubmit
         <FormSection title="Contact details" description="Primary person and how to reach them.">
           <FormGrid cols={2}>
             <Input
-              label="Name *"
+              label="Name"
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}

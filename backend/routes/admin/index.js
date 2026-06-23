@@ -8,6 +8,8 @@ const analyticsRoutes = require("./analytics.routes");
 const contactRoutes = require("./contacts.routes");
 const clientRoutes = require("./clients.routes");
 const leadRoutes = require("./leads.routes");
+const blogRoutes = require("./blogs.routes");
+const blogCategoryRoutes = require("./blogCategories.routes");
 
 const router = express.Router();
 
@@ -20,5 +22,7 @@ router.use("/analytics", analyticsRoutes);
 router.use("/contacts", contactRoutes);
 router.use("/clients", clientRoutes);
 router.use("/leads", leadRoutes);
+router.use("/blogs", blogRoutes);
+router.use("/blog-categories", blogCategoryRoutes);
 
 module.exports = router;

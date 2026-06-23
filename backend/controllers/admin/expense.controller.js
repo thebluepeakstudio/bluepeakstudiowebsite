@@ -2,6 +2,7 @@ const Expense = require("../../models/Expense");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
+const { invalidateAnalyticsCache } = require("./analytics.controller");
 
 const buildFilter = (query) => {
   const filter = {};
@@ -87,6 +88,7 @@ const createExpense = asyncHandler(async (req, res) => {
     body.receiptPublicId = result.public_id;
   }
   const expense = await Expense.create(body);
+  invalidateAnalyticsCache();
   res.status(201).json({ success: true, data: expense });
 });
 
@@ -107,6 +109,7 @@ const updateExpense = asyncHandler(async (req, res) => {
     runValidators: true,
   });
 
+  invalidateAnalyticsCache();
   res.json({ success: true, data: expense });
 });
 
@@ -117,6 +120,7 @@ const deleteExpense = asyncHandler(async (req, res) => {
   if (expense.receiptPublicId) await deleteFromCloudinary(expense.receiptPublicId);
   await Expense.findByIdAndDelete(req.params.id);
 
+  invalidateAnalyticsCache();
   res.json({ success: true, message: "Expense deleted" });
 });
 

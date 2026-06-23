@@ -18,7 +18,7 @@ export function TableSkeleton({ rows = 5, cols = 5 }) {
 
 export function CardSkeleton() {
   return (
-    <div className="rounded-xl border border-admin-border p-5">
+    <div className="rounded-2xl border border-admin-border/80 bg-white p-5 shadow-sm">
       <Skeleton className="h-4 w-24" />
       <Skeleton className="mt-3 h-8 w-32" />
     </div>

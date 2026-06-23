@@ -16,6 +16,7 @@ const {
   getLeadMetrics,
   getFollowUps,
   getLead,
+  getLeadOverview,
   createLead,
   updateLead,
   updateLeadStatus,
@@ -49,6 +50,7 @@ router.delete("/:id/attachments/:attachmentId", mongoIdParam, deleteLeadAttachme
 router.patch("/:id/follow-up", followUpValidators, updateFollowUp);
 router.patch("/:id/status", statusValidators, updateLeadStatus);
 router.post("/:id/convert", mongoIdParam, convertLead);
+router.get("/:id/overview", mongoIdParam, getLeadOverview);
 router.get("/:id", mongoIdParam, getLead);
 router.put("/:id", updateLeadValidators, updateLead);
 router.delete("/:id", mongoIdParam, deleteLead);

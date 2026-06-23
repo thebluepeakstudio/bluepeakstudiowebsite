@@ -9,7 +9,11 @@ import {
   useVelocity,
   useAnimationFrame
 } from "framer-motion";
-import { wrap } from "@motionone/utils";
+
+const wrap = (min, max, v) => {
+  const range = max - min;
+  return ((((v - min) % range) + range) % range) + min;
+};
 
 function ParallaxText({ children, baseVelocity = 80 }) {
   const baseX = useMotionValue(0);

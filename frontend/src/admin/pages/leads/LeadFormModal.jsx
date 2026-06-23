@@ -41,7 +41,7 @@ export default function LeadFormModal({ open, onClose, form, setForm, onSubmit, 
         <FormSection title="Contact details" description="Who is this lead and how can you reach them?">
           <FormGrid cols={2}>
             <Input
-              label="Full name *"
+              label="Full name"
               required
               value={form.fullName}
               onChange={(e) => setForm({ ...form, fullName: e.target.value })}

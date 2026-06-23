@@ -97,6 +97,26 @@ const getClientAttachments = asyncHandler(async (req, res) => {
   res.json({ success: true, data: attachments });
 });
 
+const getClientOverview = asyncHandler(async (req, res) => {
+  const client = await Client.findById(req.params.id);
+  if (!client) throw new ApiError(404, "Client not found");
+
+  const [projects, activities, attachments] = await Promise.all([
+    Project.find({ clientId: req.params.id })
+      .select(
+        "clientName businessName projectType projectTitle workStatus paymentStatus totalAmount createdAt"
+      )
+      .sort({ createdAt: -1 }),
+    ClientActivity.find({ clientId: req.params.id }).sort({ occurredAt: -1 }),
+    ClientAttachment.find({ clientId: req.params.id }).sort({ createdAt: -1 }),
+  ]);
+
+  res.json({
+    success: true,
+    data: { client, projects, activities, attachments },
+  });
+});
+
 const createClient = asyncHandler(async (req, res) => {
   const client = await Client.create(pickClientFields(req.body));
   res.status(201).json({ success: true, data: client });
@@ -185,6 +205,7 @@ const deleteClientAttachment = asyncHandler(async (req, res) => {
 module.exports = {
   getClients,
   getClient,
+  getClientOverview,
   getClientProjects,
   getClientActivities,
   getClientAttachments,

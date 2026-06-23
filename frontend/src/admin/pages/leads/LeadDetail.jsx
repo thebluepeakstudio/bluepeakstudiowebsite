@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Upload, Trash2, Pencil } from "lucide-react";
 import {
-  getLead,
+  getLeadOverview,
   getLeadActivities,
   getLeadAttachments,
-  getLeadStatusHistory,
   logLeadActivity,
   uploadLeadAttachments,
   deleteLeadAttachment,
@@ -54,17 +53,13 @@ export default function LeadDetail() {
   const load = async () => {
     setLoading(true);
     try {
-      const [l, a, att, hist] = await Promise.all([
-        getLead(id),
-        getLeadActivities(id),
-        getLeadAttachments(id),
-        getLeadStatusHistory(id),
-      ]);
-      const data = l.data.data;
+      const { data: res } = await getLeadOverview(id);
+      const overview = res.data;
+      const data = overview.lead;
       setLead(data);
-      setActivities(a.data.data);
-      setAttachments(att.data.data);
-      setHistory(hist.data.data);
+      setActivities(overview.activities);
+      setAttachments(overview.attachments);
+      setHistory(overview.history);
       setFollowUp({
         nextFollowUpDate: data.nextFollowUpDate?.slice(0, 10) || "",
         reminderNotes: data.reminderNotes || "",

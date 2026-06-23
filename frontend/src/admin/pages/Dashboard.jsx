@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   FolderKanban,
   CheckCircle,
@@ -13,6 +13,7 @@ import {
 import { getDashboard } from "../api/analytics.api";
 import { getLeadMetrics } from "../api/leads.api";
 import LeadMetricsCards from "../components/leads/LeadMetricsCards";
+import PageHeader, { PageSection, LinkAction } from "../components/layout/PageHeader";
 import { StatCard } from "../components/ui/Card";
 import Card from "../components/ui/Card";
 import Table from "../components/ui/Table";
@@ -22,6 +23,7 @@ import { formatCurrency } from "../utils/formatCurrency";
 import { getProjectLabel } from "../utils/constants";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [leadMetrics, setLeadMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,10 +43,16 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <CardSkeleton key={i} />
-        ))}
+      <div className="space-y-6">
+        <PageHeader
+          title="Dashboard"
+          description="Overview of projects, revenue, and lead activity."
+        />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -52,25 +60,30 @@ export default function Dashboard() {
   const cards = data?.cards || {};
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Active Projects" value={cards.activeProjects} icon={FolderKanban} />
-        <StatCard title="Completed" value={cards.completedProjects} icon={CheckCircle} />
-        <StatCard title="Pending Payments" value={formatCurrency(cards.pendingPayments)} icon={Clock} />
-        <StatCard title="Partial Payments" value={cards.partialPaymentProjects ?? 0} icon={AlertTriangle} />
-        <StatCard title="Total Revenue" value={formatCurrency(cards.totalRevenue)} icon={IndianRupee} />
-        <StatCard title="Total Expenses" value={formatCurrency(cards.totalExpenses)} icon={TrendingDown} />
-        <StatCard title="Net Profit" value={formatCurrency(cards.netProfit)} icon={TrendingUp} />
-        <StatCard title="Freelancers" value={cards.totalFreelancers} icon={Users} />
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        title="Dashboard"
+        description="Overview of projects, revenue, expenses, and lead pipeline at a glance."
+      />
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-admin-text">Lead pipeline</h2>
-          <Link to="/admin-panel/leads" className="text-sm text-admin-primary hover:underline">
-            Manage leads
-          </Link>
+      <PageSection title="Key metrics">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard title="Active Projects" value={cards.activeProjects} icon={FolderKanban} accent="blue" />
+          <StatCard title="Completed" value={cards.completedProjects} icon={CheckCircle} accent="emerald" />
+          <StatCard title="Pending Payments" value={formatCurrency(cards.pendingPayments)} icon={Clock} accent="amber" />
+          <StatCard title="Partial Payments" value={cards.partialPaymentProjects ?? 0} icon={AlertTriangle} accent="amber" />
+          <StatCard title="Total Revenue" value={formatCurrency(cards.totalRevenue)} icon={IndianRupee} accent="emerald" />
+          <StatCard title="Total Expenses" value={formatCurrency(cards.totalExpenses)} icon={TrendingDown} accent="rose" />
+          <StatCard title="Net Profit" value={formatCurrency(cards.netProfit)} icon={TrendingUp} accent="blue" />
+          <StatCard title="Freelancers" value={cards.totalFreelancers} icon={Users} accent="blue" />
         </div>
+      </PageSection>
+
+      <PageSection
+        title="Lead pipeline"
+        description="Track new leads, follow-ups, and conversions."
+        action={<LinkAction to="/admin-panel/leads">Manage leads</LinkAction>}
+      >
         {leadsLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -80,15 +93,12 @@ export default function Dashboard() {
         ) : (
           <LeadMetricsCards metrics={leadMetrics} />
         )}
-      </div>
+      </PageSection>
 
       <Card
         title="Latest Projects"
-        action={
-          <Link to="/admin-panel/projects" className="text-sm text-admin-primary hover:underline">
-            View all
-          </Link>
-        }
+        subtitle="Recently onboarded or updated projects"
+        action={<LinkAction to="/admin-panel/projects">View all</LinkAction>}
       >
         <Table
           columns={[
@@ -98,7 +108,8 @@ export default function Dashboard() {
             { key: "paymentStatus", label: "Payment", render: (r) => <Badge status={r.paymentStatus} /> },
           ]}
           data={data?.latestProjects || []}
-          onRowClick={(r) => (window.location.href = `/admin-panel/projects/${r._id}`)}
+          onRowClick={(r) => navigate(`/admin-panel/projects/${r._id}`)}
+          emptyMessage="No projects yet"
         />
       </Card>
     </div>

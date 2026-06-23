@@ -12,7 +12,7 @@ export default function FilterSelect({ label, value, onChange, options, classNam
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 w-full min-w-0 rounded-lg border border-admin-border bg-admin-surface px-3 text-sm transition-colors focus:border-admin-primary focus:outline-none focus:ring-2 focus:ring-blue-100"
+        className="h-10 w-full min-w-0 rounded-xl border border-admin-border/80 bg-white px-3 text-sm shadow-sm shadow-slate-200/20 transition-all focus:border-admin-primary focus:outline-none focus:ring-2 focus:ring-blue-100/80"
       >
         {!hasEmptyOption && <option value="">All</option>}
         {normalized.map((opt) => (

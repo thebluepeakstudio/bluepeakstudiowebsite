@@ -6,6 +6,7 @@ export const getLeadMetrics = () => api.get("/leads/metrics");
 export const getFollowUps = (due = "today") =>
   api.get("/leads/follow-ups", { params: { due } });
 export const getLead = (id) => api.get(`/leads/${id}`);
+export const getLeadOverview = (id) => api.get(`/leads/${id}/overview`);
 export const createLead = (data) => api.post("/leads", data);
 export const updateLead = (id, data) => api.put(`/leads/${id}`, data);
 export const updateLeadStatus = (id, data) => api.patch(`/leads/${id}/status`, data);

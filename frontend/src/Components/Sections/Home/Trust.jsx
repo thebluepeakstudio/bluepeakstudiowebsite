@@ -7,43 +7,38 @@ const Trust = () => {
     <>
       <SectionHeader title={"Edge"} />
 
-      <section className="max-w-[1200px] mx-auto px-6 py-20">
+      <section className="mx-auto max-w-[1200px] px-6 py-20">
+        <div className="mb-10 text-center">
+          <p className="dm-sans mx-auto max-w-2xl text-lg text-gray-400 md:text-xl">
+            Whether it&apos;s a marketing website or a custom business app, we build products your team can depend on.
+          </p>
+        </div>
 
-        <div className="
-          grid 
-          grid-cols-1 
-          sm:grid-cols-2 
-          lg:grid-cols-4 
-          gap-6 
-          auto-rows-fr
-        ">
-
-          <TrustCard 
+        <div className="grid auto-rows-fr grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <TrustCard
             title="Performance First"
-            description="We build websites optimized for speed, scalability, and real-world performance."
+            description="Fast, reliable websites and applications optimized for real-world daily use."
             image="https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/3.png"
           />
 
-          <TrustCard 
+          <TrustCard
             title="On-Time Execution"
-            description="We deliver projects on schedule while maintaining high quality standards."
+            description="Clear timelines and structured delivery — from landing pages to full software builds."
             image="https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/2.png"
           />
 
-          <TrustCard 
+          <TrustCard
             title="Modern Technology"
-            description="We use modern tools and frameworks to build secure and scalable solutions."
+            description="React, Node.js, APIs, and secure databases — built to scale as your business grows."
             image="https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/1.png"
           />
 
-          <TrustCard 
+          <TrustCard
             title="Built for Your Business"
-            description="Every website is tailored to your brand, goals, and long-term growth."
+            description="Custom logic around your workflow — you own the product, not a one-size-fits-all SaaS tool."
             image="https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/4.png"
           />
-
         </div>
-
       </section>
     </>
   )

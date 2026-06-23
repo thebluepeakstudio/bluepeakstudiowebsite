@@ -7,7 +7,8 @@ const navItems = [
   { name: "Home", path: "/" },
   { name: "Projects", path: "/projects" },
   { name: "Services", path: "/services" },
-  // { name: "About", path: "/about-us" },
+  { name: "About", path: "/about-us" },
+  { name: "Blog", path: "/blogs" },
   { name: "Contact", path: "/contact" },
 ];
 
@@ -16,32 +17,29 @@ const Header = () => {
 
   return (
     <header className="w-full flex justify-center">
-
-      {/* NAVBAR */}
       <div
         className="
-        w-[75px] md:w-[83%] lg:w-[60%]  max-w-[1200px]
+        w-[75px] md:w-[83%] lg:w-[60%] max-w-[1200px]
         flex items-center justify-between
+        md:max-[936px]:w-auto md:max-[936px]:max-w-[95%] md:max-[936px]:justify-center md:max-[936px]:gap-3
         py-4 px-6 my-4
+        md:max-[936px]:px-4 md:max-[936px]:py-3
         rounded-full flex
-
         bg-[#1e293b]/60
         backdrop-blur-md
         border border-white/10
         shadow-[0_0_25px_rgba(59,130,246,0.15)]
-
         fixed z-50 isolate right-10 md:right-auto mx-auto
         "
       >
-
-        {/* DESKTOP NAV (≥ md) */}
-        <nav className="hidden md:flex gap-2 relative dm-sans">
+        <nav className="hidden md:flex gap-2 md:max-[936px]:gap-1 relative dm-sans min-w-0">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `relative px-4 py-2 rounded-full transition ${isActive ? "text-black" : "text-white"
+                `relative shrink-0 whitespace-nowrap px-4 py-2 md:max-[936px]:px-2.5 md:max-[936px]:py-1.5 md:max-[936px]:text-sm rounded-full transition ${
+                  isActive ? "text-black" : "text-white"
                 }`
               }
             >
@@ -66,18 +64,22 @@ const Header = () => {
           ))}
         </nav>
 
-        {/* DESKTOP BUTTON */}
-        <div className="hidden md:block">
+        <div className="hidden shrink-0 md:block">
           <NavLink to="/contact">
             <Button
               title="Book a Free Call"
-              onClick={() => window.open('https://calendly.com/thebluepeakstudio/30min', '_blank', 'noopener,noreferrer')}
-              className="hero-primary-btn"
+              onClick={() =>
+                window.open(
+                  "https://calendly.com/thebluepeakstudio/30min",
+                  "_blank",
+                  "noopener,noreferrer"
+                )
+              }
+              className="hero-primary-btn md:max-[936px]:!px-5 md:max-[936px]:!py-2 md:max-[936px]:!text-sm md:max-[936px]:!border-[3px]"
             />
           </NavLink>
         </div>
 
-        {/* HAMBURGER (< md) */}
         <div
           className="md:hidden flex flex-col gap-1.5 cursor-pointer"
           onClick={() => setOpen(!open)}
@@ -98,10 +100,8 @@ const Header = () => {
             className="w-6 h-[2px] bg-white block"
           />
         </div>
-
       </div>
 
-      {/* MOBILE MENU */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -113,27 +113,23 @@ const Header = () => {
             fixed top-[90px]
             w-[90%] max-w-[1200px]
            -translate-x-1/2
-
             bg-[#1e293b]/80
             backdrop-blur-md
             border border-white/10
             rounded-2xl
             p-6
-
             flex flex-col gap-4
             z-40 isolate
             "
           >
-
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `px-4 py-3 rounded-lg transition ${isActive
-                    ? "bg-yellow-400 text-black"
-                    : "text-white hover:bg-white/10"
+                  `px-4 py-3 rounded-lg transition ${
+                    isActive ? "bg-yellow-400 text-black" : "text-white hover:bg-white/10"
                   }`
                 }
               >
@@ -144,11 +140,9 @@ const Header = () => {
             <NavLink to="/contact" onClick={() => setOpen(false)}>
               <Button title={"Let's Talk"} />
             </NavLink>
-
           </motion.div>
         )}
       </AnimatePresence>
-
     </header>
   );
 };

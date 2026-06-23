@@ -11,6 +11,7 @@ import Badge from "../../components/ui/Badge";
 import Pagination from "../../components/ui/Pagination";
 import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import { PageToolbar } from "../../components/layout/PageHeader";
 import ProjectForm from "./ProjectForm";
 import { TableSkeleton } from "../../components/ui/Skeleton";
 import { WORK_STATUSES, PAYMENT_STATUSES, PROJECT_TYPES, getProjectLabel } from "../../utils/constants";
@@ -109,13 +110,16 @@ export default function ProjectList() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-5">
+      <PageToolbar className="flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:max-w-3xl lg:grid-cols-4">
-          <div className="sm:col-span-2 lg:col-span-1">
-            <label className="mb-1.5 block text-xs font-medium text-admin-textMuted">Search</label>
-            <SearchInput value={search} onChange={setSearch} placeholder="Search projects..." />
-          </div>
+          <SearchInput
+            label="Search"
+            value={search}
+            onChange={setSearch}
+            placeholder="Search projects..."
+            className="sm:col-span-2 lg:col-span-1"
+          />
           <FilterSelect
             label="Status"
             value={filters.workStatus}
@@ -139,54 +143,54 @@ export default function ProjectList() {
         <Button onClick={openCreate} className="w-full shrink-0 sm:w-auto">
           <Plus size={18} /> Add Project
         </Button>
-      </div>
+      </PageToolbar>
 
       {loading ? (
         <TableSkeleton />
       ) : (
-        <>
+        <div className="space-y-4">
           <Table
             columns={[
-              { key: "client", label: "Client", render: (r) => getProjectLabel(r) },
-              { key: "projectType", label: "Type" },
-              { key: "workStatus", label: "Status", render: (r) => <Badge status={r.workStatus} /> },
-              { key: "paymentStatus", label: "Payment", render: (r) => <Badge status={r.paymentStatus} /> },
-              { key: "totalAmount", label: "Amount", render: (r) => formatCurrency(r.totalAmount) },
-              { key: "dateOfOnboarding", label: "Onboarded", render: (r) => formatDate(r.dateOfOnboarding) },
-              {
-                key: "actions",
-                label: "",
-                render: (r) => (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEdit(r);
-                      }}
-                      className="text-xs font-medium text-admin-primary hover:underline"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteId(r._id);
-                      }}
-                      className="text-xs text-red-600 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ),
-              },
-            ]}
-            data={projects}
-            onRowClick={(r) => navigate(`/admin-panel/projects/${r._id}`)}
+                { key: "client", label: "Client", render: (r) => getProjectLabel(r) },
+                { key: "projectType", label: "Type" },
+                { key: "workStatus", label: "Status", render: (r) => <Badge status={r.workStatus} /> },
+                { key: "paymentStatus", label: "Payment", render: (r) => <Badge status={r.paymentStatus} /> },
+                { key: "totalAmount", label: "Amount", render: (r) => formatCurrency(r.totalAmount) },
+                { key: "dateOfOnboarding", label: "Onboarded", render: (r) => formatDate(r.dateOfOnboarding) },
+                {
+                  key: "actions",
+                  label: "",
+                  render: (r) => (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(r);
+                        }}
+                        className="text-xs font-medium text-admin-primary hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteId(r._id);
+                        }}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ),
+                },
+              ]}
+              data={projects}
+              onRowClick={(r) => navigate(`/admin-panel/projects/${r._id}`)}
           />
           <Pagination page={pagination.page} pages={pagination.pages} onPageChange={fetch} />
-        </>
+        </div>
       )}
 
       <Modal

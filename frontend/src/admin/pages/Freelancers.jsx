@@ -306,7 +306,7 @@ export default function Freelancers() {
         <Form onSubmit={handleSubmit}>
           <FormSection title="Profile">
             <Input
-              label="Name *"
+              label="Name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
@@ -552,7 +552,7 @@ export default function Freelancers() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     {paymentForm.payMode === "partial" && (
                       <Input
-                        label={`Amount (max ${formatCurrency(selectedProjectDue)}) *`}
+                        label={`Amount (max ${formatCurrency(selectedProjectDue)})`}
                         type="number"
                         min="1"
                         max={selectedProjectDue}
@@ -565,7 +565,7 @@ export default function Freelancers() {
                       />
                     )}
                     <Input
-                      label="Payment Date *"
+                      label="Payment Date"
                       type="date"
                       value={paymentForm.paymentDate}
                       onChange={(e) =>

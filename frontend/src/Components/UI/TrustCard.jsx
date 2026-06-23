@@ -1,4 +1,5 @@
 import React from "react";
+import { imageKitUrl } from "../../utils/imageKit";
 
 const TrustCard = ({ title, description, image }) => {
   return (
@@ -19,9 +20,13 @@ const TrustCard = ({ title, description, image }) => {
 
         {/* ICON */}
         <img 
-          src={image} 
+          src={imageKitUrl(image, 160)} 
           alt={title}
           className="h-20 object-contain mb-8"
+          width={160}
+          height={80}
+          loading="lazy"
+          decoding="async"
         />
 
         {/* TITLE */}

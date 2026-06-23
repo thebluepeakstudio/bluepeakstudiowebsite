@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { motion } from "framer-motion"
 import "../../NeonCursor.css"
 
@@ -7,11 +7,15 @@ const NeonCursor = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isClicking, setIsClicking] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
+  const rafRef = useRef(null)
+  const pendingPos = useRef({ x: 0, y: 0 })
 
   const handleMouseMove = useCallback((e) => {
-    setPosition({
-      x: e.clientX,
-      y: e.clientY,
+    pendingPos.current = { x: e.clientX, y: e.clientY }
+    if (rafRef.current) return
+    rafRef.current = requestAnimationFrame(() => {
+      setPosition(pendingPos.current)
+      rafRef.current = null
     })
   }, [])
 
@@ -42,6 +46,7 @@ const NeonCursor = () => {
       window.removeEventListener("mouseup", handleMouseUp)
       window.removeEventListener("mouseover", handleMouseOver)
       window.removeEventListener("mouseout", handleMouseOut)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
   }, [handleMouseMove, handleMouseOver, handleMouseOut])
 
