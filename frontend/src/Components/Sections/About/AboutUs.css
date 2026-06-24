@@ -10,13 +10,10 @@
 
 
 .about-inner {
-
+  width: 90%;
   max-width: 1200px;
-
   margin: 0 auto;
-
-  padding: 0 1.5rem;
-
+  padding: 0;
 }
 
 
@@ -468,19 +465,8 @@
 /* ─── DESKTOP: sticky scroll storytelling (1024px+) ─── */
 
 @media (min-width: 1024px) {
-
-  .about-page {
-
-    padding: 7rem 0 3rem;
-
-  }
-
-
-
   .about-inner {
-
-    padding: 0 2rem;
-
+    padding: 0;
   }
 
 
@@ -802,12 +788,6 @@
 
 
 @media (max-width: 640px) {
-
-  .about-page {
-
-    padding: 5.5rem 0 1.5rem;
-
-  }
 
 
 

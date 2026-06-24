@@ -1,16 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-
-import { imageKitUrl } from "../../../utils/imageKit";
-
+import PageHero from "../../Layout/PageHero";
 import "./AboutUs.css";
-
-
-
-const ARCHITECT_PHOTO =
-
-  "https://ik.imagekit.io/bluepeakstudio/Chikoo%20Constructions/1667542912129.jpg";
-
-
 
 const steps = [
 
@@ -179,27 +169,13 @@ export default function Hero() {
 
 
   return (
-
     <section className="about-page" ref={containerRef}>
+      <PageHero
+        title="About Us"
+        description="BluePeak Studio builds websites and custom software for businesses that need clarity, performance, and systems that scale. Here is how we work and who leads every project."
+      />
 
       <div className="about-inner">
-
-        <header className="about-hero projects-hero flex flex-col justify-center items-center w-full max-w-none px-0 text-center md:items-start md:text-left">
-          <h1 className="text-5xl font-bold leading-tight font-[azonix] md:text-7xl" data-reveal>
-            About
-          </h1>
-          <p
-            className="dm-sans mx-auto mt-6 max-w-3xl text-justify text-xl text-gray-400 md:mx-0 md:text-2xl"
-            data-reveal
-          >
-            BluePeak Studio is a boutique product studio building premium websites and custom software.
-            We help businesses replace manual workflows with reliable systems — and give growing brands
-            a digital presence that converts.
-          </p>
-        </header>
-
-
-
         <section className="process-section" aria-label="Our process">
 
           <div className="process-container">

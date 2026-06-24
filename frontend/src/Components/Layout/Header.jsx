@@ -5,9 +5,9 @@ import Button from "../UI/Button";
 
 const navItems = [
   { name: "Home", path: "/" },
+  { name: "About", path: "/about-us" },
   { name: "Projects", path: "/projects" },
   { name: "Services", path: "/services" },
-  { name: "About", path: "/about-us" },
   { name: "Blog", path: "/blogs" },
   { name: "Contact", path: "/contact" },
 ];

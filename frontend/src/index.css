@@ -114,8 +114,18 @@ body {
     font-weight: 500;
 }
 
+.page-hero {
+  margin-top: 7rem;
+  margin-bottom: 5rem;
+}
+
+.page-top {
+  margin-top: 7rem;
+}
+
 @media (min-width: 768px) {
-  .projects-hero{
+  .page-hero,
+  .page-top {
     margin-top: 10rem;
   }
 }

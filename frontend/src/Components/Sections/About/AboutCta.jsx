@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import Button from "../../UI/Button";
+import PageContent from "../../Layout/PageContent";
 
 export default function AboutCta() {
   return (
-    <section className="mx-auto max-w-[1200px] px-6 pb-16 pt-4">
+    <PageContent className="pb-16 pt-4">
       <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center shadow-xl backdrop-blur-xl sm:p-12">
         <span className="hero-badge mb-4 inline-flex">Work With Us</span>
         <h2 className="font-[azonix] text-3xl font-bold leading-tight sm:text-4xl">
@@ -25,6 +26,6 @@ export default function AboutCta() {
           />
         </div>
       </div>
-    </section>
+    </PageContent>
   );
 }

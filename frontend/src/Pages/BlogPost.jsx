@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, User, Share2, ChevronLeft, ChevronRight } from "lucide-react";
 import PageMeta from "../Components/SEO/PageMeta";
+import PageContent from "../Components/Layout/PageContent";
 import { buildBreadcrumbs } from "../config/seo";
 import BlogContent from "../Components/Blog/BlogContent";
 import BlogSidebar from "../Components/Blog/BlogSidebar";
@@ -25,16 +26,10 @@ export default function BlogPost() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [headings, setHeadings] = useState([]);
-
-  const handleHeadingsChange = useCallback((next) => {
-    setHeadings(next);
-  }, []);
 
   useEffect(() => {
     setLoading(true);
     setError(false);
-    setHeadings([]);
     getBlogBySlug(slug)
       .then((res) => setData(res.data))
       .catch(() => setError(true))
@@ -62,7 +57,7 @@ export default function BlogPost() {
 
   if (loading) {
     return (
-      <div className="blog-post-page">
+      <PageContent className="page-top pb-16">
         <div className="blog-post-grid">
           <div className="blog-post-main">
             <div className="h-8 w-2/3 max-w-lg animate-pulse rounded bg-white/10" />
@@ -74,7 +69,7 @@ export default function BlogPost() {
             </div>
           </div>
         </div>
-      </div>
+      </PageContent>
     );
   }
 
@@ -87,18 +82,18 @@ export default function BlogPost() {
           path={`/blogs/${slug}`}
           noindex
         />
-        <div className="mx-auto max-w-lg px-6 py-32 text-center">
-          <h1 className="font-[azonix] text-3xl">Article not found</h1>
+        <PageContent className="page-top pb-32 text-center">
+          <h1 className="dm-sans text-2xl font-semibold text-white sm:text-3xl">Article not found</h1>
           <p className="mt-4 text-gray-400">This post may have been removed or is not published yet.</p>
           <Link to="/blogs" className="mt-6 inline-block text-blue-400 hover:underline">
             Back to blog
           </Link>
-        </div>
+        </PageContent>
       </>
     );
   }
 
-  const { blog, navigation, recommended = [], categories = [] } = data;
+  const { blog, navigation, related = [] } = data;
   const metaTitle = blog.seoTitle || blog.title;
   const metaDesc = blog.seoDescription || blog.excerpt;
   const metaKeywords =
@@ -132,7 +127,7 @@ export default function BlogPost() {
         }}
       />
 
-      <div className="blog-post-page">
+      <PageContent className="page-top pb-16">
         <div className="blog-post-grid">
           <article className="blog-post-main" itemScope itemType="https://schema.org/BlogPosting">
             <nav
@@ -174,7 +169,7 @@ export default function BlogPost() {
             )}
 
             <h1
-              className="mt-4 font-[azonix] text-3xl font-bold leading-tight text-white md:text-4xl lg:text-5xl"
+              className="blog-post-title dm-sans mt-4 text-2xl font-semibold leading-snug text-white sm:text-3xl md:text-4xl"
               itemProp="headline"
             >
               {blog.title}
@@ -196,7 +191,7 @@ export default function BlogPost() {
               <img
                 src={imageKitUrl(blog.featuredImage.url, 1200)}
                 alt={blog.title}
-                className="mt-8 w-full rounded-2xl border border-white/10 object-cover"
+                className="mt-8 max-h-[420px] w-full rounded-2xl border border-white/10 object-cover"
                 fetchPriority="high"
                 itemProp="image"
               />
@@ -209,7 +204,7 @@ export default function BlogPost() {
             )}
 
             <div className="mt-10" itemProp="articleBody">
-              <BlogContent html={blog.content} onHeadingsChange={handleHeadingsChange} />
+              <BlogContent html={blog.content} />
             </div>
 
             {blog.galleryImages?.length > 0 && (
@@ -219,7 +214,7 @@ export default function BlogPost() {
                     key={img.publicId || img._id}
                     src={imageKitUrl(img.url, 800)}
                     alt={img.alt || blog.title}
-                    className="rounded-xl border border-white/10 object-cover"
+                    className="h-48 w-full rounded-xl border border-white/10 object-cover sm:h-56"
                     loading="lazy"
                   />
                 ))}
@@ -318,13 +313,9 @@ export default function BlogPost() {
             </nav>
           </article>
 
-          <BlogSidebar
-            headings={headings}
-            recommended={recommended}
-            categories={categories}
-          />
+          <BlogSidebar related={related} />
         </div>
-      </div>
+      </PageContent>
     </>
   );
 }

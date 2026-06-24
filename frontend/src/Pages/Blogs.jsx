@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import PageMeta from "../Components/SEO/PageMeta";
 import { buildBreadcrumbs } from "../config/seo";
 import BlogCard from "../Components/Blog/BlogCard";
+import PageHero from "../Components/Layout/PageHero";
+import PageContent from "../Components/Layout/PageContent";
 import {
   getPublishedBlogs,
   getFeaturedBlogs,
@@ -71,14 +73,12 @@ export default function Blogs() {
         ])}
       />
 
-      <div className="mx-auto max-w-[1200px] px-6 pb-24 pt-24 md:pt-28">
-        <div className="mb-12 text-center md:text-left">
-          <h1 className="font-[azonix] text-4xl font-bold md:text-5xl">Insights & Updates</h1>
-          <p className="dm-sans mt-4 max-w-2xl text-lg text-gray-400">
-            Practical guides on websites, custom software, and building tools that run your business.
-          </p>
-        </div>
+      <PageHero
+        title="Blogs"
+        description="Practical guides on websites, custom software, SEO, and growing your business with technology — from BluePeak Studio."
+      />
 
+      <PageContent className="pb-24">
         {featured.length > 0 && !search && !category && page === 1 && (
           <section className="mb-16">
             <h2 className="mb-6 font-[dual] text-2xl text-white">Featured</h2>
@@ -188,7 +188,7 @@ export default function Blogs() {
             </div>
           )}
         </section>
-      </div>
+      </PageContent>
     </>
   );
 }

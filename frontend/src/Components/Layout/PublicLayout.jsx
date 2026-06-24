@@ -62,9 +62,9 @@ export default function PublicLayout() {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/about-us" element={<About />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/services" element={<Services />} />
-            <Route path="/about-us" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route path="/blogs/:slug" element={<BlogPost />} />

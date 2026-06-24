@@ -183,7 +183,7 @@ const getBlogBySlug = asyncHandler(async (req, res) => {
 
   const addPosts = (posts) => {
     for (const post of posts) {
-      if (recommended.length >= 5) return;
+      if (recommended.length >= 6) return;
       const id = String(post._id);
       if (seen.has(id)) continue;
       seen.add(id);
@@ -200,7 +200,7 @@ const getBlogBySlug = asyncHandler(async (req, res) => {
     data: {
       blog,
       navigation: { prev, next },
-      related: recommended.slice(0, 3),
+      related: recommended,
       recommended,
       categories: categoryCounts,
     },
