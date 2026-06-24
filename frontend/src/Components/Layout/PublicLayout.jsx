@@ -4,6 +4,7 @@ import { Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import ScrollTop from "../UI/ScrollTop";
 import Footer from "./Footer";
+import ContactFormPopup from "./ContactFormPopup";
 import GlobalSeo from "../SEO/GlobalSeo";
 import SeoRouteHandler from "../SEO/SeoRouteHandler";
 import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion";
@@ -75,6 +76,7 @@ export default function PublicLayout() {
         </Suspense>
       </main>
       <Footer />
+      <ContactFormPopup />
     </div>
   );
 }

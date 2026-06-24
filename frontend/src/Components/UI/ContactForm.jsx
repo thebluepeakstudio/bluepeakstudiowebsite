@@ -4,7 +4,7 @@ import FormFieldLabel from "./FormFieldLabel";
 import toast from "react-hot-toast";
 import { apiUrl } from "../../utils/apiBase";
 
-const ContactForm = () => {
+const ContactForm = ({ variant = "page", onSuccess }) => {
   const [formData, setFormData] = useState({
     name: "",
     contactNo: "",
@@ -51,6 +51,7 @@ const ContactForm = () => {
           email: "",
           message: "",
         });
+        onSuccess?.();
       } else {
         toast.error(data.message || "Something went wrong!");
       }
@@ -62,8 +63,16 @@ const ContactForm = () => {
     }
   };
 
+  const isPopup = variant === "popup";
+
   return (
-    <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 py-10 px-4 shadow-xl backdrop-blur-xl lg:ml-16 lg:mr-16 lg:px-10">
+    <div
+      className={
+        isPopup
+          ? ""
+          : "overflow-hidden rounded-3xl border border-white/10 bg-white/5 py-10 px-4 shadow-xl backdrop-blur-xl lg:ml-16 lg:mr-16 lg:px-10"
+      }
+    >
       <form
         onSubmit={handleSubmit}
         className="contact-us-form dm-sans flex flex-col justify-center gap-3"
@@ -111,7 +120,7 @@ const ContactForm = () => {
           />
         </div>
 
-        <div className="mx-auto flex w-[50%] items-center justify-center">
+        <div className={isPopup ? "flex justify-center pt-1" : "mx-auto flex w-[50%] items-center justify-center"}>
           <Button type="submit" disabled={loading} title={loading ? "Sending..." : "Submit!"} />
         </div>
       </form>
