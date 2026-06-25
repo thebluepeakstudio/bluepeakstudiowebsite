@@ -29,6 +29,24 @@ const attachmentSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const assignedFreelancerSchema = new mongoose.Schema(
+  {
+    freelancerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Freelancer",
+      required: true,
+    },
+    outsourcingCost: { type: Number, default: 0, min: 0 },
+    amountPaidToFreelancer: { type: Number, default: 0, min: 0 },
+    freelancerPaymentStatus: {
+      type: String,
+      enum: FREELANCER_PAYMENT_STATUSES,
+      default: "Pending",
+    },
+  },
+  { _id: true }
+);
+
 const projectSchema = new mongoose.Schema(
   {
     clientId: { type: mongoose.Schema.Types.ObjectId, ref: "Client" },
@@ -49,6 +67,7 @@ const projectSchema = new mongoose.Schema(
     fullPaymentDate: { type: Date },
     paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: "Pending" },
     isOutsourced: { type: Boolean, default: false },
+    assignedFreelancers: [assignedFreelancerSchema],
     freelancerId: { type: mongoose.Schema.Types.ObjectId, ref: "Freelancer" },
     freelancerAssigned: { type: String, trim: true },
     outsourcingCost: { type: Number, default: 0, min: 0 },
@@ -82,6 +101,7 @@ projectSchema.pre("save", function () {
 projectSchema.index({ clientId: 1 });
 projectSchema.index({ workStatus: 1, paymentStatus: 1, projectType: 1 });
 projectSchema.index({ dateOfOnboarding: 1 });
+projectSchema.index({ "assignedFreelancers.freelancerId": 1, isOutsourced: 1 });
 projectSchema.index({ freelancerId: 1, isOutsourced: 1 });
 projectSchema.index({ createdAt: -1 });
 projectSchema.index({ paymentStatus: 1 });

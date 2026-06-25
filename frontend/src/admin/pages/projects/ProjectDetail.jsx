@@ -91,6 +91,25 @@ export default function ProjectDetail() {
   const remaining =
     project.paymentStatus === "Paid" ? 0 : project.remainingAmount ?? 0;
 
+  const assignedFreelancers =
+    project.assignedFreelancers?.length > 0
+      ? project.assignedFreelancers
+      : project.freelancerId
+        ? [
+            {
+              freelancerId: project.freelancerId,
+              outsourcingCost: project.outsourcingCost,
+              amountPaidToFreelancer: project.amountPaidToFreelancer,
+              freelancerPaymentStatus: project.freelancerPaymentStatus,
+            },
+          ]
+        : [];
+
+  const totalOutsourcingCost = assignedFreelancers.reduce(
+    (sum, row) => sum + (Number(row.outsourcingCost) || 0),
+    0
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start gap-3">
@@ -128,7 +147,7 @@ export default function ProjectDetail() {
         {project.isOutsourced ? (
           <SummaryTile
             label="Outsourcing Cost"
-            value={formatCurrency(project.outsourcingCost)}
+            value={formatCurrency(totalOutsourcingCost)}
             accent="text-admin-primary"
           />
         ) : (
@@ -201,42 +220,49 @@ export default function ProjectDetail() {
           </div>
         </Card>
 
-        {project.isOutsourced && (
+        {project.isOutsourced && assignedFreelancers.length > 0 && (
           <Card
+            className="lg:col-span-2"
             title={
               <span className="flex items-center gap-2">
                 <Users size={18} className="text-admin-primary" />
-                Freelancer
+                Freelancers ({assignedFreelancers.length})
               </span>
             }
           >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <DetailRow
-                label="Assigned to"
-                value={project.freelancerId?.name || project.freelancerAssigned}
-              />
-              <DetailRow label="Outsourcing cost" value={formatCurrency(project.outsourcingCost)} />
-              <DetailRow
-                label="Paid to freelancer"
-                value={formatCurrency(project.amountPaidToFreelancer)}
-              />
-              <DetailRow
-                label="Due to freelancer"
-                value={formatCurrency(
-                  Math.max(
-                    0,
-                    (project.outsourcingCost || 0) - (project.amountPaidToFreelancer || 0)
-                  )
-                )}
-              />
-              <div className="flex flex-col gap-1 rounded-lg bg-admin-muted/60 px-4 py-3 sm:col-span-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-admin-textMuted">
-                  Payment status
-                </span>
-                <div className="mt-0.5">
-                  <Badge status={project.freelancerPaymentStatus} />
-                </div>
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px] text-sm">
+                <thead>
+                  <tr className="border-b border-admin-border text-left text-xs uppercase tracking-wide text-admin-textMuted">
+                    <th className="px-3 py-2 font-medium">Freelancer</th>
+                    <th className="px-3 py-2 font-medium">Cost</th>
+                    <th className="px-3 py-2 font-medium">Paid</th>
+                    <th className="px-3 py-2 font-medium">Due</th>
+                    <th className="px-3 py-2 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assignedFreelancers.map((row, index) => {
+                    const cost = Number(row.outsourcingCost) || 0;
+                    const paid = Number(row.amountPaidToFreelancer) || 0;
+                    const due = Math.max(0, cost - paid);
+                    const name =
+                      row.freelancerId?.name ||
+                      (typeof row.freelancerId === "string" ? "Freelancer" : "—");
+                    return (
+                      <tr key={row._id || index} className="border-b border-admin-border/60 last:border-0">
+                        <td className="px-3 py-3 font-medium text-admin-text">{name}</td>
+                        <td className="px-3 py-3">{formatCurrency(cost)}</td>
+                        <td className="px-3 py-3 text-emerald-700">{formatCurrency(paid)}</td>
+                        <td className="px-3 py-3">{formatCurrency(due)}</td>
+                        <td className="px-3 py-3">
+                          <Badge status={row.freelancerPaymentStatus} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </Card>
         )}

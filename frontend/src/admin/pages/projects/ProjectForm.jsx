@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { Form, FormSection, FormGrid, FormFooter, FormCheckbox } from "../../components/ui/Form";
 import { Input, Textarea, Select } from "../../components/ui/Input";
+import Button from "../../components/ui/Button";
 import { PROJECT_TYPES, PAYMENT_STATUSES, WORK_STATUSES } from "../../utils/constants";
 import { getFreelancers } from "../../api/freelancers.api";
 import { getClients } from "../../api/clients.api";
+
+const emptyAssignment = () => ({ freelancerId: "", outsourcingCost: 0 });
 
 const dateFields = [
   "dateOfOnboarding",
@@ -30,11 +34,7 @@ const empty = {
   fullPaymentDate: "",
   paymentStatus: "Pending",
   isOutsourced: false,
-  freelancerId: "",
-  freelancerAssigned: "",
-  outsourcingCost: 0,
-  amountPaidToFreelancer: 0,
-  freelancerPaymentStatus: "Pending",
+  assignedFreelancers: [],
   workStatus: "Not Started",
   notes: "",
   googleDriveLink: "",
@@ -57,8 +57,22 @@ export default function ProjectForm({
       dateFields.forEach((k) => {
         if (mapped[k]) mapped[k] = mapped[k].slice(0, 10);
       });
-      if (mapped.freelancerId?._id) mapped.freelancerId = mapped.freelancerId._id;
       if (mapped.clientId?._id) mapped.clientId = mapped.clientId._id;
+      if (mapped.assignedFreelancers?.length) {
+        mapped.assignedFreelancers = mapped.assignedFreelancers.map((row) => ({
+          freelancerId: row.freelancerId?._id || row.freelancerId || "",
+          outsourcingCost: row.outsourcingCost ?? 0,
+        }));
+      } else if (mapped.freelancerId) {
+        mapped.assignedFreelancers = [
+          {
+            freelancerId: mapped.freelancerId?._id || mapped.freelancerId,
+            outsourcingCost: mapped.outsourcingCost ?? 0,
+          },
+        ];
+      } else {
+        mapped.assignedFreelancers = [];
+      }
       setForm(mapped);
     }
   }, [initial]);
@@ -94,6 +108,37 @@ export default function ProjectForm({
   }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const setAssignment = (index, key, value) => {
+    setForm((f) => {
+      const next = [...(f.assignedFreelancers || [])];
+      next[index] = { ...next[index], [key]: value };
+      return { ...f, assignedFreelancers: next };
+    });
+  };
+
+  const addAssignment = () => {
+    setForm((f) => ({
+      ...f,
+      assignedFreelancers: [...(f.assignedFreelancers || []), emptyAssignment()],
+    }));
+  };
+
+  const removeAssignment = (index) => {
+    setForm((f) => ({
+      ...f,
+      assignedFreelancers: f.assignedFreelancers.filter((_, i) => i !== index),
+    }));
+  };
+
+  const selectedFreelancerIds = (form.assignedFreelancers || [])
+    .map((row) => row.freelancerId)
+    .filter(Boolean);
+
+  const totalOutsourcingCost = (form.assignedFreelancers || []).reduce(
+    (sum, row) => sum + (Number(row.outsourcingCost) || 0),
+    0
+  );
 
   const onClientChange = (clientId) => {
     const client = clients.find((c) => c._id === clientId);
@@ -133,13 +178,18 @@ export default function ProjectForm({
   const handleSubmit = (e) => {
     e.preventDefault();
     const payload = { ...form };
-    ["totalAmount", "advanceReceived", "outsourcingCost"].forEach(
-      (k) => (payload[k] = Number(payload[k]) || 0)
-    );
-    delete payload.amountPaidToFreelancer;
-    delete payload.freelancerPaymentStatus;
+    ["totalAmount", "advanceReceived"].forEach((k) => (payload[k] = Number(payload[k]) || 0));
+    if (payload.isOutsourced) {
+      payload.assignedFreelancers = (payload.assignedFreelancers || [])
+        .filter((row) => row.freelancerId)
+        .map((row) => ({
+          freelancerId: row.freelancerId,
+          outsourcingCost: Number(row.outsourcingCost) || 0,
+        }));
+    } else {
+      payload.assignedFreelancers = [];
+    }
     if (payload.paymentStatus === "Paid") payload.remainingAmount = 0;
-    if (!payload.freelancerId) delete payload.freelancerId;
     if (!payload.clientId) delete payload.clientId;
     delete payload.projectTitle;
     onSubmit(payload);
@@ -170,7 +220,7 @@ export default function ProjectForm({
               setForm((f) => ({
                 ...f,
                 projectType,
-                ...(f.isOutsourced ? { freelancerId: "", freelancerAssigned: "" } : {}),
+                ...(f.isOutsourced ? { assignedFreelancers: [] } : {}),
               }));
             }}
             options={PROJECT_TYPES}
@@ -290,48 +340,85 @@ export default function ProjectForm({
       <FormSection title="Outsourcing" variant="muted">
         <FormCheckbox
           label="Outsourced project"
-          description="Assign work to a freelancer and track outsourcing cost."
+          description="Assign one or more freelancers and track outsourcing costs."
           checked={form.isOutsourced}
-          onChange={(e) => set("isOutsourced", e.target.checked)}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            setForm((f) => ({
+              ...f,
+              isOutsourced: checked,
+              assignedFreelancers: checked
+                ? f.assignedFreelancers?.length
+                  ? f.assignedFreelancers
+                  : [emptyAssignment()]
+                : [],
+            }));
+          }}
         >
-          <FormGrid cols={2}>
-            <Select
-              label="Freelancer"
-              value={form.freelancerId}
-              onChange={(e) => {
-                const id = e.target.value;
-                const selected = freelancers.find((f) => f._id === id);
-                setForm((f) => ({
-                  ...f,
-                  freelancerId: id,
-                  freelancerAssigned: selected?.name || "",
-                }));
-              }}
-              options={[
-                { value: "", label: "Select freelancer…" },
-                ...freelancers.map((f) => ({ value: f._id, label: f.name })),
-              ]}
-            />
-            <Input
-              label="Freelancer name"
-              value={form.freelancerAssigned}
-              onChange={(e) => set("freelancerAssigned", e.target.value)}
-            />
-            <Input
-              label="Outsourcing cost (₹)"
-              type="number"
-              min="0"
-              value={form.outsourcingCost}
-              onChange={(e) => set("outsourcingCost", e.target.value)}
-            />
-          </FormGrid>
+          <div className="space-y-3">
+            {(form.assignedFreelancers || []).map((row, index) => (
+              <div
+                key={index}
+                className="grid gap-3 rounded-xl border border-admin-border bg-admin-surface p-3 sm:grid-cols-[1fr_140px_auto]"
+              >
+                <Select
+                  label={index === 0 ? "Freelancer" : undefined}
+                  value={row.freelancerId}
+                  onChange={(e) => setAssignment(index, "freelancerId", e.target.value)}
+                  options={[
+                    { value: "", label: "Select freelancer…" },
+                    ...freelancers
+                      .filter(
+                        (f) =>
+                          f._id === row.freelancerId ||
+                          !selectedFreelancerIds.includes(f._id)
+                      )
+                      .map((f) => ({ value: f._id, label: f.name })),
+                  ]}
+                />
+                <Input
+                  label={index === 0 ? "Cost (₹)" : undefined}
+                  type="number"
+                  min="0"
+                  value={row.outsourcingCost}
+                  onChange={(e) => setAssignment(index, "outsourcingCost", e.target.value)}
+                />
+                <div className={`flex items-end ${index === 0 ? "pb-0.5" : ""}`}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-red-600 hover:bg-red-50"
+                    onClick={() => removeAssignment(index)}
+                    disabled={(form.assignedFreelancers || []).length <= 1}
+                    aria-label="Remove freelancer"
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              </div>
+            ))}
+
+            <Button type="button" variant="secondary" onClick={addAssignment}>
+              <Plus size={16} /> Add freelancer
+            </Button>
+
+            {totalOutsourcingCost > 0 && (
+              <p className="text-sm text-admin-textMuted">
+                Total outsourcing cost:{" "}
+                <span className="font-semibold text-admin-text">
+                  ₹{totalOutsourcingCost.toLocaleString("en-IN")}
+                </span>
+              </p>
+            )}
+          </div>
+
           {freelancers.length === 0 && (
-            <p className="text-xs text-amber-700">
+            <p className="mt-3 text-xs text-amber-700">
               No freelancers with skill &quot;{form.projectType}&quot;. Add one in Freelancers with this skill selected.
             </p>
           )}
-          <p className="text-xs text-admin-textMuted">
-            Record freelancer payments from the Freelancers page. Amount paid and status update automatically per project.
+          <p className="mt-3 text-xs text-admin-textMuted">
+            Record freelancer payments from the Freelancers page. Amount paid and status update automatically per assignment.
           </p>
         </FormCheckbox>
       </FormSection>

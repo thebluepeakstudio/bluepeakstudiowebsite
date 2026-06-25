@@ -5,11 +5,11 @@ const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
 const {
-  getProjectFreelancerDue,
-  syncProjectFreelancerPaymentFields,
-  resetFreelancerPaymentFields,
-  shouldResetFreelancerPayment,
-} = require("../../utils/projectFreelancerPayment");
+  getAssignmentFreelancerIds,
+  mergeAssignedFreelancers,
+  applyFreelancerFieldsToProject,
+  normalizeAssignedFreelancers,
+} = require("../../utils/projectFreelancerAssignments");
 const { syncClientToProject } = require("../../utils/syncClientToProject");
 const { invalidateAnalyticsCache } = require("./analytics.controller");
 
@@ -94,10 +94,16 @@ const getProjectSummary = asyncHandler(async (req, res) => {
 const getProject = asyncHandler(async (req, res) => {
   const project = await Project.findById(req.params.id)
     .select("-attachments")
+    .populate("assignedFreelancers.freelancerId", "name email contactNumber skills")
     .populate("freelancerId", "name email contactNumber skills")
     .populate("clientId", "name companyName email phone website")
     .lean();
   if (!project) throw new ApiError(404, "Project not found");
+
+  if (!project.assignedFreelancers?.length && project.freelancerId) {
+    project.assignedFreelancers = normalizeAssignedFreelancers(project);
+  }
+
   res.json({ success: true, data: project });
 });
 
@@ -105,7 +111,53 @@ const stripFreelancerPaymentOverrides = (body) => {
   const next = { ...body };
   delete next.amountPaidToFreelancer;
   delete next.freelancerPaymentStatus;
+  delete next.freelancerId;
+  delete next.freelancerAssigned;
+  delete next.outsourcingCost;
+  if (Array.isArray(next.assignedFreelancers)) {
+    next.assignedFreelancers = next.assignedFreelancers.map((row) => {
+      const clean = { ...row };
+      delete clean.amountPaidToFreelancer;
+      delete clean.freelancerPaymentStatus;
+      return clean;
+    });
+  }
   return next;
+};
+
+const applyFreelancerAssignments = (body, existing = null) => {
+  const isOutsourced =
+    body.isOutsourced !== undefined
+      ? Boolean(body.isOutsourced)
+      : Boolean(existing?.isOutsourced);
+
+  if (!isOutsourced) {
+    if (body.isOutsourced === false || existing?.isOutsourced) {
+      body.assignedFreelancers = [];
+    }
+    return body;
+  }
+
+  if (Array.isArray(body.assignedFreelancers)) {
+    body.assignedFreelancers = mergeAssignedFreelancers(existing || {}, body.assignedFreelancers);
+  } else if (existing && !existing.assignedFreelancers?.length && existing.freelancerId) {
+    body.assignedFreelancers = mergeAssignedFreelancers(
+      existing,
+      normalizeAssignedFreelancers(existing)
+    );
+  }
+  return body;
+};
+
+const syncFreelancerCounts = async (oldIds, newIds) => {
+  const oldSet = new Set(oldIds);
+  const newSet = new Set(newIds);
+  for (const id of oldSet) {
+    if (!newSet.has(id)) await updateFreelancerCount(id, -1);
+  }
+  for (const id of newSet) {
+    if (!oldSet.has(id)) await updateFreelancerCount(id, 1);
+  }
 };
 
 const applyPaymentFields = (body, existing = {}) => {
@@ -128,14 +180,16 @@ const createProject = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Client is required");
   }
   let body = applyPaymentFields(stripFreelancerPaymentOverrides({ ...req.body }));
+  body = applyFreelancerAssignments(body);
   if (body.clientId) body = await syncClientToProject(body);
-  const project = await Project.create(body);
-  if (project.isOutsourced && project.freelancerId) {
-    resetFreelancerPaymentFields(project);
-    syncProjectFreelancerPaymentFields(project);
-    await project.save();
-  }
-  if (project.freelancerId) await updateFreelancerCount(project.freelancerId, 1);
+
+  const project = new Project(body);
+  applyFreelancerFieldsToProject(project);
+  await project.save();
+
+  const newIds = getAssignmentFreelancerIds(project);
+  await Promise.all(newIds.map((id) => updateFreelancerCount(id, 1)));
+
   invalidateAnalyticsCache();
   res.status(201).json({ success: true, data: project });
 });
@@ -144,34 +198,25 @@ const updateProject = asyncHandler(async (req, res) => {
   const existing = await Project.findById(req.params.id);
   if (!existing) throw new ApiError(404, "Project not found");
 
-  const oldFreelancer = existing.freelancerId?.toString();
-  const newFreelancer = req.body.freelancerId?.toString();
+  const oldIds = getAssignmentFreelancerIds(existing);
 
   let body = applyPaymentFields(stripFreelancerPaymentOverrides({ ...req.body }), existing);
+  body = applyFreelancerAssignments(body, existing);
   if (body.clientId) body = await syncClientToProject(body);
 
-  const project = await Project.findByIdAndUpdate(req.params.id, body, {
+  let project = await Project.findByIdAndUpdate(req.params.id, body, {
     new: true,
     runValidators: true,
   })
+    .populate("assignedFreelancers.freelancerId", "name email")
     .populate("freelancerId", "name email")
     .populate("clientId", "name companyName email phone");
 
-  if (project.isOutsourced && project.freelancerId) {
-    if (shouldResetFreelancerPayment(existing, project)) {
-      resetFreelancerPaymentFields(project);
-    }
-    syncProjectFreelancerPaymentFields(project);
-    await project.save();
-  } else if (!project.isOutsourced) {
-    resetFreelancerPaymentFields(project);
-    await project.save();
-  }
+  applyFreelancerFieldsToProject(project);
+  await project.save();
 
-  if (oldFreelancer !== newFreelancer) {
-    if (oldFreelancer) await updateFreelancerCount(oldFreelancer, -1);
-    if (newFreelancer) await updateFreelancerCount(newFreelancer, 1);
-  }
+  const newIds = getAssignmentFreelancerIds(project);
+  await syncFreelancerCounts(oldIds, newIds);
 
   invalidateAnalyticsCache();
   res.json({ success: true, data: project });
@@ -184,7 +229,10 @@ const deleteProject = asyncHandler(async (req, res) => {
   for (const att of project.attachments || []) {
     await deleteFromCloudinary(att.publicId);
   }
-  if (project.freelancerId) await updateFreelancerCount(project.freelancerId, -1);
+  if (project.freelancerId || project.assignedFreelancers?.length) {
+    const ids = getAssignmentFreelancerIds(project);
+    await Promise.all(ids.map((id) => updateFreelancerCount(id, -1)));
+  }
 
   await FreelancerPayment.deleteMany({ projectId: project._id });
   await Project.findByIdAndDelete(req.params.id);
