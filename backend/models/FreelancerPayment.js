@@ -14,6 +14,14 @@ const freelancerPaymentSchema = new mongoose.Schema(
       ref: "Project",
       required: true,
     },
+    deliverableId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProjectDeliverable",
+    },
+    assignmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliverableAssignment",
+    },
     amount: { type: Number, required: true, min: 0 },
     paymentDate: { type: Date, required: true, default: Date.now },
     paidVia: { type: String, enum: PAID_VIA, default: "UPI" },

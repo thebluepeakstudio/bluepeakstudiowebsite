@@ -1,4 +1,4 @@
-export const PROJECT_TYPES = [
+export const SERVICE_CATEGORIES = [
   "Website",
   "Graphic Design",
   "SMM",
@@ -6,6 +6,19 @@ export const PROJECT_TYPES = [
   "Branding",
   "Video Editing",
 ];
+
+export const PROJECT_TYPES = SERVICE_CATEGORIES;
+
+export const DELIVERABLE_STATUSES = [
+  "Not Started",
+  "In Progress",
+  "Waiting For Client",
+  "Review",
+  "Delivered",
+  "Cancelled",
+];
+
+export const PROJECT_PAYMENT_TYPES = ["Advance", "Milestone", "Final", "Custom"];
 
 export const PAYMENT_STATUSES = ["Pending", "Partial", "Paid"];
 export const WORK_STATUSES = [
@@ -88,6 +101,8 @@ export const ACTIVITY_TYPES = ["call", "meeting", "email", "note", "task"];
 /** Display label for a project (no title required). */
 export const getProjectLabel = (project) => {
   if (!project) return "—";
+  if (project.projectTitle?.trim()) return project.projectTitle;
+  if (project.projectName?.trim()) return project.projectName;
   if (project.businessName) return `${project.clientName} — ${project.businessName}`;
-  return project.clientName || project.projectTitle || "Untitled";
+  return project.clientName || "Untitled";
 };

@@ -1,26 +1,73 @@
+const mongoose = require("mongoose");
 const Project = require("../../models/Project");
-const Freelancer = require("../../models/Freelancer");
+const ProjectDeliverable = require("../../models/ProjectDeliverable");
+const Expense = require("../../models/Expense");
 const FreelancerPayment = require("../../models/FreelancerPayment");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
-const {
-  getAssignmentFreelancerIds,
-  mergeAssignedFreelancers,
-  applyFreelancerFieldsToProject,
-  normalizeAssignedFreelancers,
-} = require("../../utils/projectFreelancerAssignments");
 const { syncClientToProject } = require("../../utils/syncClientToProject");
 const { invalidateAnalyticsCache } = require("./analytics.controller");
+const {
+  activeDeliverableFilter,
+  averageDeliverableProgress,
+  buildServicesSummary,
+  computeProjectProfit,
+  getDeliverablesForProject,
+  getAssignmentsForDeliverables,
+} = require("../../services/projectCalculations.service");
+const {
+  createDeliverable,
+  updateDeliverable,
+  softDeleteDeliverable,
+  listDeliverables,
+  createDeliverablesBatch,
+  syncProjectFromDeliverables,
+} = require("../../services/projectDeliverable.service");
+const {
+  createAssignment,
+  updateAssignment,
+  softDeleteAssignment,
+  createAssignmentsBatch,
+} = require("../../services/deliverableAssignment.service");
+const {
+  listPayments,
+  createPayment,
+  deletePayment,
+  recomputeProjectPaymentSummary,
+} = require("../../services/projectPayment.service");
 
-const projectLabel = (p) =>
-  p.businessName ? `${p.clientName} — ${p.businessName}` : p.clientName || p.projectTitle || "Project";
+const PROJECT_CONTAINER_FIELDS = [
+  "clientId",
+  "clientName",
+  "businessName",
+  "contactNumber",
+  "email",
+  "projectTitle",
+  "projectDescription",
+  "dateOfOnboarding",
+  "expectedCompletionDate",
+  "actualCompletionDate",
+  "totalAmount",
+  "totalAmountOverride",
+  "paymentStatus",
+  "workStatus",
+  "notes",
+  "googleDriveLink",
+];
+
+const pickContainerFields = (body) => {
+  const payload = {};
+  PROJECT_CONTAINER_FIELDS.forEach((key) => {
+    if (body[key] !== undefined) payload[key] = body[key];
+  });
+  return payload;
+};
 
 const buildFilter = (query) => {
   const filter = {};
   if (query.workStatus) filter.workStatus = query.workStatus;
   if (query.paymentStatus) filter.paymentStatus = query.paymentStatus;
-  if (query.projectType) filter.projectType = query.projectType;
   if (query.clientId) filter.clientId = query.clientId;
   if (query.search) {
     filter.$or = [
@@ -33,11 +80,35 @@ const buildFilter = (query) => {
   return filter;
 };
 
-const updateFreelancerCount = async (freelancerId, delta) => {
-  if (!freelancerId) return;
-  await Freelancer.findByIdAndUpdate(freelancerId, {
-    $inc: { totalProjectsAssigned: delta },
-  });
+const enrichProjectListItem = async (project) => {
+  const deliverables = await ProjectDeliverable.find({
+    projectId: project._id,
+    ...activeDeliverableFilter,
+  })
+    .select("title category status progress sellingPrice")
+    .sort({ createdAt: 1 })
+    .lean();
+
+  if (deliverables.length) {
+    const summary = buildServicesSummary(deliverables);
+    return {
+      ...project,
+      ...summary,
+      overallProgress: averageDeliverableProgress(deliverables),
+      overallStatus: project.workStatus,
+      projectName: project.projectTitle || project.clientName,
+    };
+  }
+
+  return {
+    ...project,
+    services: project.projectType ? [project.projectType] : [],
+    servicesCount: project.projectType ? 1 : 0,
+    categories: project.projectType ? [project.projectType] : [],
+    overallProgress: project.workStatus === "Delivered" || project.workStatus === "Completed" ? 100 : 0,
+    overallStatus: project.workStatus,
+    projectName: project.projectTitle || project.clientName,
+  };
 };
 
 const getProjects = asyncHandler(async (req, res) => {
@@ -46,12 +117,20 @@ const getProjects = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
   const filter = buildFilter(req.query);
 
+  let projectIdsFilter = null;
+  if (req.query.category) {
+    projectIdsFilter = await ProjectDeliverable.distinct("projectId", {
+      category: req.query.category,
+      deletedAt: null,
+    });
+    filter._id = { $in: projectIdsFilter };
+  }
+
   const [projects, total] = await Promise.all([
     Project.find(filter)
       .select(
-        "clientName businessName projectTitle projectType workStatus paymentStatus totalAmount remainingAmount advanceReceived dateOfOnboarding clientId freelancerId isOutsourced createdAt"
+        "clientName businessName projectTitle projectType workStatus paymentStatus totalAmount remainingAmount advanceReceived dateOfOnboarding clientId createdAt"
       )
-      .populate("freelancerId", "name email")
       .populate("clientId", "name companyName email phone")
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -60,23 +139,62 @@ const getProjects = asyncHandler(async (req, res) => {
     Project.countDocuments(filter),
   ]);
 
+  const enriched = await Promise.all(projects.map(enrichProjectListItem));
+
   res.json({
     success: true,
-    data: projects,
+    data: enriched,
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   });
 });
 
 const getProjectSummary = asyncHandler(async (req, res) => {
-  const [active, completed, partialPayments, pendingPayments] = await Promise.all([
-    Project.countDocuments({
-      workStatus: { $nin: ["Completed", "Delivered"] },
-    }),
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [
+    active,
+    completed,
+    waitingForClient,
+    partialPayments,
+    pendingPayments,
+    deliverableStats,
+  ] = await Promise.all([
+    Project.countDocuments({ workStatus: { $nin: ["Completed", "Delivered"] } }),
     Project.countDocuments({ workStatus: { $in: ["Completed", "Delivered"] } }),
+    Project.countDocuments({ workStatus: "Waiting for Client" }),
     Project.countDocuments({ paymentStatus: "Partial" }),
     Project.aggregate([
       { $match: { paymentStatus: { $ne: "Paid" } } },
       { $group: { _id: null, total: { $sum: "$remainingAmount" } } },
+    ]),
+    ProjectDeliverable.aggregate([
+      { $match: { deletedAt: null } },
+      {
+        $group: {
+          _id: null,
+          inProgress: {
+            $sum: { $cond: [{ $eq: ["$status", "In Progress"] }, 1, 0] },
+          },
+          review: { $sum: { $cond: [{ $eq: ["$status", "Review"] }, 1, 0] } },
+          delivered: { $sum: { $cond: [{ $eq: ["$status", "Delivered"] }, 1, 0] } },
+          delayed: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $lt: ["$expectedCompletion", now] },
+                    { $ne: ["$status", "Delivered"] },
+                    { $ne: ["$status", "Cancelled"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
     ]),
   ]);
 
@@ -85,141 +203,187 @@ const getProjectSummary = asyncHandler(async (req, res) => {
     data: {
       activeProjects: active,
       completedProjects: completed,
-    partialPayments,
+      waitingForClientProjects: waitingForClient,
+      partialPayments,
       pendingPayments: pendingPayments[0]?.total || 0,
+      deliverables: deliverableStats[0] || {
+        inProgress: 0,
+        review: 0,
+        delivered: 0,
+        delayed: 0,
+      },
     },
   });
 });
 
+const buildProjectDetail = async (project) => {
+  const deliverables = await listDeliverables(project._id);
+  const payments = await listPayments(project._id);
+  const expenses = await Expense.find({ projectId: project._id })
+    .sort({ expenseDate: -1 })
+    .lean();
+
+  const summary = deliverables.length
+    ? buildServicesSummary(deliverables)
+    : {
+        services: project.projectType ? [project.projectType] : [],
+        servicesCount: project.projectType ? 1 : 0,
+        categories: project.projectType ? [project.projectType] : [],
+      };
+
+  const overallProgress = deliverables.length
+    ? averageDeliverableProgress(deliverables)
+    : project.workStatus === "Delivered" || project.workStatus === "Completed"
+      ? 100
+      : 0;
+
+  const assignmentsByDeliverable = Object.fromEntries(
+    deliverables.map((d) => [d._id.toString(), d.assignments || []])
+  );
+  const projectProfit = deliverables.length
+    ? await computeProjectProfit(project._id, deliverables, assignmentsByDeliverable)
+    : (Number(project.totalAmount) || 0) - (Number(project.outsourcingCost) || 0);
+
+  const totalFreelancerCost = deliverables.reduce(
+    (sum, d) => sum + (Number(d.freelancerCost) || 0),
+    0
+  );
+
+  return {
+    ...project,
+    ...summary,
+    deliverables,
+    payments,
+    expenses,
+    overallProgress,
+    overallStatus: project.workStatus,
+    projectProfit,
+    totalFreelancerCost,
+    deliverableProfitTotal: deliverables.reduce((sum, d) => sum + (Number(d.profit) || 0), 0),
+  };
+};
+
 const getProject = asyncHandler(async (req, res) => {
   const project = await Project.findById(req.params.id)
     .select("-attachments")
-    .populate("assignedFreelancers.freelancerId", "name email contactNumber skills")
-    .populate("freelancerId", "name email contactNumber skills")
     .populate("clientId", "name companyName email phone website")
     .lean();
   if (!project) throw new ApiError(404, "Project not found");
 
-  if (!project.assignedFreelancers?.length && project.freelancerId) {
-    project.assignedFreelancers = normalizeAssignedFreelancers(project);
-  }
-
-  res.json({ success: true, data: project });
+  const data = await buildProjectDetail(project);
+  res.json({ success: true, data });
 });
 
-const stripFreelancerPaymentOverrides = (body) => {
-  const next = { ...body };
-  delete next.amountPaidToFreelancer;
-  delete next.freelancerPaymentStatus;
-  delete next.freelancerId;
-  delete next.freelancerAssigned;
-  delete next.outsourcingCost;
-  if (Array.isArray(next.assignedFreelancers)) {
-    next.assignedFreelancers = next.assignedFreelancers.map((row) => {
-      const clean = { ...row };
-      delete clean.amountPaidToFreelancer;
-      delete clean.freelancerPaymentStatus;
-      return clean;
-    });
-  }
-  return next;
-};
-
-const applyFreelancerAssignments = (body, existing = null) => {
-  const isOutsourced =
-    body.isOutsourced !== undefined
-      ? Boolean(body.isOutsourced)
-      : Boolean(existing?.isOutsourced);
-
-  if (!isOutsourced) {
-    if (body.isOutsourced === false || existing?.isOutsourced) {
-      body.assignedFreelancers = [];
-    }
-    return body;
-  }
-
-  if (Array.isArray(body.assignedFreelancers)) {
-    body.assignedFreelancers = mergeAssignedFreelancers(existing || {}, body.assignedFreelancers);
-  } else if (existing && !existing.assignedFreelancers?.length && existing.freelancerId) {
-    body.assignedFreelancers = mergeAssignedFreelancers(
-      existing,
-      normalizeAssignedFreelancers(existing)
-    );
-  }
-  return body;
-};
-
-const syncFreelancerCounts = async (oldIds, newIds) => {
-  const oldSet = new Set(oldIds);
-  const newSet = new Set(newIds);
-  for (const id of oldSet) {
-    if (!newSet.has(id)) await updateFreelancerCount(id, -1);
-  }
-  for (const id of newSet) {
-    if (!oldSet.has(id)) await updateFreelancerCount(id, 1);
-  }
-};
-
-const applyPaymentFields = (body, existing = {}) => {
-  const total = Number(body.totalAmount ?? existing.totalAmount ?? 0) || 0;
-
-  if (body.paymentStatus === "Paid") {
-    body.remainingAmount = 0;
-    if (total > 0) {
-      body.advanceReceived = total;
-    }
-  } else {
-    const advance = Number(body.advanceReceived ?? existing.advanceReceived ?? 0) || 0;
-    body.remainingAmount = Math.max(0, total - advance);
-  }
-  return body;
-};
-
 const createProject = asyncHandler(async (req, res) => {
-  if (!req.body.clientId && !req.body.clientName) {
+  const { project: projectData, deliverables, payments, totalAmountOverride } = req.body;
+
+  if (!projectData?.clientId && !projectData?.clientName) {
     throw new ApiError(400, "Client is required");
   }
-  let body = applyPaymentFields(stripFreelancerPaymentOverrides({ ...req.body }));
-  body = applyFreelancerAssignments(body);
-  if (body.clientId) body = await syncClientToProject(body);
+  if (!deliverables?.length) {
+    throw new ApiError(400, "At least one deliverable is required");
+  }
 
-  const project = new Project(body);
-  applyFreelancerFieldsToProject(project);
-  await project.save();
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    let body = pickContainerFields(projectData);
+    body.totalAmountOverride = Boolean(totalAmountOverride);
+    if (body.clientId) body = await syncClientToProject(body);
 
-  const newIds = getAssignmentFreelancerIds(project);
-  await Promise.all(newIds.map((id) => updateFreelancerCount(id, 1)));
+    const project = new Project(body);
+    await project.save({ session });
 
-  invalidateAnalyticsCache();
-  res.status(201).json({ success: true, data: project });
+    const createdDeliverables = await createDeliverablesBatch(
+      project._id,
+      deliverables,
+      session
+    );
+
+    for (let i = 0; i < createdDeliverables.length; i++) {
+      const assignments = deliverables[i]?.assignments;
+      if (assignments?.length) {
+        await createAssignmentsBatch(createdDeliverables[i]._id, assignments, session);
+      }
+    }
+
+    if (totalAmountOverride && projectData.totalAmount !== undefined) {
+      project.totalAmount = Number(projectData.totalAmount) || 0;
+      await project.save({ session });
+    } else {
+      await syncProjectFromDeliverables(project._id, session);
+    }
+
+    if (payments?.length) {
+      for (const payment of payments) {
+        await createPayment(project._id, payment, req.admin.name, session);
+      }
+    } else if (projectData.advanceReceived > 0) {
+      await createPayment(
+        project._id,
+        {
+          type: "Advance",
+          amount: projectData.advanceReceived,
+          paymentDate: projectData.advancePaymentDate,
+          method: "UPI",
+        },
+        req.admin.name,
+        session
+      );
+    } else {
+      await recomputeProjectPaymentSummary(project._id, session);
+    }
+
+    await session.commitTransaction();
+
+    const populated = await Project.findById(project._id)
+      .populate("clientId", "name companyName email phone")
+      .lean();
+    const data = await buildProjectDetail(populated);
+
+    invalidateAnalyticsCache();
+    res.status(201).json({ success: true, data });
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
 });
 
 const updateProject = asyncHandler(async (req, res) => {
   const existing = await Project.findById(req.params.id);
   if (!existing) throw new ApiError(404, "Project not found");
 
-  const oldIds = getAssignmentFreelancerIds(existing);
-
-  let body = applyPaymentFields(stripFreelancerPaymentOverrides({ ...req.body }), existing);
-  body = applyFreelancerAssignments(body, existing);
+  let body = pickContainerFields(req.body);
   if (body.clientId) body = await syncClientToProject(body);
 
-  let project = await Project.findByIdAndUpdate(req.params.id, body, {
+  if (body.paymentStatus === "Paid") {
+    body.remainingAmount = 0;
+    if ((body.totalAmount ?? existing.totalAmount) > 0) {
+      body.advanceReceived = body.totalAmount ?? existing.totalAmount;
+    }
+  }
+
+  const project = await Project.findByIdAndUpdate(req.params.id, body, {
     new: true,
     runValidators: true,
   })
-    .populate("assignedFreelancers.freelancerId", "name email")
-    .populate("freelancerId", "name email")
-    .populate("clientId", "name companyName email phone");
+    .populate("clientId", "name companyName email phone")
+    .lean();
 
-  applyFreelancerFieldsToProject(project);
-  await project.save();
+  if (!body.totalAmountOverride && body.totalAmount === undefined) {
+    await syncProjectFromDeliverables(project._id);
+  }
+  await recomputeProjectPaymentSummary(project._id);
 
-  const newIds = getAssignmentFreelancerIds(project);
-  await syncFreelancerCounts(oldIds, newIds);
+  const refreshed = await Project.findById(project._id)
+    .populate("clientId", "name companyName email phone")
+    .lean();
+  const data = await buildProjectDetail(refreshed);
 
   invalidateAnalyticsCache();
-  res.json({ success: true, data: project });
+  res.json({ success: true, data });
 });
 
 const deleteProject = asyncHandler(async (req, res) => {
@@ -229,13 +393,13 @@ const deleteProject = asyncHandler(async (req, res) => {
   for (const att of project.attachments || []) {
     await deleteFromCloudinary(att.publicId);
   }
-  if (project.freelancerId || project.assignedFreelancers?.length) {
-    const ids = getAssignmentFreelancerIds(project);
-    await Promise.all(ids.map((id) => updateFreelancerCount(id, -1)));
-  }
 
-  await FreelancerPayment.deleteMany({ projectId: project._id });
-  await Project.findByIdAndDelete(req.params.id);
+  await Promise.all([
+    ProjectDeliverable.updateMany({ projectId: project._id }, { deletedAt: new Date() }),
+    FreelancerPayment.deleteMany({ projectId: project._id }),
+    Expense.updateMany({ projectId: project._id }, { $unset: { projectId: 1 } }),
+    Project.findByIdAndDelete(req.params.id),
+  ]);
 
   invalidateAnalyticsCache();
   res.json({ success: true, message: "Project deleted" });
@@ -265,6 +429,90 @@ const uploadProjectFiles = asyncHandler(async (req, res) => {
   res.json({ success: true, data: project });
 });
 
+const getProjectDeliverables = asyncHandler(async (req, res) => {
+  const project = await Project.findById(req.params.id);
+  if (!project) throw new ApiError(404, "Project not found");
+  const data = await listDeliverables(req.params.id);
+  res.json({ success: true, data });
+});
+
+const postProjectDeliverable = asyncHandler(async (req, res) => {
+  const deliverable = await createDeliverable(req.params.id, req.body);
+  invalidateAnalyticsCache();
+  res.status(201).json({ success: true, data: deliverable });
+});
+
+const putProjectDeliverable = asyncHandler(async (req, res) => {
+  const deliverable = await updateDeliverable(req.params.id, req.params.deliverableId, req.body);
+  invalidateAnalyticsCache();
+  res.json({ success: true, data: deliverable });
+});
+
+const deleteProjectDeliverable = asyncHandler(async (req, res) => {
+  await softDeleteDeliverable(req.params.id, req.params.deliverableId);
+  invalidateAnalyticsCache();
+  res.json({ success: true, message: "Deliverable deleted" });
+});
+
+const postAssignment = asyncHandler(async (req, res) => {
+  const assignment = await createAssignment(
+    req.params.id,
+    req.params.deliverableId,
+    req.body
+  );
+  invalidateAnalyticsCache();
+  res.status(201).json({ success: true, data: assignment });
+});
+
+const putAssignment = asyncHandler(async (req, res) => {
+  const assignment = await updateAssignment(
+    req.params.id,
+    req.params.deliverableId,
+    req.params.assignmentId,
+    req.body
+  );
+  invalidateAnalyticsCache();
+  res.json({ success: true, data: assignment });
+});
+
+const deleteAssignment = asyncHandler(async (req, res) => {
+  await softDeleteAssignment(
+    req.params.id,
+    req.params.deliverableId,
+    req.params.assignmentId
+  );
+  invalidateAnalyticsCache();
+  res.json({ success: true, message: "Assignment removed" });
+});
+
+const getProjectPayments = asyncHandler(async (req, res) => {
+  const project = await Project.findById(req.params.id);
+  if (!project) throw new ApiError(404, "Project not found");
+  const payments = await listPayments(req.params.id);
+  res.json({ success: true, data: payments });
+});
+
+const postProjectPayment = asyncHandler(async (req, res) => {
+  const payment = await createPayment(req.params.id, req.body, req.admin.name);
+  invalidateAnalyticsCache();
+  res.status(201).json({ success: true, data: payment });
+});
+
+const deleteProjectPayment = asyncHandler(async (req, res) => {
+  await deletePayment(req.params.id, req.params.paymentId);
+  invalidateAnalyticsCache();
+  res.json({ success: true, message: "Payment deleted" });
+});
+
+const getProjectExpenses = asyncHandler(async (req, res) => {
+  const project = await Project.findById(req.params.id);
+  if (!project) throw new ApiError(404, "Project not found");
+  const expenses = await Expense.find({ projectId: req.params.id })
+    .sort({ expenseDate: -1 })
+    .lean();
+  res.json({ success: true, data: expenses });
+});
+
 module.exports = {
   getProjects,
   getProject,
@@ -273,4 +521,15 @@ module.exports = {
   updateProject,
   deleteProject,
   uploadProjectFiles,
+  getProjectDeliverables,
+  postProjectDeliverable,
+  putProjectDeliverable,
+  deleteProjectDeliverable,
+  postAssignment,
+  putAssignment,
+  deleteAssignment,
+  getProjectPayments,
+  postProjectPayment,
+  deleteProjectPayment,
+  getProjectExpenses,
 };

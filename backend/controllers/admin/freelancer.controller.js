@@ -1,5 +1,5 @@
 const Freelancer = require("../../models/Freelancer");
-const { PROJECT_TYPES } = require("../../models/Project");
+const { SERVICE_CATEGORIES } = require("../../constants/serviceCategories");
 const FreelancerPayment = require("../../models/FreelancerPayment");
 const Project = require("../../models/Project");
 const ApiError = require("../../utils/ApiError");
@@ -8,13 +8,16 @@ const {
   getFinancialsForFreelancer,
   attachFinancialsToList,
 } = require("../../utils/freelancerTotals");
-const {
-  getProjectFreelancerDue,
-} = require("../../utils/projectFreelancerPayment");
+const { getProjectFreelancerDue } = require("../../utils/projectFreelancerPayment");
 const {
   findAssignmentForFreelancer,
-  applyPaymentToAssignment,
+  applyPaymentToAssignment: applyLegacyPaymentToProject,
 } = require("../../utils/projectFreelancerAssignments");
+const {
+  listAssignmentsForFreelancer,
+  applyPaymentToAssignment,
+  updateFreelancerCount,
+} = require("../../services/deliverableAssignment.service");
 
 const BASIC_FIELDS = [
   "name",
@@ -33,7 +36,7 @@ const pickBasicFields = (body) => {
     if (body[key] !== undefined) payload[key] = body[key];
   });
   if (payload.skills) {
-    payload.skills = payload.skills.filter((s) => PROJECT_TYPES.includes(s));
+    payload.skills = payload.skills.filter((s) => SERVICE_CATEGORIES.includes(s));
   }
   return payload;
 };
@@ -79,19 +82,19 @@ const getFreelancer = asyncHandler(async (req, res) => {
   if (!freelancer) throw new ApiError(404, "Freelancer not found");
 
   const financials = await getFinancialsForFreelancer(freelancer._id);
+  const assignments = await listAssignmentsForFreelancer(freelancer._id);
 
   res.json({
     success: true,
     data: {
       ...freelancer.toObject(),
       ...financials,
+      assignments,
     },
   });
 });
 
-const getFreelancerProjects = asyncHandler(async (req, res) => {
-  const freelancerId = req.params.id;
-
+const getLegacyFreelancerProjects = async (freelancerId) => {
   const projects = await Project.find({
     isOutsourced: true,
     $or: [
@@ -105,25 +108,42 @@ const getFreelancerProjects = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .lean();
 
-  const data = projects
+  return projects
     .map((p) => {
       const assignment = findAssignmentForFreelancer(p, freelancerId);
       if (!assignment) return null;
       const cost = assignment.outsourcingCost || 0;
       const paid = assignment.amountPaidToFreelancer || 0;
       return {
-        ...p,
-        outsourcingCost: cost,
-        amountPaidToFreelancer: paid,
-        freelancerPaymentStatus: assignment.freelancerPaymentStatus,
-        projectDue: getProjectFreelancerDue(cost, paid),
+        _id: p._id,
+        assignmentId: null,
+        projectId: p._id,
+        deliverableId: null,
+        project: p,
+        deliverable: { title: p.projectType, category: p.projectType, status: p.workStatus },
+        role: "General",
+        cost,
+        amountPaid: paid,
+        paymentStatus: assignment.freelancerPaymentStatus,
+        due: getProjectFreelancerDue(cost, paid),
+        status: p.workStatus,
+        legacy: true,
       };
     })
     .filter(Boolean);
+};
+
+const getFreelancerProjects = asyncHandler(async (req, res) => {
+  const freelancerId = req.params.id;
+  let data = await listAssignmentsForFreelancer(freelancerId);
+
+  if (!data.length) {
+    data = await getLegacyFreelancerProjects(freelancerId);
+  }
 
   const filtered =
     req.query.pendingOnly === "1" || req.query.pendingOnly === "true"
-      ? data.filter((p) => p.projectDue > 0)
+      ? data.filter((p) => p.due > 0)
       : data;
 
   res.json({ success: true, data: filtered });
@@ -134,7 +154,8 @@ const getFreelancerPayments = asyncHandler(async (req, res) => {
   if (!freelancer) throw new ApiError(404, "Freelancer not found");
 
   const payments = await FreelancerPayment.find({ freelancerId: req.params.id })
-    .populate("projectId", "clientName businessName projectType")
+    .populate("projectId", "clientName businessName projectTitle")
+    .populate("deliverableId", "title category")
     .sort({ paymentDate: -1 })
     .limit(50)
     .lean();
@@ -147,9 +168,60 @@ const recordFreelancerPayment = asyncHandler(async (req, res) => {
   const freelancer = await Freelancer.findById(req.params.id);
   if (!freelancer) throw new ApiError(404, "Freelancer not found");
 
+  const assignmentId = req.body.assignmentId;
   const projectId = req.body.projectId;
+
+  if (assignmentId) {
+    const DeliverableAssignment = require("../../models/DeliverableAssignment");
+    const assignment = await DeliverableAssignment.findOne({
+      _id: assignmentId,
+      freelancerId: req.params.id,
+      deletedAt: null,
+    }).populate({
+      path: "deliverableId",
+      select: "projectId title",
+    });
+
+    if (!assignment || !assignment.deliverableId) {
+      throw new ApiError(400, "Invalid assignment for this freelancer");
+    }
+
+    const due = getProjectFreelancerDue(assignment.cost, assignment.amountPaid);
+    if (due <= 0) throw new ApiError(400, "Nothing due on this assignment");
+
+    const payFull = req.body.payFull === true || req.body.payFull === "true";
+    let amount = payFull ? due : Number(req.body.amount);
+    if (!amount || amount <= 0) throw new ApiError(400, "Payment amount must be greater than 0");
+    if (amount > due) throw new ApiError(400, `Payment cannot exceed amount due (${due})`);
+
+    await applyPaymentToAssignment(assignmentId, amount);
+
+    const payment = await FreelancerPayment.create({
+      freelancerId: req.params.id,
+      projectId: assignment.deliverableId.projectId,
+      deliverableId: assignment.deliverableId._id,
+      assignmentId: assignment._id,
+      amount,
+      paymentDate: req.body.paymentDate || new Date(),
+      paidVia: req.body.paidVia || "UPI",
+      notes: req.body.notes || "",
+      recordedBy: req.admin.name,
+    });
+
+    await payment.populate([
+      { path: "projectId", select: "clientName businessName projectTitle" },
+      { path: "deliverableId", select: "title category" },
+    ]);
+
+    const updatedFinancials = await getFinancialsForFreelancer(req.params.id);
+    return res.status(201).json({
+      success: true,
+      data: { payment, financials: updatedFinancials },
+    });
+  }
+
   if (!projectId) {
-    throw new ApiError(400, "Select a project to pay against");
+    throw new ApiError(400, "Select an assignment or project to pay against");
   }
 
   const project = await Project.findOne({
@@ -160,34 +232,25 @@ const recordFreelancerPayment = asyncHandler(async (req, res) => {
       { freelancerId: req.params.id },
     ],
   });
-  if (!project) {
-    throw new ApiError(400, "Invalid project for this freelancer");
-  }
+  if (!project) throw new ApiError(400, "Invalid project for this freelancer");
 
   const assignment = findAssignmentForFreelancer(project, req.params.id);
-  if (!assignment) {
-    throw new ApiError(400, "Invalid project for this freelancer");
-  }
+  if (!assignment) throw new ApiError(400, "Invalid project for this freelancer");
 
   const projectDue = getProjectFreelancerDue(
     assignment.outsourcingCost,
     assignment.amountPaidToFreelancer
   );
-  if (projectDue <= 0) {
-    throw new ApiError(400, "Nothing due on this project");
-  }
+  if (projectDue <= 0) throw new ApiError(400, "Nothing due on this project");
 
   const payFull = req.body.payFull === true || req.body.payFull === "true";
   let amount = payFull ? projectDue : Number(req.body.amount);
-
-  if (!amount || amount <= 0) {
-    throw new ApiError(400, "Payment amount must be greater than 0");
-  }
+  if (!amount || amount <= 0) throw new ApiError(400, "Payment amount must be greater than 0");
   if (amount > projectDue) {
     throw new ApiError(400, `Payment cannot exceed amount due (${projectDue}) for this project`);
   }
 
-  applyPaymentToAssignment(project, req.params.id, amount);
+  applyLegacyPaymentToProject(project, req.params.id, amount);
   await project.save();
 
   const payment = await FreelancerPayment.create({
@@ -200,8 +263,7 @@ const recordFreelancerPayment = asyncHandler(async (req, res) => {
     recordedBy: req.admin.name,
   });
 
-  await payment.populate("projectId", "clientName businessName projectType");
-
+  await payment.populate("projectId", "clientName businessName projectType projectTitle");
   const updatedFinancials = await getFinancialsForFreelancer(req.params.id);
 
   res.status(201).json({
@@ -242,7 +304,13 @@ const deleteFreelancer = asyncHandler(async (req, res) => {
   const freelancer = await Freelancer.findById(req.params.id);
   if (!freelancer) throw new ApiError(404, "Freelancer not found");
 
+  const DeliverableAssignment = require("../../models/DeliverableAssignment");
+
   await Promise.all([
+    DeliverableAssignment.updateMany(
+      { freelancerId: freelancer._id, deletedAt: null },
+      { deletedAt: new Date() }
+    ),
     Project.updateMany(
       { "assignedFreelancers.freelancerId": freelancer._id },
       { $pull: { assignedFreelancers: { freelancerId: freelancer._id } } }

@@ -42,7 +42,7 @@ export default function Search() {
                   <li key={p._id}>
                     <Link to={`/admin-panel/projects/${p._id}`} className="block rounded-lg p-2 transition-colors hover:bg-blue-50">
                       <p className="font-medium text-sm">{getProjectLabel(p)}</p>
-                      <p className="text-xs text-admin-textMuted">{p.projectType}</p>
+                      <p className="text-xs text-admin-textMuted">{p.projectTitle || p.clientName}</p>
                       <div className="mt-1 flex gap-1">
                         <Badge status={p.workStatus} />
                       </div>

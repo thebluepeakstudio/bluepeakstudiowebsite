@@ -38,6 +38,7 @@ const empty = {
 };
 
 const emptyPayment = {
+  assignmentId: "",
   projectId: "",
   payMode: "full",
   amount: "",
@@ -136,32 +137,32 @@ export default function Freelancers() {
     }
   };
 
-  const projectsWithDue = outsourcedProjects.filter((p) => p.projectDue > 0);
-  const settledProjects = outsourcedProjects.filter((p) => p.projectDue <= 0 && (p.outsourcingCost || 0) > 0);
-  const selectedPayProject = outsourcedProjects.find((p) => p._id === paymentForm.projectId);
-  const selectedProjectDue = selectedPayProject?.projectDue ?? 0;
+  const assignmentsWithDue = outsourcedProjects.filter((p) => p.due > 0);
+  const settledProjects = outsourcedProjects.filter((p) => p.due <= 0 && (p.cost || 0) > 0);
+  const selectedPayAssignment = outsourcedProjects.find(
+    (p) => (p.assignmentId || p._id) === paymentForm.assignmentId
+  );
+  const selectedDue = selectedPayAssignment?.due ?? 0;
 
-  const selectPayProject = (projectId) => {
-    const project = outsourcedProjects.find((p) => p._id === projectId);
-    if (!project) return;
+  const selectPayAssignment = (assignmentId) => {
+    const row = outsourcedProjects.find((p) => (p.assignmentId || p._id) === assignmentId);
+    if (!row) return;
     setPaymentForm((f) => ({
       ...f,
-      projectId,
+      assignmentId,
+      projectId: row.projectId || row.project?._id || "",
       payMode: "full",
-      amount: project.projectDue > 0 ? String(project.projectDue) : "",
+      amount: row.due > 0 ? String(row.due) : "",
     }));
   };
 
   const setPayMode = (payMode) => {
     setPaymentForm((f) => {
-      const project = outsourcedProjects.find((p) => p._id === f.projectId);
+      const row = outsourcedProjects.find((p) => (p.assignmentId || p._id) === f.assignmentId);
       return {
         ...f,
         payMode,
-        amount:
-          payMode === "full" && project?.projectDue > 0
-            ? String(project.projectDue)
-            : f.amount,
+        amount: payMode === "full" && row?.due > 0 ? String(row.due) : f.amount,
       };
     });
   };
@@ -169,15 +170,16 @@ export default function Freelancers() {
   const handlePayment = async (e) => {
     e.preventDefault();
     if (!paying) return;
-    if (!paymentForm.projectId) {
-      toast.error("Select a project to pay against");
+    if (!paymentForm.assignmentId && !paymentForm.projectId) {
+      toast.error("Select an assignment to pay against");
       return;
     }
     setSubmitting(true);
     try {
       const payFull = paymentForm.payMode === "full";
       await recordFreelancerPayment(paying._id, {
-        projectId: paymentForm.projectId,
+        assignmentId: paymentForm.assignmentId || undefined,
+        projectId: paymentForm.projectId || undefined,
         payFull,
         amount: payFull ? undefined : Number(paymentForm.amount),
         paymentDate: paymentForm.paymentDate,
@@ -396,37 +398,40 @@ export default function Freelancers() {
           </div>
         )}
 
-        {projectsWithDue.length > 0 ? (
+        {assignmentsWithDue.length > 0 ? (
           <div className="mb-6">
-            <h3 className="mb-1 text-base font-bold text-admin-text">Pending dues by project</h3>
+            <h3 className="mb-1 text-base font-bold text-admin-text">Pending assignments</h3>
             <p className="mb-3 text-sm text-admin-textMuted">
-              Each outsourced project with an outstanding balance is listed below.
+              Each deliverable assignment with an outstanding balance is listed below.
             </p>
             <div className="overflow-x-auto rounded-xl border border-admin-border">
               <table className="w-full text-left text-sm">
                 <thead className="bg-admin-muted">
                   <tr>
                     <th className="px-3 py-2.5 font-medium">Project</th>
-                    <th className="px-3 py-2.5 font-medium">Outsourcing cost</th>
+                    <th className="px-3 py-2.5 font-medium">Deliverable</th>
+                    <th className="px-3 py-2.5 font-medium">Role</th>
+                    <th className="px-3 py-2.5 font-medium">Cost</th>
                     <th className="px-3 py-2.5 font-medium">Paid</th>
                     <th className="px-3 py-2.5 font-medium">Due</th>
                     <th className="px-3 py-2.5 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {projectsWithDue.map((p) => (
-                    <tr key={p._id} className="border-t border-admin-border">
+                  {assignmentsWithDue.map((p) => (
+                    <tr key={p.assignmentId || p._id} className="border-t border-admin-border">
                       <td className="px-3 py-2.5">
-                        <p className="font-medium">{getProjectLabel(p)}</p>
-                        <p className="text-xs text-admin-textMuted">{p.projectType}</p>
+                        <p className="font-medium">{getProjectLabel(p.project || p)}</p>
                       </td>
-                      <td className="px-3 py-2.5">{formatCurrency(p.outsourcingCost)}</td>
-                      <td className="px-3 py-2.5">{formatCurrency(p.amountPaidToFreelancer)}</td>
+                      <td className="px-3 py-2.5">{p.deliverable?.title || p.projectType || "—"}</td>
+                      <td className="px-3 py-2.5">{p.role || "—"}</td>
+                      <td className="px-3 py-2.5">{formatCurrency(p.cost ?? p.outsourcingCost)}</td>
+                      <td className="px-3 py-2.5">{formatCurrency(p.amountPaid ?? p.amountPaidToFreelancer)}</td>
                       <td className="px-3 py-2.5 font-semibold text-amber-700">
-                        {formatCurrency(p.projectDue)}
+                        {formatCurrency(p.due ?? p.projectDue)}
                       </td>
                       <td className="px-3 py-2.5">
-                        <Badge status={p.freelancerPaymentStatus} />
+                        <Badge status={p.paymentStatus ?? p.freelancerPaymentStatus} />
                       </td>
                     </tr>
                   ))}
@@ -467,16 +472,17 @@ export default function Freelancers() {
             <Wallet size={18} /> Record payment
           </h3>
 
-          {projectsWithDue.length === 0 ? null : (
+          {assignmentsWithDue.length === 0 ? null : (
             <>
               <div>
-                <p className="mb-2 text-sm font-medium text-admin-text">Select project to pay *</p>
+                <p className="mb-2 text-sm font-medium text-admin-text">Select assignment to pay *</p>
                 <div className="space-y-2">
-                  {projectsWithDue.map((p) => {
-                    const selected = paymentForm.projectId === p._id;
+                  {assignmentsWithDue.map((p) => {
+                    const id = p.assignmentId || p._id;
+                    const selected = paymentForm.assignmentId === id;
                     return (
                       <label
-                        key={p._id}
+                        key={id}
                         className={`flex cursor-pointer flex-col gap-1 rounded-lg border px-4 py-3 transition-colors sm:flex-row sm:items-center sm:justify-between ${
                           selected
                             ? "border-admin-primary bg-blue-50"
@@ -486,16 +492,17 @@ export default function Freelancers() {
                         <div className="flex items-start gap-3">
                           <input
                             type="radio"
-                            name="payProject"
+                            name="payAssignment"
                             checked={selected}
-                            onChange={() => selectPayProject(p._id)}
+                            onChange={() => selectPayAssignment(id)}
                             className="mt-1"
                           />
                           <div>
-                            <p className="font-medium text-admin-text">{getProjectLabel(p)}</p>
+                            <p className="font-medium text-admin-text">{getProjectLabel(p.project || p)}</p>
                             <p className="text-xs text-admin-textMuted">
-                              {p.projectType} · Paid {formatCurrency(p.amountPaidToFreelancer)} of{" "}
-                              {formatCurrency(p.outsourcingCost)}
+                              {p.deliverable?.title || p.projectType} · {p.role || "General"} · Paid{" "}
+                              {formatCurrency(p.amountPaid ?? p.amountPaidToFreelancer)} of{" "}
+                              {formatCurrency(p.cost ?? p.outsourcingCost)}
                             </p>
                           </div>
                         </div>
@@ -503,10 +510,10 @@ export default function Freelancers() {
                           <p>
                             Due:{" "}
                             <span className="font-semibold text-amber-700">
-                              {formatCurrency(p.projectDue)}
+                              {formatCurrency(p.due ?? p.projectDue)}
                             </span>
                           </p>
-                          <Badge status={p.freelancerPaymentStatus} />
+                          <Badge status={p.paymentStatus ?? p.freelancerPaymentStatus} />
                         </div>
                       </label>
                     );
@@ -514,7 +521,7 @@ export default function Freelancers() {
                 </div>
               </div>
 
-              {paymentForm.projectId && (
+              {paymentForm.assignmentId && (
                 <>
                   <div>
                     <p className="mb-2 text-sm font-medium text-admin-text">Payment type</p>
@@ -528,7 +535,7 @@ export default function Freelancers() {
                             : "border-admin-border bg-admin-surface"
                         }`}
                       >
-                        Pay full ({formatCurrency(selectedProjectDue)})
+                        Pay full ({formatCurrency(selectedDue)})
                       </button>
                       <button
                         type="button"
@@ -552,10 +559,10 @@ export default function Freelancers() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     {paymentForm.payMode === "partial" && (
                       <Input
-                        label={`Amount (max ${formatCurrency(selectedProjectDue)})`}
+                        label={`Amount (max ${formatCurrency(selectedDue)})`}
                         type="number"
                         min="1"
-                        max={selectedProjectDue}
+                        max={selectedDue}
                         step="1"
                         value={paymentForm.amount}
                         onChange={(e) =>
@@ -595,11 +602,11 @@ export default function Freelancers() {
               <Button
                 type="submit"
                 loading={submitting}
-                disabled={!paymentForm.projectId || projectsWithDue.length === 0}
+                disabled={!paymentForm.assignmentId || assignmentsWithDue.length === 0}
                 className="w-full"
               >
-                {paymentForm.payMode === "full" && selectedPayProject
-                  ? `Pay full ${formatCurrency(selectedProjectDue)}`
+                {paymentForm.payMode === "full" && selectedPayAssignment
+                  ? `Pay full ${formatCurrency(selectedDue)}`
                   : "Record payment"}
               </Button>
             </>
@@ -618,6 +625,7 @@ export default function Freelancers() {
                       {p.projectId
                         ? getProjectLabel(p.projectId)
                         : "Project"}
+                      {p.deliverableId?.title ? ` · ${p.deliverableId.title}` : ""}
                       {" · "}
                       {formatDate(p.paymentDate)} · {p.paidVia}
                       {p.notes ? ` · ${p.notes}` : ""}

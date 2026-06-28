@@ -1,23 +1,12 @@
 const mongoose = require("mongoose");
+const {
+  SERVICE_CATEGORIES,
+  PAYMENT_STATUSES,
+  WORK_STATUSES,
+  FREELANCER_PAYMENT_STATUSES,
+} = require("../constants/serviceCategories");
 
-const PROJECT_TYPES = [
-  "Website",
-  "Graphic Design",
-  "SMM",
-  "SEO",
-  "Branding",
-  "Video Editing",
-];
-const PAYMENT_STATUSES = ["Pending", "Partial", "Paid"];
-const WORK_STATUSES = [
-  "Not Started",
-  "In Progress",
-  "Waiting for Client",
-  "Revision",
-  "Completed",
-  "Delivered",
-];
-const FREELANCER_PAYMENT_STATUSES = ["Pending", "Partial", "Paid"];
+const PROJECT_TYPES = SERVICE_CATEGORIES;
 
 const attachmentSchema = new mongoose.Schema(
   {
@@ -54,8 +43,9 @@ const projectSchema = new mongoose.Schema(
     businessName: { type: String, trim: true },
     contactNumber: { type: String, trim: true },
     email: { type: String, trim: true, lowercase: true },
-    projectType: { type: String, enum: PROJECT_TYPES, required: true },
+    projectType: { type: String, enum: PROJECT_TYPES },
     projectTitle: { type: String, trim: true },
+    totalAmountOverride: { type: Boolean, default: false },
     projectDescription: { type: String, trim: true },
     dateOfOnboarding: { type: Date },
     expectedCompletionDate: { type: Date },

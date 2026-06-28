@@ -1,7 +1,9 @@
 const Project = require("../models/Project");
 const Expense = require("../models/Expense");
+const DeliverableAssignment = require("../models/DeliverableAssignment");
+const ProjectDeliverable = require("../models/ProjectDeliverable");
 const { recognizedRevenueExpr } = require("./revenue");
-const { outsourcedCostMatch } = require("./freelancerCosts");
+const { activeAssignmentFilter } = require("../services/projectCalculations.service");
 
 const last12MonthsRange = () => {
   const months = [];
@@ -29,45 +31,56 @@ const buildMonthlyTrends = async (months = last12MonthsRange()) => {
   const rangeStart = months[0].start;
   const rangeEnd = months[months.length - 1].end;
 
-  const [revenueRows, expenseRows, freelancerRows] = await Promise.all([
-    Project.aggregate([
-      { $match: { dateOfOnboarding: { $gte: rangeStart, $lte: rangeEnd } } },
-      {
-        $group: {
-          _id: { y: { $year: "$dateOfOnboarding" }, m: { $month: "$dateOfOnboarding" } },
-          total: { $sum: recognizedRevenueExpr },
+  const [revenueRows, expenseRows, freelancerRowsFromAssignments, freelancerRowsLegacy] =
+    await Promise.all([
+      Project.aggregate([
+        { $match: { dateOfOnboarding: { $gte: rangeStart, $lte: rangeEnd } } },
+        {
+          $group: {
+            _id: { y: { $year: "$dateOfOnboarding" }, m: { $month: "$dateOfOnboarding" } },
+            total: { $sum: recognizedRevenueExpr },
+          },
         },
-      },
-    ]),
-    Expense.aggregate([
-      { $match: { expenseDate: { $gte: rangeStart, $lte: rangeEnd } } },
-      {
-        $group: {
-          _id: { y: { $year: "$expenseDate" }, m: { $month: "$expenseDate" } },
-          total: { $sum: "$amount" },
+      ]),
+      Expense.aggregate([
+        { $match: { expenseDate: { $gte: rangeStart, $lte: rangeEnd } } },
+        {
+          $group: {
+            _id: { y: { $year: "$expenseDate" }, m: { $month: "$expenseDate" } },
+            total: { $sum: "$amount" },
+          },
         },
-      },
-    ]),
-    Project.aggregate([
-      outsourcedCostMatch({ dateOfOnboarding: { $gte: rangeStart, $lte: rangeEnd } }),
-      {
-        $group: {
-          _id: { y: { $year: "$dateOfOnboarding" }, m: { $month: "$dateOfOnboarding" } },
-          total: { $sum: { $ifNull: ["$outsourcingCost", 0] } },
+      ]),
+      DeliverableAssignment.aggregate([
+        { $match: { ...activeAssignmentFilter, createdAt: { $gte: rangeStart, $lte: rangeEnd } } },
+        {
+          $group: {
+            _id: { y: { $year: "$createdAt" }, m: { $month: "$createdAt" } },
+            total: { $sum: { $ifNull: ["$cost", 0] } },
+          },
         },
-      },
-    ]),
-  ]);
+      ]),
+      Project.aggregate([
+        { $match: { isOutsourced: true, dateOfOnboarding: { $gte: rangeStart, $lte: rangeEnd } } },
+        {
+          $group: {
+            _id: { y: { $year: "$dateOfOnboarding" }, m: { $month: "$dateOfOnboarding" } },
+            total: { $sum: { $ifNull: ["$outsourcingCost", 0] } },
+          },
+        },
+      ]),
+    ]);
 
   const revMap = rowsToMap(revenueRows);
   const expMap = rowsToMap(expenseRows);
-  const flMap = rowsToMap(freelancerRows);
+  const flAssignmentMap = rowsToMap(freelancerRowsFromAssignments);
+  const flLegacyMap = rowsToMap(freelancerRowsLegacy);
 
   return months.map((m) => {
     const key = `${m.year}-${m.month}`;
     const revenue = revMap[key] || 0;
     const expenses = expMap[key] || 0;
-    const freelancerCosts = flMap[key] || 0;
+    const freelancerCosts = flAssignmentMap[key] || flLegacyMap[key] || 0;
     return {
       label: m.label,
       revenue,

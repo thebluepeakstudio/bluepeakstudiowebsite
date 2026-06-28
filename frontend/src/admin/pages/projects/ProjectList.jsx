@@ -1,21 +1,24 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { getProjects, createProject, updateProject, deleteProject } from "../../api/projects.api";
+import { getProjects, createProjectWithDeliverables, updateProject, deleteProject } from "../../api/projects.api";
 import { useDebounce } from "../../hooks/useDebounce";
 import Button from "../../components/ui/Button";
 import SearchInput from "../../components/ui/SearchInput";
 import FilterSelect from "../../components/ui/FilterSelect";
 import Table from "../../components/ui/Table";
 import Badge from "../../components/ui/Badge";
+import ProgressBar from "../../components/ui/ProgressBar";
+import ServicesPillList from "../../components/projects/ServicesPillList";
 import Pagination from "../../components/ui/Pagination";
 import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { PageToolbar } from "../../components/layout/PageHeader";
-import ProjectForm from "./ProjectForm";
+import ProjectWizard from "./ProjectWizard";
+import ProjectEditForm from "./ProjectEditForm";
 import { TableSkeleton } from "../../components/ui/Skeleton";
-import { WORK_STATUSES, PAYMENT_STATUSES, PROJECT_TYPES, getProjectLabel } from "../../utils/constants";
-import { formatCurrency, formatDate } from "../../utils/formatCurrency";
+import { WORK_STATUSES, PAYMENT_STATUSES, SERVICE_CATEGORIES, getProjectLabel } from "../../utils/constants";
+import { formatCurrency } from "../../utils/formatCurrency";
 import toast from "react-hot-toast";
 
 export default function ProjectList() {
@@ -26,7 +29,7 @@ export default function ProjectList() {
   const [pagination, setPagination] = useState({ page: 1, pages: 1 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({ workStatus: "", paymentStatus: "", projectType: "" });
+  const [filters, setFilters] = useState({ workStatus: "", paymentStatus: "", category: "" });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -58,7 +61,7 @@ export default function ProjectList() {
   const handleCreate = async (payload) => {
     setSubmitting(true);
     try {
-      const { data } = await createProject(payload);
+      const { data } = await createProjectWithDeliverables(payload);
       toast.success("Project created");
       setModalOpen(false);
       navigate(`/admin-panel/projects/${data.data._id}`);
@@ -71,11 +74,6 @@ export default function ProjectList() {
 
   const openCreate = () => {
     setEditing(null);
-    setModalOpen(true);
-  };
-
-  const openEdit = (project) => {
-    setEditing(project);
     setModalOpen(true);
   };
 
@@ -133,10 +131,10 @@ export default function ProjectList() {
             options={PAYMENT_STATUSES}
           />
           <FilterSelect
-            label="Type"
-            value={filters.projectType}
-            onChange={(v) => setFilters((f) => ({ ...f, projectType: v }))}
-            options={PROJECT_TYPES}
+            label="Service"
+            value={filters.category}
+            onChange={(v) => setFilters((f) => ({ ...f, category: v }))}
+            options={SERVICE_CATEGORIES}
             className="sm:col-span-2 lg:col-span-1"
           />
         </div>
@@ -151,43 +149,67 @@ export default function ProjectList() {
         <div className="space-y-4">
           <Table
             columns={[
-                { key: "client", label: "Client", render: (r) => getProjectLabel(r) },
-                { key: "projectType", label: "Type" },
-                { key: "workStatus", label: "Status", render: (r) => <Badge status={r.workStatus} /> },
-                { key: "paymentStatus", label: "Payment", render: (r) => <Badge status={r.paymentStatus} /> },
-                { key: "totalAmount", label: "Amount", render: (r) => formatCurrency(r.totalAmount) },
-                { key: "dateOfOnboarding", label: "Onboarded", render: (r) => formatDate(r.dateOfOnboarding) },
-                {
-                  key: "actions",
-                  label: "",
-                  render: (r) => (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEdit(r);
-                        }}
-                        className="text-xs font-medium text-admin-primary hover:underline"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteId(r._id);
-                        }}
-                        className="text-xs text-red-600 hover:underline"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  ),
-                },
-              ]}
-              data={projects}
-              onRowClick={(r) => navigate(`/admin-panel/projects/${r._id}`)}
+              { key: "client", label: "Client", render: (r) => r.clientName || "—" },
+              { key: "project", label: "Project", render: (r) => getProjectLabel(r) },
+              {
+                key: "services",
+                label: "Services",
+                render: (r) => (
+                  <ServicesPillList services={r.services} servicesCount={r.servicesCount} />
+                ),
+              },
+              {
+                key: "progress",
+                label: "Progress",
+                render: (r) => <ProgressBar value={r.overallProgress} />,
+              },
+              {
+                key: "paymentStatus",
+                label: "Payment",
+                render: (r) => <Badge status={r.paymentStatus} />,
+              },
+              {
+                key: "remaining",
+                label: "Remaining",
+                render: (r) => formatCurrency(r.paymentStatus === "Paid" ? 0 : r.remainingAmount),
+              },
+              {
+                key: "workStatus",
+                label: "Status",
+                render: (r) => <Badge status={r.overallStatus || r.workStatus} />,
+              },
+              {
+                key: "actions",
+                label: "",
+                render: (r) => (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditing(r);
+                        setModalOpen(true);
+                      }}
+                      className="text-xs font-medium text-admin-primary hover:underline"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteId(r._id);
+                      }}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ),
+              },
+            ]}
+            data={projects}
+            onRowClick={(r) => navigate(`/admin-panel/projects/${r._id}`)}
           />
           <Pagination page={pagination.page} pages={pagination.pages} onPageChange={fetch} />
         </div>
@@ -200,20 +222,35 @@ export default function ProjectList() {
           setEditing(null);
         }}
         title={editing ? "Edit Project" : "New Project"}
-        description="Set up client, scope, payment, and delivery details."
+        description={
+          editing
+            ? "Update project container details. Manage deliverables on the project page."
+            : "Set up the project, add deliverables, and configure payment."
+        }
         size="xl"
       >
-        <ProjectForm
-          key={editing?._id || presetClientId || "new"}
-          initial={editing || (presetClientId ? { clientId: presetClientId } : undefined)}
-          onSubmit={editing ? handleUpdate : handleCreate}
-          loading={submitting}
-          onCancel={() => {
-            setModalOpen(false);
-            setEditing(null);
-          }}
-          submitLabel={editing ? "Save changes" : "Create project"}
-        />
+        {editing ? (
+          <ProjectEditForm
+            key={editing._id}
+            initial={editing}
+            onSubmit={handleUpdate}
+            loading={submitting}
+            onCancel={() => {
+              setModalOpen(false);
+              setEditing(null);
+            }}
+            submitLabel="Save changes"
+          />
+        ) : (
+          <ProjectWizard
+            key={presetClientId || "new"}
+            initial={presetClientId ? { clientId: presetClientId } : undefined}
+            onSubmit={handleCreate}
+            loading={submitting}
+            onCancel={() => setModalOpen(false)}
+            submitLabel="Create project"
+          />
+        )}
       </Modal>
 
       <ConfirmDialog

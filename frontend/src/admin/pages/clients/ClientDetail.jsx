@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Upload, Trash2, FolderKanban } from "lucide-react";
 import {
   getClientOverview,
   getClientActivities,
+  getClientAttachments,
   logClientActivity,
   uploadClientAttachments,
   deleteClientAttachment,
@@ -17,6 +18,8 @@ import Table from "../../components/ui/Table";
 import { Input, Textarea, Select } from "../../components/ui/Input";
 import { Form, FormSection, FormFooter } from "../../components/ui/Form";
 import ActivityTimeline from "../../components/leads/ActivityTimeline";
+import ServicesPillList from "../../components/projects/ServicesPillList";
+import ProgressBar from "../../components/ui/ProgressBar";
 import { ACTIVITY_TYPES, getProjectLabel } from "../../utils/constants";
 import { formatCurrency, formatDate } from "../../utils/formatCurrency";
 import { CardSkeleton } from "../../components/ui/Skeleton";
@@ -194,8 +197,19 @@ export default function ClientDetail() {
       <Card title="Project History">
         <Table
           columns={[
-            { key: "projectTitle", label: "Title", render: (r) => getProjectLabel(r) },
-            { key: "projectType", label: "Type" },
+            { key: "projectTitle", label: "Project", render: (r) => getProjectLabel(r) },
+            {
+              key: "services",
+              label: "Services",
+              render: (r) => (
+                <ServicesPillList services={r.services} servicesCount={r.servicesCount} />
+              ),
+            },
+            {
+              key: "progress",
+              label: "Progress",
+              render: (r) => <ProgressBar value={r.overallProgress} />,
+            },
             { key: "workStatus", label: "Status" },
             { key: "totalAmount", label: "Amount", render: (r) => formatCurrency(r.totalAmount) },
             {
