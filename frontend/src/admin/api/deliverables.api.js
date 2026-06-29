@@ -18,6 +18,8 @@ export const deleteAssignment = (projectId, deliverableId, assignmentId) =>
 export const getProjectPayments = (projectId) => api.get(`/projects/${projectId}/payments`);
 export const createProjectPayment = (projectId, data) =>
   api.post(`/projects/${projectId}/payments`, data);
+export const updateProjectPayment = (projectId, paymentId, data) =>
+  api.put(`/projects/${projectId}/payments/${paymentId}`, data);
 export const deleteProjectPayment = (projectId, paymentId) =>
   api.delete(`/projects/${projectId}/payments/${paymentId}`);
 

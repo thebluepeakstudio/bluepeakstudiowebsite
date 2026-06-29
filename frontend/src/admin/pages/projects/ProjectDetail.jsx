@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Pencil, Plus, ExternalLink } from "lucide-react";
-import { getProject, updateProject } from "../../api/projects.api";
+import { ArrowLeft, Pencil, Plus, ExternalLink, FileDown } from "lucide-react";
+import { getProject, updateProject, downloadProjectInvoice } from "../../api/projects.api";
 import {
   createDeliverable,
   updateDeliverable,
   deleteDeliverable,
   createProjectPayment,
+  updateProjectPayment,
   deleteProjectPayment,
 } from "../../api/deliverables.api";
 import { createExpense } from "../../api/expenses.api";
@@ -16,7 +17,6 @@ import Badge from "../../components/ui/Badge";
 import Modal from "../../components/ui/Modal";
 import Tabs from "../../components/ui/Tabs";
 import Table from "../../components/ui/Table";
-import ProgressBar from "../../components/ui/ProgressBar";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import DeliverableDrawer from "../../components/projects/DeliverableDrawer";
 import ProjectFilesPanel from "../../components/projects/ProjectFilesPanel";
@@ -27,9 +27,10 @@ import {
   getProjectLabel,
   DELIVERABLE_STATUSES,
   SERVICE_CATEGORIES,
-  PROJECT_PAYMENT_TYPES,
   PAID_VIA,
   EXPENSE_CATEGORIES,
+  DELIVERABLE_AMOUNT_LABEL,
+  normalizePaymentStatus,
 } from "../../utils/constants";
 import { formatCurrency, formatDate } from "../../utils/formatCurrency";
 import { CardSkeleton } from "../../components/ui/Skeleton";
@@ -80,13 +81,10 @@ const emptyDeliverable = {
   category: "Website",
   description: "",
   sellingPrice: 0,
-  expectedCompletion: "",
   status: "Not Started",
-  progress: 0,
 };
 
 const emptyPayment = {
-  type: "Advance",
   amount: "",
   paymentDate: new Date().toISOString().slice(0, 10),
   method: "UPI",
@@ -116,15 +114,24 @@ export default function ProjectDetail() {
   const [addDeliverableOpen, setAddDeliverableOpen] = useState(false);
   const [newDeliverable, setNewDeliverable] = useState(emptyDeliverable);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null);
   const [paymentForm, setPaymentForm] = useState(emptyPayment);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [expenseForm, setExpenseForm] = useState(emptyExpense);
   const [deleteDeliverableId, setDeleteDeliverableId] = useState(null);
   const [deletePaymentId, setDeletePaymentId] = useState(null);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
-  const load = () => {
+  const load = (keepDrawerId, silent = false) => {
+    if (!silent) setLoading(true);
     getProject(id)
-      .then(({ data }) => setProject(data.data))
+      .then(({ data }) => {
+        setProject(data.data);
+        if (keepDrawerId) {
+          const updated = data.data.deliverables?.find((d) => d._id === keepDrawerId);
+          if (updated) setDrawerDeliverable(updated);
+        }
+      })
       .catch(() => toast.error("Project not found"))
       .finally(() => setLoading(false));
   };
@@ -206,6 +213,43 @@ export default function ProjectDetail() {
     }
   };
 
+  const handleUpdatePayment = async (e) => {
+    e.preventDefault();
+    if (!editingPayment) return;
+    setSubmitting(true);
+    try {
+      await updateProjectPayment(id, editingPayment._id, {
+        ...paymentForm,
+        amount: Number(paymentForm.amount),
+      });
+      toast.success("Payment updated");
+      setEditingPayment(null);
+      setPaymentForm(emptyPayment);
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Update failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditPayment = (payment) => {
+    setEditingPayment(payment);
+    setPaymentForm({
+      amount: payment.amount ?? "",
+      paymentDate: payment.paymentDate?.slice(0, 10) || "",
+      method: payment.method || "UPI",
+      reference: payment.reference || "",
+      notes: payment.notes || "",
+    });
+  };
+
+  const closePaymentModal = () => {
+    setPaymentModalOpen(false);
+    setEditingPayment(null);
+    setPaymentForm(emptyPayment);
+  };
+
   const handleDeletePayment = async () => {
     setSubmitting(true);
     try {
@@ -217,6 +261,24 @@ export default function ProjectDetail() {
       toast.error("Delete failed");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDownloadInvoice = async () => {
+    setDownloadingInvoice(true);
+    try {
+      const { data } = await downloadProjectInvoice(id);
+      const url = URL.createObjectURL(data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Invoice-${getProjectLabel(project).replace(/[^a-zA-Z0-9._-]+/g, "-")}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success("Invoice downloaded");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to generate invoice");
+    } finally {
+      setDownloadingInvoice(false);
     }
   };
 
@@ -243,7 +305,10 @@ export default function ProjectDetail() {
   if (loading) return <CardSkeleton />;
   if (!project) return null;
 
-  const remaining = project.paymentStatus === "Paid" ? 0 : project.remainingAmount ?? 0;
+  const totalReceived = Number(project.totalReceived ?? project.advanceReceived) || 0;
+  const projectValue = Number(project.totalAmount) || 0;
+  const remaining = Math.max(0, projectValue - totalReceived);
+  const paymentStatus = normalizePaymentStatus(project.paymentStatus);
 
   return (
     <div className="space-y-6">
@@ -256,21 +321,20 @@ export default function ProjectDetail() {
           <p className="text-sm text-admin-textMuted">{project.clientName}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge status={project.overallStatus || project.workStatus} />
-            <Badge status={project.paymentStatus} />
+            <Badge status={paymentStatus} />
           </div>
         </div>
         <Button variant="secondary" onClick={() => setEditOpen(true)}>
           <Pencil size={16} /> Edit
         </Button>
+        <Button variant="secondary" onClick={handleDownloadInvoice} loading={downloadingInvoice}>
+          <FileDown size={16} /> Download invoice
+        </Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryTile label="Total Value" value={formatCurrency(project.totalAmount)} />
-        <SummaryTile
-          label="Overall Progress"
-          value={`${project.overallProgress ?? 0}%`}
-          accent="text-admin-primary"
-        />
+        <SummaryTile label="Project Value" value={formatCurrency(projectValue)} />
+        <SummaryTile label="Total Received" value={formatCurrency(totalReceived)} />
         <SummaryTile
           label="Remaining"
           value={formatCurrency(remaining)}
@@ -320,15 +384,16 @@ export default function ProjectDetail() {
 
           <Card title="Payment summary">
             <div className="grid gap-3 sm:grid-cols-2">
-              <DetailRow label="Payment status" value={project.paymentStatus} />
-              <DetailRow label="Advance received" value={formatCurrency(project.advanceReceived)} />
+              <DetailRow label="Project value" value={formatCurrency(projectValue)} />
+              <DetailRow label="Total received" value={formatCurrency(totalReceived)} />
               <DetailRow label="Remaining" value={formatCurrency(remaining)} />
+              <DetailRow label="Payment status" value={paymentStatus} />
             </div>
           </Card>
 
           <Card title="Profit breakdown">
             <div className="grid gap-3 sm:grid-cols-2">
-              <DetailRow label="Deliverable revenue" value={formatCurrency(project.totalAmount)} />
+              <DetailRow label="Total amount" value={formatCurrency(project.totalAmount)} />
               <DetailRow label="Freelancer costs" value={formatCurrency(project.totalFreelancerCost ?? 0)} />
               <DetailRow
                 label="Deliverable profit"
@@ -355,7 +420,7 @@ export default function ProjectDetail() {
               { key: "category", label: "Category" },
               {
                 key: "sellingPrice",
-                label: "Selling Price",
+                label: "Amount",
                 render: (r) => formatCurrency(r.sellingPrice),
               },
               {
@@ -367,78 +432,79 @@ export default function ProjectDetail() {
                     .filter(Boolean)
                     .join(", ") || "—",
               },
-              {
-                key: "progress",
-                label: "Progress",
-                render: (r) => <ProgressBar value={r.progress} />,
-              },
               { key: "status", label: "Status", render: (r) => <Badge status={r.status} /> },
-              {
-                key: "expected",
-                label: "Expected Date",
-                render: (r) => formatDate(r.expectedCompletion),
-              },
-              {
-                key: "actions",
-                label: "",
-                render: (r) => (
-                  <button
-                    type="button"
-                    className="text-xs font-medium text-admin-primary hover:underline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDrawerDeliverable(r);
-                    }}
-                  >
-                    Open
-                  </button>
-                ),
-              },
             ]}
             data={project.deliverables || []}
             emptyMessage="No deliverables yet"
+            onRowClick={(r) => setDrawerDeliverable(r)}
           />
         </Card>
       )}
 
       {tab === "payments" && (
-        <Card
-          title="Payment history"
-          action={
-            <Button size="sm" onClick={() => setPaymentModalOpen(true)}>
-              <Plus size={14} /> Add payment
-            </Button>
-          }
-        >
-          <Table
-            columns={[
-              { key: "type", label: "Type" },
-              { key: "amount", label: "Amount", render: (r) => formatCurrency(r.amount) },
-              { key: "paymentDate", label: "Date", render: (r) => formatDate(r.paymentDate) },
-              { key: "method", label: "Method" },
-              { key: "reference", label: "Reference", render: (r) => r.reference || "—" },
-              { key: "notes", label: "Notes", render: (r) => r.notes || "—" },
-              {
-                key: "actions",
-                label: "",
-                render: (r) => (
-                  <button
-                    type="button"
-                    className="text-xs text-red-600 hover:underline"
-                    onClick={() => setDeletePaymentId(r._id)}
-                  >
-                    Delete
-                  </button>
-                ),
-              },
-            ]}
-            data={project.payments || []}
-            emptyMessage="No payments recorded"
-          />
-          <p className="mt-4 text-sm text-admin-textMuted">
-            Remaining: <span className="font-semibold text-admin-text">{formatCurrency(remaining)}</span>
-          </p>
-        </Card>
+        <>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SummaryTile label="Project Value" value={formatCurrency(projectValue)} />
+            <SummaryTile label="Total Received" value={formatCurrency(totalReceived)} />
+            <SummaryTile
+              label="Remaining"
+              value={formatCurrency(remaining)}
+              accent={remaining > 0 ? "text-amber-700" : "text-emerald-700"}
+            />
+          </div>
+          <Card
+            title="Payment history"
+            action={
+              <Button size="sm" onClick={() => setPaymentModalOpen(true)}>
+                <Plus size={14} /> Record payment
+              </Button>
+            }
+          >
+            <Table
+              columns={[
+                {
+                  key: "paymentDate",
+                  label: "Date",
+                  render: (r) => formatDate(r.paymentDate),
+                },
+                { key: "amount", label: "Amount", render: (r) => formatCurrency(r.amount) },
+                { key: "method", label: "Method" },
+                { key: "reference", label: "Reference", render: (r) => r.reference || "—" },
+                { key: "notes", label: "Notes", render: (r) => r.notes || "—" },
+                {
+                  key: "actions",
+                  label: "",
+                  render: (r) => (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-admin-primary hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditPayment(r);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs text-red-600 hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletePaymentId(r._id);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ),
+                },
+              ]}
+              data={project.payments || []}
+              emptyMessage="No payments recorded yet"
+            />
+          </Card>
+        </>
       )}
 
       {tab === "expenses" && (
@@ -489,6 +555,7 @@ export default function ProjectDetail() {
         onClose={() => setDrawerDeliverable(null)}
         onSave={handleSaveDeliverable}
         onDelete={() => setDeleteDeliverableId(drawerDeliverable?._id)}
+        onAssignmentsChange={() => load(drawerDeliverable?._id, true)}
       />
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Project" size="xl">
@@ -517,17 +584,11 @@ export default function ProjectDetail() {
                 options={SERVICE_CATEGORIES}
               />
               <Input
-                label="Selling price (₹)"
+                label={DELIVERABLE_AMOUNT_LABEL}
                 type="number"
                 min="0"
                 value={newDeliverable.sellingPrice}
                 onChange={(e) => setNewDeliverable((p) => ({ ...p, sellingPrice: e.target.value }))}
-              />
-              <Input
-                label="Expected completion"
-                type="date"
-                value={newDeliverable.expectedCompletion}
-                onChange={(e) => setNewDeliverable((p) => ({ ...p, expectedCompletion: e.target.value }))}
               />
               <Select
                 label="Status"
@@ -550,16 +611,14 @@ export default function ProjectDetail() {
         </Form>
       </Modal>
 
-      <Modal open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="Record payment">
-        <Form onSubmit={handleAddPayment}>
+      <Modal
+        open={paymentModalOpen || !!editingPayment}
+        onClose={closePaymentModal}
+        title={editingPayment ? "Edit payment" : "Record payment"}
+      >
+        <Form onSubmit={editingPayment ? handleUpdatePayment : handleAddPayment}>
           <FormSection>
             <FormGrid cols={2}>
-              <Select
-                label="Type"
-                value={paymentForm.type}
-                onChange={(e) => setPaymentForm((p) => ({ ...p, type: e.target.value }))}
-                options={PROJECT_PAYMENT_TYPES}
-              />
               <Input
                 label="Amount (₹)"
                 type="number"
@@ -569,7 +628,7 @@ export default function ProjectDetail() {
                 required
               />
               <Input
-                label="Date"
+                label="Payment date"
                 type="date"
                 value={paymentForm.paymentDate}
                 onChange={(e) => setPaymentForm((p) => ({ ...p, paymentDate: e.target.value }))}
@@ -585,6 +644,7 @@ export default function ProjectDetail() {
                 label="Reference"
                 value={paymentForm.reference}
                 onChange={(e) => setPaymentForm((p) => ({ ...p, reference: e.target.value }))}
+                placeholder="Optional"
               />
             </FormGrid>
             <Textarea
@@ -594,8 +654,8 @@ export default function ProjectDetail() {
             />
           </FormSection>
           <FormFooter
-            onCancel={() => setPaymentModalOpen(false)}
-            submitLabel="Record payment"
+            onCancel={closePaymentModal}
+            submitLabel={editingPayment ? "Save payment" : "Record payment"}
             loading={submitting}
           />
         </Form>

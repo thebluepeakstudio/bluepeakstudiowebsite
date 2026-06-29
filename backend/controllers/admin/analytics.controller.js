@@ -7,16 +7,15 @@ const DeliverableAssignment = require("../../models/DeliverableAssignment");
 const FreelancerPayment = require("../../models/FreelancerPayment");
 const asyncHandler = require("../../utils/asyncHandler");
 const { get, set, invalidatePrefix } = require("../../utils/responseCache");
-const { sumRecognizedRevenue, sumRecognizedRevenueByField } = require("../../utils/revenue");
+const { sumRecognizedRevenue } = require("../../utils/revenue");
 const {
   aggregateFreelancerCosts,
   legacyFreelancerCostPipeline,
 } = require("../../utils/freelancerCosts");
-const { last12MonthsRange, buildMonthlyTrends } = require("../../utils/monthlyAnalytics");
 const {
   activeDeliverableFilter,
-  averageDeliverableProgress,
   buildServicesSummary,
+  groupDeliverablesByProject,
 } = require("../../services/projectCalculations.service");
 
 const enrichLatestProjects = async (projects) => {
@@ -26,15 +25,10 @@ const enrichLatestProjects = async (projects) => {
     projectId: { $in: ids },
     ...activeDeliverableFilter,
   })
-    .select("projectId title progress status")
+    .select("projectId title status category")
     .lean();
 
-  const byProject = {};
-  for (const d of deliverables) {
-    const key = d.projectId.toString();
-    if (!byProject[key]) byProject[key] = [];
-    byProject[key].push(d);
-  }
+  const byProject = groupDeliverablesByProject(deliverables);
 
   return projects.map((p) => {
     const list = byProject[p._id.toString()] || [];
@@ -42,29 +36,15 @@ const enrichLatestProjects = async (projects) => {
       return {
         ...p,
         ...buildServicesSummary(list),
-        overallProgress: averageDeliverableProgress(list),
       };
     }
     return {
       ...p,
       services: p.projectType ? [p.projectType] : [],
       servicesCount: p.projectType ? 1 : 0,
-      overallProgress: p.workStatus === "Delivered" || p.workStatus === "Completed" ? 100 : 0,
     };
   });
 };
-
-const deliverableRevenuePipeline = [
-  { $match: { deletedAt: null } },
-  {
-    $group: {
-      _id: "$category",
-      revenue: { $sum: { $ifNull: ["$sellingPrice", 0] } },
-      count: { $sum: 1 },
-    },
-  },
-  { $sort: { revenue: -1 } },
-];
 
 const getDashboard = asyncHandler(async (req, res) => {
   const cacheKey = "analytics:dashboard";
@@ -73,7 +53,6 @@ const getDashboard = asyncHandler(async (req, res) => {
     return res.json(cached);
   }
 
-  const months = last12MonthsRange();
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -89,11 +68,6 @@ const getDashboard = asyncHandler(async (req, res) => {
     freelancerCostLegacy,
     freelancerCount,
     latestProjects,
-    workStatusDist,
-    serviceDistFromDeliverables,
-    serviceDistLegacy,
-    expenseByCategory,
-    monthlyTrends,
     deliverableStats,
     paymentsThisMonth,
     freelancerPendingAgg,
@@ -119,14 +93,6 @@ const getDashboard = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5)
       .lean(),
-    Project.aggregate([{ $group: { _id: "$workStatus", count: { $sum: 1 } } }]),
-    ProjectDeliverable.aggregate(deliverableRevenuePipeline),
-    Project.aggregate([sumRecognizedRevenueByField("projectType"), { $project: { _id: 1, revenue: 1, count: 1 } }]),
-    Expense.aggregate([
-      { $group: { _id: "$category", total: { $sum: "$amount" } } },
-      { $sort: { total: -1 } },
-    ]),
-    buildMonthlyTrends(months),
     ProjectDeliverable.aggregate([
       { $match: activeDeliverableFilter },
       {
@@ -179,25 +145,6 @@ const getDashboard = asyncHandler(async (req, res) => {
     freelancerCostFromAssignments || freelancerCostLegacy[0]?.total || 0;
   const pendingPayments = pendingPaymentsAgg[0]?.total || 0;
 
-  const monthlyRevenue = monthlyTrends.map((m) => ({ name: m.label, value: m.revenue }));
-  const monthlyExpenses = monthlyTrends.map((m) => ({ name: m.label, value: m.expenses }));
-  const monthlyProfit = monthlyTrends.map((m) => ({
-    name: m.label,
-    revenue: m.revenue,
-    expenses: m.expenses,
-    freelancerCosts: m.freelancerCosts,
-    profit: m.profit,
-  }));
-
-  const serviceDist =
-    serviceDistFromDeliverables.length > 0
-      ? serviceDistFromDeliverables.map((r) => ({
-          _id: r._id,
-          revenue: r.revenue,
-          count: r.count,
-        }))
-      : serviceDistLegacy;
-
   const enrichedLatestProjects = await enrichLatestProjects(latestProjects);
 
   const payload = {
@@ -225,16 +172,10 @@ const getDashboard = asyncHandler(async (req, res) => {
         freelancerPaidThisMonth: freelancerPaidThisMonth[0]?.total || 0,
       },
       latestProjects: enrichedLatestProjects,
-      workStatusDist,
-      serviceDist,
-      expenseByCategory,
-      monthlyRevenue,
-      monthlyExpenses,
-      monthlyProfit,
     },
   };
 
-  set(cacheKey, payload);
+  set(cacheKey, payload, 120_000);
   res.json(payload);
 });
 
@@ -245,39 +186,22 @@ const getPL = asyncHandler(async (req, res) => {
     return res.json(cached);
   }
 
-  const months = last12MonthsRange();
-
-  const [revenue, expenses, pending, freelancerCostsNew, freelancerCostsLegacy, monthlyTrends, serviceRevenueDeliverables, serviceRevenueLegacy] =
-    await Promise.all([
-      Project.aggregate([sumRecognizedRevenue]),
-      Expense.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]),
-      Project.aggregate([
-        { $match: { paymentStatus: { $ne: "Paid" } } },
-        { $group: { _id: null, total: { $sum: "$remainingAmount" } } },
-      ]),
-      aggregateFreelancerCosts(),
-      Project.aggregate(legacyFreelancerCostPipeline),
-      buildMonthlyTrends(months),
-      ProjectDeliverable.aggregate(deliverableRevenuePipeline),
-      Project.aggregate([sumRecognizedRevenueByField("projectType"), { $sort: { revenue: -1 } }]),
-    ]);
+  const [revenue, expenses, pending, freelancerCostsNew, freelancerCostsLegacy] = await Promise.all([
+    Project.aggregate([sumRecognizedRevenue]),
+    Expense.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]),
+    Project.aggregate([
+      { $match: { paymentStatus: { $ne: "Paid" } } },
+      { $group: { _id: null, total: { $sum: "$remainingAmount" } } },
+    ]),
+    aggregateFreelancerCosts(),
+    Project.aggregate(legacyFreelancerCostPipeline),
+  ]);
 
   const totalRevenue = revenue[0]?.total || 0;
   const totalExpenses = expenses[0]?.total || 0;
   const freelancerCostsTotal = freelancerCostsNew || freelancerCostsLegacy[0]?.total || 0;
   const grossProfit = totalRevenue - freelancerCostsTotal;
   const netProfit = totalRevenue - totalExpenses - freelancerCostsTotal;
-
-  const monthly = monthlyTrends.map((m) => ({
-    month: m.label,
-    revenue: m.revenue,
-    expenses: m.expenses,
-    freelancerCosts: m.freelancerCosts,
-    profit: m.profit,
-  }));
-
-  const serviceRevenue =
-    serviceRevenueDeliverables.length > 0 ? serviceRevenueDeliverables : serviceRevenueLegacy;
 
   const payload = {
     success: true,
@@ -288,12 +212,10 @@ const getPL = asyncHandler(async (req, res) => {
       netProfit,
       pendingPayments: pending[0]?.total || 0,
       freelancerCosts: freelancerCostsTotal,
-      monthly,
-      serviceRevenue,
     },
   };
 
-  set(cacheKey, payload);
+  set(cacheKey, payload, 120_000);
   res.json(payload);
 });
 

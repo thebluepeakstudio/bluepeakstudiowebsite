@@ -8,7 +8,6 @@ import SearchInput from "../../components/ui/SearchInput";
 import FilterSelect from "../../components/ui/FilterSelect";
 import Table from "../../components/ui/Table";
 import Badge from "../../components/ui/Badge";
-import ProgressBar from "../../components/ui/ProgressBar";
 import ServicesPillList from "../../components/projects/ServicesPillList";
 import Pagination from "../../components/ui/Pagination";
 import Modal from "../../components/ui/Modal";
@@ -17,8 +16,7 @@ import { PageToolbar } from "../../components/layout/PageHeader";
 import ProjectWizard from "./ProjectWizard";
 import ProjectEditForm from "./ProjectEditForm";
 import { TableSkeleton } from "../../components/ui/Skeleton";
-import { WORK_STATUSES, PAYMENT_STATUSES, SERVICE_CATEGORIES, getProjectLabel } from "../../utils/constants";
-import { formatCurrency } from "../../utils/formatCurrency";
+import { WORK_STATUSES, PAYMENT_STATUSES, SERVICE_CATEGORIES, getProjectLabel, normalizePaymentStatus } from "../../utils/constants";
 import toast from "react-hot-toast";
 
 export default function ProjectList() {
@@ -159,19 +157,9 @@ export default function ProjectList() {
                 ),
               },
               {
-                key: "progress",
-                label: "Progress",
-                render: (r) => <ProgressBar value={r.overallProgress} />,
-              },
-              {
                 key: "paymentStatus",
                 label: "Payment",
-                render: (r) => <Badge status={r.paymentStatus} />,
-              },
-              {
-                key: "remaining",
-                label: "Remaining",
-                render: (r) => formatCurrency(r.paymentStatus === "Paid" ? 0 : r.remainingAmount),
+                render: (r) => <Badge status={normalizePaymentStatus(r.paymentStatus)} />,
               },
               {
                 key: "workStatus",

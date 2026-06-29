@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Form, FormSection, FormGrid, FormFooter } from "../../components/ui/Form";
 import { Input, Textarea, Select } from "../../components/ui/Input";
-import { WORK_STATUSES, PAYMENT_STATUSES } from "../../utils/constants";
+import { WORK_STATUSES } from "../../utils/constants";
 import { getClients } from "../../api/clients.api";
 
 const dateFields = [
@@ -21,10 +21,7 @@ const empty = {
   dateOfOnboarding: "",
   expectedCompletionDate: "",
   actualCompletionDate: "",
-  totalAmountOverride: false,
-  totalAmount: 0,
   workStatus: "Not Started",
-  paymentStatus: "Pending",
   notes: "",
   googleDriveLink: "",
 };
@@ -77,8 +74,9 @@ export default function ProjectEditForm({
   const handleSubmit = (e) => {
     e.preventDefault();
     const payload = { ...form };
-    payload.totalAmount = Number(payload.totalAmount) || 0;
     if (!payload.clientId) delete payload.clientId;
+    delete payload.totalAmount;
+    delete payload.totalAmountOverride;
     onSubmit(payload);
   };
 
@@ -140,33 +138,7 @@ export default function ProjectEditForm({
             onChange={(e) => set("workStatus", e.target.value)}
             options={WORK_STATUSES}
           />
-          <Select
-            label="Payment status"
-            value={form.paymentStatus}
-            onChange={(e) => set("paymentStatus", e.target.value)}
-            options={PAYMENT_STATUSES}
-          />
         </FormGrid>
-      </FormSection>
-
-      <FormSection title="Value override">
-        <label className="mb-3 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={form.totalAmountOverride}
-            onChange={(e) => set("totalAmountOverride", e.target.checked)}
-          />
-          Override auto-calculated total from deliverables
-        </label>
-        {form.totalAmountOverride && (
-          <Input
-            label="Total amount (₹)"
-            type="number"
-            min="0"
-            value={form.totalAmount}
-            onChange={(e) => set("totalAmount", e.target.value)}
-          />
-        )}
       </FormSection>
 
       <FormSection title="Links & notes">

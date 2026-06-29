@@ -10,11 +10,9 @@ const { syncClientToProject } = require("../../utils/syncClientToProject");
 const { invalidateAnalyticsCache } = require("./analytics.controller");
 const {
   activeDeliverableFilter,
-  averageDeliverableProgress,
   buildServicesSummary,
   computeProjectProfit,
-  getDeliverablesForProject,
-  getAssignmentsForDeliverables,
+  enrichProjectsWithDeliverables,
 } = require("../../services/projectCalculations.service");
 const {
   createDeliverable,
@@ -30,9 +28,11 @@ const {
   softDeleteAssignment,
   createAssignmentsBatch,
 } = require("../../services/deliverableAssignment.service");
+const { generateProjectInvoicePdf } = require("../../services/invoice.service");
 const {
   listPayments,
   createPayment,
+  updatePayment,
   deletePayment,
   recomputeProjectPaymentSummary,
 } = require("../../services/projectPayment.service");
@@ -48,9 +48,6 @@ const PROJECT_CONTAINER_FIELDS = [
   "dateOfOnboarding",
   "expectedCompletionDate",
   "actualCompletionDate",
-  "totalAmount",
-  "totalAmountOverride",
-  "paymentStatus",
   "workStatus",
   "notes",
   "googleDriveLink",
@@ -67,7 +64,12 @@ const pickContainerFields = (body) => {
 const buildFilter = (query) => {
   const filter = {};
   if (query.workStatus) filter.workStatus = query.workStatus;
-  if (query.paymentStatus) filter.paymentStatus = query.paymentStatus;
+  if (query.paymentStatus) {
+    filter.paymentStatus =
+      query.paymentStatus === "Unpaid"
+        ? { $in: ["Unpaid", "Pending"] }
+        : query.paymentStatus;
+  }
   if (query.clientId) filter.clientId = query.clientId;
   if (query.search) {
     filter.$or = [
@@ -78,37 +80,6 @@ const buildFilter = (query) => {
     ];
   }
   return filter;
-};
-
-const enrichProjectListItem = async (project) => {
-  const deliverables = await ProjectDeliverable.find({
-    projectId: project._id,
-    ...activeDeliverableFilter,
-  })
-    .select("title category status progress sellingPrice")
-    .sort({ createdAt: 1 })
-    .lean();
-
-  if (deliverables.length) {
-    const summary = buildServicesSummary(deliverables);
-    return {
-      ...project,
-      ...summary,
-      overallProgress: averageDeliverableProgress(deliverables),
-      overallStatus: project.workStatus,
-      projectName: project.projectTitle || project.clientName,
-    };
-  }
-
-  return {
-    ...project,
-    services: project.projectType ? [project.projectType] : [],
-    servicesCount: project.projectType ? 1 : 0,
-    categories: project.projectType ? [project.projectType] : [],
-    overallProgress: project.workStatus === "Delivered" || project.workStatus === "Completed" ? 100 : 0,
-    overallStatus: project.workStatus,
-    projectName: project.projectTitle || project.clientName,
-  };
 };
 
 const getProjects = asyncHandler(async (req, res) => {
@@ -139,7 +110,7 @@ const getProjects = asyncHandler(async (req, res) => {
     Project.countDocuments(filter),
   ]);
 
-  const enriched = await Promise.all(projects.map(enrichProjectListItem));
+  const enriched = await enrichProjectsWithDeliverables(projects);
 
   res.json({
     success: true,
@@ -231,12 +202,6 @@ const buildProjectDetail = async (project) => {
         categories: project.projectType ? [project.projectType] : [],
       };
 
-  const overallProgress = deliverables.length
-    ? averageDeliverableProgress(deliverables)
-    : project.workStatus === "Delivered" || project.workStatus === "Completed"
-      ? 100
-      : 0;
-
   const assignmentsByDeliverable = Object.fromEntries(
     deliverables.map((d) => [d._id.toString(), d.assignments || []])
   );
@@ -255,8 +220,8 @@ const buildProjectDetail = async (project) => {
     deliverables,
     payments,
     expenses,
-    overallProgress,
     overallStatus: project.workStatus,
+    totalReceived: Number(project.advanceReceived) || 0,
     projectProfit,
     totalFreelancerCost,
     deliverableProfitTotal: deliverables.reduce((sum, d) => sum + (Number(d.profit) || 0), 0),
@@ -275,9 +240,9 @@ const getProject = asyncHandler(async (req, res) => {
 });
 
 const createProject = asyncHandler(async (req, res) => {
-  const { project: projectData, deliverables, payments, totalAmountOverride } = req.body;
+  const { project: projectData, deliverables, payments } = req.body;
 
-  if (!projectData?.clientId && !projectData?.clientName) {
+  if (!projectData?.clientId) {
     throw new ApiError(400, "Client is required");
   }
   if (!deliverables?.length) {
@@ -288,7 +253,6 @@ const createProject = asyncHandler(async (req, res) => {
   session.startTransaction();
   try {
     let body = pickContainerFields(projectData);
-    body.totalAmountOverride = Boolean(totalAmountOverride);
     if (body.clientId) body = await syncClientToProject(body);
 
     const project = new Project(body);
@@ -307,12 +271,7 @@ const createProject = asyncHandler(async (req, res) => {
       }
     }
 
-    if (totalAmountOverride && projectData.totalAmount !== undefined) {
-      project.totalAmount = Number(projectData.totalAmount) || 0;
-      await project.save({ session });
-    } else {
-      await syncProjectFromDeliverables(project._id, session);
-    }
+    await syncProjectFromDeliverables(project._id, session);
 
     if (payments?.length) {
       for (const payment of payments) {
@@ -322,7 +281,6 @@ const createProject = asyncHandler(async (req, res) => {
       await createPayment(
         project._id,
         {
-          type: "Advance",
           amount: projectData.advanceReceived,
           paymentDate: projectData.advancePaymentDate,
           method: "UPI",
@@ -358,13 +316,6 @@ const updateProject = asyncHandler(async (req, res) => {
   let body = pickContainerFields(req.body);
   if (body.clientId) body = await syncClientToProject(body);
 
-  if (body.paymentStatus === "Paid") {
-    body.remainingAmount = 0;
-    if ((body.totalAmount ?? existing.totalAmount) > 0) {
-      body.advanceReceived = body.totalAmount ?? existing.totalAmount;
-    }
-  }
-
   const project = await Project.findByIdAndUpdate(req.params.id, body, {
     new: true,
     runValidators: true,
@@ -372,9 +323,7 @@ const updateProject = asyncHandler(async (req, res) => {
     .populate("clientId", "name companyName email phone")
     .lean();
 
-  if (!body.totalAmountOverride && body.totalAmount === undefined) {
-    await syncProjectFromDeliverables(project._id);
-  }
+  await syncProjectFromDeliverables(project._id);
   await recomputeProjectPaymentSummary(project._id);
 
   const refreshed = await Project.findById(project._id)
@@ -498,10 +447,23 @@ const postProjectPayment = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: payment });
 });
 
+const putProjectPayment = asyncHandler(async (req, res) => {
+  const payment = await updatePayment(req.params.id, req.params.paymentId, req.body);
+  invalidateAnalyticsCache();
+  res.json({ success: true, data: payment });
+});
+
 const deleteProjectPayment = asyncHandler(async (req, res) => {
   await deletePayment(req.params.id, req.params.paymentId);
   invalidateAnalyticsCache();
   res.json({ success: true, message: "Payment deleted" });
+});
+
+const getProjectInvoice = asyncHandler(async (req, res) => {
+  const { buffer, fileName } = await generateProjectInvoicePdf(req.params.id);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+  res.send(buffer);
 });
 
 const getProjectExpenses = asyncHandler(async (req, res) => {
@@ -530,6 +492,8 @@ module.exports = {
   deleteAssignment,
   getProjectPayments,
   postProjectPayment,
+  putProjectPayment,
   deleteProjectPayment,
+  getProjectInvoice,
   getProjectExpenses,
 };

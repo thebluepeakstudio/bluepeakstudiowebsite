@@ -18,7 +18,9 @@ const {
   deleteAssignment,
   getProjectPayments,
   postProjectPayment,
+  putProjectPayment,
   deleteProjectPayment,
+  getProjectInvoice,
   getProjectExpenses,
 } = require("../../controllers/admin/project.controller");
 const {
@@ -28,6 +30,7 @@ const {
   createAssignmentValidators,
   updateAssignmentValidators,
   createPaymentValidators,
+  updatePaymentValidators,
   projectIdParam,
   deliverableIdParam,
   assignmentIdParam,
@@ -66,8 +69,11 @@ router.delete(
   deleteAssignment
 );
 
+router.get("/:id/invoice", projectIdParam, getProjectInvoice);
+
 router.get("/:id/payments", projectIdParam, getProjectPayments);
 router.post("/:id/payments", createPaymentValidators, postProjectPayment);
+router.put("/:id/payments/:paymentId", updatePaymentValidators, putProjectPayment);
 router.delete("/:id/payments/:paymentId", paymentIdParam, deleteProjectPayment);
 
 router.get("/:id/expenses", projectIdParam, getProjectExpenses);

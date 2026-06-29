@@ -1,23 +1,23 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { Form, FormSection, FormGrid, FormFooter } from "../../components/ui/Form";
+import { Form, FormSection, FormGrid } from "../../components/ui/Form";
 import { Input, Textarea, Select } from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import {
   SERVICE_CATEGORIES,
   DELIVERABLE_STATUSES,
-  PROJECT_PAYMENT_TYPES,
   PAID_VIA,
+  DELIVERABLE_AMOUNT_LABEL,
 } from "../../utils/constants";
 import { getClients } from "../../api/clients.api";
 import { formatCurrency } from "../../utils/formatCurrency";
+import toast from "react-hot-toast";
 
 const emptyDeliverable = () => ({
   title: "",
   category: "Website",
   description: "",
   sellingPrice: 0,
-  expectedCompletion: "",
   status: "Not Started",
 });
 
@@ -41,11 +41,8 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
   const [step, setStep] = useState(0);
   const [project, setProject] = useState({ ...emptyProject });
   const [deliverables, setDeliverables] = useState([emptyDeliverable()]);
-  const [totalAmountOverride, setTotalAmountOverride] = useState(false);
-  const [overrideAmount, setOverrideAmount] = useState(0);
   const [initialPayment, setInitialPayment] = useState({
     enabled: false,
-    type: "Advance",
     amount: "",
     paymentDate: new Date().toISOString().slice(0, 10),
     method: "UPI",
@@ -71,7 +68,6 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
     (sum, d) => sum + (Number(d.sellingPrice) || 0),
     0
   );
-  const finalTotal = totalAmountOverride ? Number(overrideAmount) || 0 : calculatedTotal;
 
   const setProjectField = (key, value) => setProject((p) => ({ ...p, [key]: value }));
 
@@ -105,12 +101,12 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
     setDeliverables((rows) => rows.filter((_, i) => i !== index));
   };
 
-  const validateStep = () => {
-    if (step === 0) {
-      if (!project.clientId && !project.clientName?.trim()) return "Client is required";
+  const validateStep = (stepIndex = step) => {
+    if (stepIndex === 0) {
+      if (!project.clientId) return "Select a client";
       if (!project.projectTitle?.trim()) return "Project name is required";
     }
-    if (step === 1) {
+    if (stepIndex === 1) {
       if (!deliverables.length) return "Add at least one deliverable";
       for (const d of deliverables) {
         if (!d.title?.trim()) return "Each deliverable needs a title";
@@ -120,22 +116,28 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
     return null;
   };
 
-  const nextStep = () => {
-    const err = validateStep();
-    if (err) return err;
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
-    return null;
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    const err = validateStep();
-    if (err) return;
+
+    if (step < STEPS.length - 1) {
+      const err = validateStep();
+      if (err) {
+        toast.error(err);
+        return;
+      }
+      setStep((s) => s + 1);
+      return;
+    }
+
+    const err = validateStep(0) || validateStep(1);
+    if (err) {
+      toast.error(err);
+      return;
+    }
 
     const payments = [];
     if (initialPayment.enabled && Number(initialPayment.amount) > 0) {
       payments.push({
-        type: initialPayment.type,
         amount: Number(initialPayment.amount),
         paymentDate: initialPayment.paymentDate,
         method: initialPayment.method,
@@ -148,23 +150,21 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
       project: {
         ...project,
         clientId: project.clientId || undefined,
-        totalAmount: finalTotal,
+        totalAmount: calculatedTotal,
       },
       deliverables: deliverables.map((d) => ({
         title: d.title,
         category: d.category,
         description: d.description,
         sellingPrice: Number(d.sellingPrice) || 0,
-        expectedCompletion: d.expectedCompletion || undefined,
         status: d.status,
       })),
       payments,
-      totalAmountOverride,
     });
   };
 
   return (
-    <Form id="project-wizard" onSubmit={handleSubmit}>
+    <Form id="project-wizard" onSubmit={handleSubmit} noValidate>
       <div className="mb-6 flex items-center gap-2">
         {STEPS.map((label, i) => (
           <div key={label} className="flex items-center gap-2">
@@ -188,6 +188,7 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
           <FormGrid cols={2}>
             <Select
               label="Client"
+              required
               value={project.clientId}
               onChange={(e) => onClientChange(e.target.value)}
               options={[
@@ -206,21 +207,6 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
               placeholder="e.g. Homely Vibes PG"
             />
           </FormGrid>
-          {!project.clientId && (
-            <FormGrid cols={2}>
-              <Input
-                label="Client name"
-                value={project.clientName}
-                onChange={(e) => setProjectField("clientName", e.target.value)}
-                required
-              />
-              <Input
-                label="Business name"
-                value={project.businessName}
-                onChange={(e) => setProjectField("businessName", e.target.value)}
-              />
-            </FormGrid>
-          )}
           <Textarea
             label="Description"
             value={project.projectDescription}
@@ -274,17 +260,11 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
                     options={SERVICE_CATEGORIES}
                   />
                   <Input
-                    label="Selling price (₹)"
+                    label={DELIVERABLE_AMOUNT_LABEL}
                     type="number"
                     min="0"
                     value={row.sellingPrice}
                     onChange={(e) => setDeliverable(index, "sellingPrice", e.target.value)}
-                  />
-                  <Input
-                    label="Expected completion"
-                    type="date"
-                    value={row.expectedCompletion}
-                    onChange={(e) => setDeliverable(index, "expectedCompletion", e.target.value)}
                   />
                   <Select
                     label="Status"
@@ -304,41 +284,18 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
               <Plus size={16} /> Add deliverable
             </Button>
             <p className="text-sm text-admin-textMuted">
-              Running total: <span className="font-semibold text-admin-text">{formatCurrency(calculatedTotal)}</span>
+              Project value: <span className="font-semibold text-admin-text">{formatCurrency(calculatedTotal)}</span>
             </p>
           </div>
         </FormSection>
       )}
 
       {step === 2 && (
-        <FormSection title="Payment" description="Project total is calculated from deliverables.">
+        <FormSection title="Payment" description="Project value is calculated from deliverables. Optionally record an initial payment.">
           <div className="rounded-xl border border-admin-border bg-admin-surface p-4">
-            <p className="text-sm text-admin-textMuted">Calculated total</p>
+            <p className="text-sm text-admin-textMuted">Project value</p>
             <p className="text-2xl font-bold text-admin-text">{formatCurrency(calculatedTotal)}</p>
           </div>
-          <label className="mt-4 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={totalAmountOverride}
-              onChange={(e) => {
-                setTotalAmountOverride(e.target.checked);
-                if (e.target.checked) setOverrideAmount(calculatedTotal);
-              }}
-            />
-            Override total amount
-          </label>
-          {totalAmountOverride && (
-            <Input
-              label="Override total (₹)"
-              type="number"
-              min="0"
-              value={overrideAmount}
-              onChange={(e) => setOverrideAmount(e.target.value)}
-            />
-          )}
-          <p className="text-sm font-medium text-admin-text">
-            Final project value: {formatCurrency(finalTotal)}
-          </p>
 
           <div className="mt-6 rounded-xl border border-admin-border p-4">
             <label className="flex items-center gap-2 text-sm font-medium">
@@ -347,21 +304,15 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
                 checked={initialPayment.enabled}
                 onChange={(e) => setInitialPayment((p) => ({ ...p, enabled: e.target.checked }))}
               />
-              Record initial payment
+              Record initial payment (optional)
             </label>
             {initialPayment.enabled && (
               <FormGrid cols={2} className="mt-3">
-                <Select
-                  label="Type"
-                  value={initialPayment.type}
-                  onChange={(e) => setInitialPayment((p) => ({ ...p, type: e.target.value }))}
-                  options={PROJECT_PAYMENT_TYPES}
-                />
                 <Input
                   label="Amount (₹)"
                   type="number"
                   min="0"
-                  max={finalTotal}
+                  max={calculatedTotal}
                   value={initialPayment.amount}
                   onChange={(e) => setInitialPayment((p) => ({ ...p, amount: e.target.value }))}
                 />
@@ -381,6 +332,14 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
                   label="Reference"
                   value={initialPayment.reference}
                   onChange={(e) => setInitialPayment((p) => ({ ...p, reference: e.target.value }))}
+                  placeholder="Optional"
+                />
+                <Input
+                  label="Notes"
+                  value={initialPayment.notes}
+                  onChange={(e) => setInitialPayment((p) => ({ ...p, notes: e.target.value }))}
+                  placeholder="Optional"
+                  className="sm:col-span-2"
                 />
               </FormGrid>
             )}
@@ -403,14 +362,7 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
         </div>
         <div className="flex gap-2">
           {step < STEPS.length - 1 ? (
-            <Button
-              type="button"
-              onClick={() => {
-                const err = validateStep();
-                if (err) alert(err);
-                else setStep((s) => s + 1);
-              }}
-            >
+            <Button type="submit">
               Next <ChevronRight size={16} />
             </Button>
           ) : (

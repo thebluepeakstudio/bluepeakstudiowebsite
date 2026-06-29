@@ -9,6 +9,8 @@ export const SERVICE_CATEGORIES = [
 
 export const PROJECT_TYPES = SERVICE_CATEGORIES;
 
+export const DELIVERABLE_AMOUNT_LABEL = "Amount (₹)";
+
 export const DELIVERABLE_STATUSES = [
   "Not Started",
   "In Progress",
@@ -18,9 +20,10 @@ export const DELIVERABLE_STATUSES = [
   "Cancelled",
 ];
 
-export const PROJECT_PAYMENT_TYPES = ["Advance", "Milestone", "Final", "Custom"];
+export const PAYMENT_STATUSES = ["Unpaid", "Partial", "Paid"];
 
-export const PAYMENT_STATUSES = ["Pending", "Partial", "Paid"];
+/** Legacy DB value — display as Unpaid */
+export const normalizePaymentStatus = (status) => (status === "Pending" ? "Unpaid" : status);
 export const WORK_STATUSES = [
   "Not Started",
   "In Progress",

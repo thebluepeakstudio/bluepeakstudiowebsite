@@ -21,6 +21,8 @@ const documentSchema = new mongoose.Schema(
     fileName: { type: String, required: true },
     fileUrl: { type: String, required: true },
     publicId: { type: String },
+    format: { type: String },
+    resourceType: { type: String, enum: ["image", "raw", "video", "auto"], default: "image" },
     category: { type: String, enum: DOCUMENT_CATEGORIES, required: true },
     uploadedBy: { type: String, required: true },
   },

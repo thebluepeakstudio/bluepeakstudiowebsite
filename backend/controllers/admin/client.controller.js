@@ -2,14 +2,11 @@ const Client = require("../../models/Client");
 const ClientActivity = require("../../models/ClientActivity");
 const ClientAttachment = require("../../models/ClientAttachment");
 const Project = require("../../models/Project");
-const ProjectDeliverable = require("../../models/ProjectDeliverable");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
 const {
-  activeDeliverableFilter,
-  averageDeliverableProgress,
-  buildServicesSummary,
+  enrichProjectsWithDeliverables,
 } = require("../../services/projectCalculations.service");
 
 const CLIENT_FIELDS = [
@@ -70,31 +67,6 @@ const getClient = asyncHandler(async (req, res) => {
   res.json({ success: true, data: client });
 });
 
-const enrichClientProject = async (project) => {
-  const doc = project.toObject ? project.toObject() : { ...project };
-  const deliverables = await ProjectDeliverable.find({
-    projectId: doc._id,
-    ...activeDeliverableFilter,
-  })
-    .select("title category status progress")
-    .sort({ createdAt: 1 })
-    .lean();
-
-  if (deliverables.length) {
-    return {
-      ...doc,
-      ...buildServicesSummary(deliverables),
-      overallProgress: averageDeliverableProgress(deliverables),
-    };
-  }
-  return {
-    ...doc,
-    services: doc.projectType ? [doc.projectType] : [],
-    servicesCount: doc.projectType ? 1 : 0,
-    overallProgress: doc.workStatus === "Delivered" || doc.workStatus === "Completed" ? 100 : 0,
-  };
-};
-
 const getClientProjects = asyncHandler(async (req, res) => {
   const client = await Client.findById(req.params.id);
   if (!client) throw new ApiError(404, "Client not found");
@@ -103,9 +75,10 @@ const getClientProjects = asyncHandler(async (req, res) => {
     .select(
       "clientName businessName projectType projectTitle workStatus paymentStatus totalAmount createdAt"
     )
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
 
-  const enriched = await Promise.all(projects.map(enrichClientProject));
+  const enriched = await enrichProjectsWithDeliverables(projects);
   res.json({ success: true, data: enriched });
 });
 
@@ -138,12 +111,13 @@ const getClientOverview = asyncHandler(async (req, res) => {
       .select(
         "clientName businessName projectType projectTitle workStatus paymentStatus totalAmount createdAt"
       )
-      .sort({ createdAt: -1 }),
+      .sort({ createdAt: -1 })
+      .lean(),
     ClientActivity.find({ clientId: req.params.id }).sort({ occurredAt: -1 }),
     ClientAttachment.find({ clientId: req.params.id }).sort({ createdAt: -1 }),
   ]);
 
-  const projects = await Promise.all(projectDocs.map(enrichClientProject));
+  const projects = await enrichProjectsWithDeliverables(projectDocs);
 
   res.json({
     success: true,

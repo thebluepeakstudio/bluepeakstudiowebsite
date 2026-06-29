@@ -5,7 +5,6 @@ const ApiError = require("../utils/ApiError");
 const {
   activeDeliverableFilter,
   deriveOverallStatus,
-  averageDeliverableProgress,
   sumDeliverablePrices,
 } = require("./projectCalculations.service");
 
@@ -22,9 +21,7 @@ const syncProjectFromDeliverables = async (projectId, session = null) => {
   if (!project) throw new ApiError(404, "Project not found");
 
   if (deliverables.length) {
-    if (!project.totalAmountOverride) {
-      project.totalAmount = sumDeliverablePrices(deliverables);
-    }
+    project.totalAmount = sumDeliverablePrices(deliverables);
     project.workStatus = deriveOverallStatus(deliverables);
   }
 
@@ -33,13 +30,9 @@ const syncProjectFromDeliverables = async (projectId, session = null) => {
 };
 
 const validateDeliverableInput = (data) => {
-  const progress = Number(data.progress);
-  if (Number.isFinite(progress) && (progress < 0 || progress > 100)) {
-    throw new ApiError(400, "Progress must be between 0 and 100");
-  }
   const price = Number(data.sellingPrice);
   if (data.sellingPrice !== undefined && (Number.isNaN(price) || price < 0)) {
-    throw new ApiError(400, "Selling price must be a non-negative number");
+    throw new ApiError(400, "Invalid amount");
   }
 };
 
@@ -59,7 +52,6 @@ const createDeliverable = async (projectId, data, session = null) => {
         expectedCompletion: data.expectedCompletion || undefined,
         actualCompletion: data.actualCompletion || undefined,
         status: data.status || "Not Started",
-        progress: Number(data.progress) || 0,
       },
     ],
     session ? { session } : undefined
@@ -86,21 +78,16 @@ const updateDeliverable = async (projectId, deliverableId, data, session = null)
     "expectedCompletion",
     "actualCompletion",
     "status",
-    "progress",
   ];
   fields.forEach((key) => {
     if (data[key] !== undefined) {
-      if (key === "sellingPrice" || key === "progress") {
+      if (key === "sellingPrice") {
         deliverable[key] = Number(data[key]) || 0;
       } else {
         deliverable[key] = data[key];
       }
     }
   });
-
-  if (deliverable.status === "Delivered" && deliverable.progress < 100) {
-    deliverable.progress = 100;
-  }
 
   await deliverable.save(session ? { session } : undefined);
   await syncProjectFromDeliverables(projectId, session);
@@ -181,7 +168,6 @@ const createDeliverablesBatch = async (projectId, items, session) => {
           sellingPrice: Number(item.sellingPrice) || 0,
           expectedCompletion: item.expectedCompletion || undefined,
           status: item.status || "Not Started",
-          progress: Number(item.progress) || 0,
         },
       ],
       { session }
@@ -199,5 +185,4 @@ module.exports = {
   softDeleteDeliverable,
   listDeliverables,
   createDeliverablesBatch,
-  averageDeliverableProgress,
 };

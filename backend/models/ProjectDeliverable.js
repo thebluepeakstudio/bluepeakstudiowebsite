@@ -27,6 +27,7 @@ const projectDeliverableSchema = new mongoose.Schema(
 );
 
 projectDeliverableSchema.index({ projectId: 1, deletedAt: 1 });
+projectDeliverableSchema.index({ category: 1, deletedAt: 1 });
 projectDeliverableSchema.index({ status: 1 });
 
 module.exports = mongoose.model("ProjectDeliverable", projectDeliverableSchema);

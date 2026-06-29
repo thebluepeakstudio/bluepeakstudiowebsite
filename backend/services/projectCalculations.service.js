@@ -94,6 +94,57 @@ const buildServicesSummary = (deliverables) => {
   };
 };
 
+const groupDeliverablesByProject = (deliverables) => {
+  const byProject = {};
+  for (const d of deliverables) {
+    const key = d.projectId.toString();
+    if (!byProject[key]) byProject[key] = [];
+    byProject[key].push(d);
+  }
+  return byProject;
+};
+
+const enrichProjectWithDeliverables = (project, deliverableList = []) => {
+  const doc = typeof project.toObject === "function" ? project.toObject() : { ...project };
+
+  if (deliverableList.length) {
+    return {
+      ...doc,
+      ...buildServicesSummary(deliverableList),
+      overallStatus: doc.workStatus,
+      projectName: doc.projectTitle || doc.clientName,
+    };
+  }
+
+  return {
+    ...doc,
+    services: doc.projectType ? [doc.projectType] : [],
+    servicesCount: doc.projectType ? 1 : 0,
+    categories: doc.projectType ? [doc.projectType] : [],
+    overallStatus: doc.workStatus,
+    projectName: doc.projectTitle || doc.clientName,
+  };
+};
+
+/** Single query for all projects on a page — avoids N+1 deliverable lookups. */
+const enrichProjectsWithDeliverables = async (projects) => {
+  if (!projects.length) return [];
+
+  const ids = projects.map((p) => p._id);
+  const deliverables = await ProjectDeliverable.find({
+    projectId: { $in: ids },
+    ...activeDeliverableFilter,
+  })
+    .select("projectId title category status sellingPrice")
+    .sort({ createdAt: 1 })
+    .lean();
+
+  const byProject = groupDeliverablesByProject(deliverables);
+  return projects.map((p) =>
+    enrichProjectWithDeliverables(p, byProject[p._id.toString()] || [])
+  );
+};
+
 module.exports = {
   activeDeliverableFilter,
   activeAssignmentFilter,
@@ -107,4 +158,7 @@ module.exports = {
   getProjectExpensesTotal,
   computeProjectProfit,
   buildServicesSummary,
+  groupDeliverablesByProject,
+  enrichProjectWithDeliverables,
+  enrichProjectsWithDeliverables,
 };

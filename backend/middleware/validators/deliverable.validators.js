@@ -2,7 +2,6 @@ const { body, param, validationResult } = require("express-validator");
 const {
   SERVICE_CATEGORIES,
   DELIVERABLE_STATUSES,
-  PROJECT_PAYMENT_TYPES,
   PAID_VIA,
 } = require("../../constants/serviceCategories");
 const ApiError = require("../../utils/ApiError");
@@ -24,11 +23,8 @@ const deliverableBody = [
   body("title").trim().notEmpty().withMessage("Title is required"),
   body("category").isIn(SERVICE_CATEGORIES).withMessage("Invalid category"),
   body("description").optional().trim(),
-  body("sellingPrice").optional().isFloat({ min: 0 }).withMessage("Invalid selling price"),
-  body("expectedCompletion").optional().isISO8601().withMessage("Invalid expected completion date"),
-  body("actualCompletion").optional().isISO8601().withMessage("Invalid actual completion date"),
+  body("sellingPrice").optional().isFloat({ min: 0 }).withMessage("Invalid amount"),
   body("status").optional().isIn(DELIVERABLE_STATUSES).withMessage("Invalid status"),
-  body("progress").optional().isInt({ min: 0, max: 100 }).withMessage("Progress must be 0-100"),
 ];
 
 const updateDeliverableValidators = [
@@ -37,11 +33,8 @@ const updateDeliverableValidators = [
   body("title").optional().trim().notEmpty().withMessage("Title cannot be empty"),
   body("category").optional().isIn(SERVICE_CATEGORIES).withMessage("Invalid category"),
   body("description").optional().trim(),
-  body("sellingPrice").optional().isFloat({ min: 0 }).withMessage("Invalid selling price"),
-  body("expectedCompletion").optional().isISO8601().withMessage("Invalid expected completion date"),
-  body("actualCompletion").optional().isISO8601().withMessage("Invalid actual completion date"),
+  body("sellingPrice").optional().isFloat({ min: 0 }).withMessage("Invalid amount"),
   body("status").optional().isIn(DELIVERABLE_STATUSES).withMessage("Invalid status"),
-  body("progress").optional().isInt({ min: 0, max: 100 }).withMessage("Progress must be 0-100"),
   validate,
 ];
 
@@ -73,7 +66,6 @@ const updateAssignmentValidators = [
 
 const createPaymentValidators = [
   projectIdParam,
-  body("type").isIn(PROJECT_PAYMENT_TYPES).withMessage("Invalid payment type"),
   body("amount").isFloat({ gt: 0 }).withMessage("Amount must be greater than 0"),
   body("paymentDate").optional().isISO8601().withMessage("Invalid payment date"),
   body("method").optional().isIn(PAID_VIA).withMessage("Invalid payment method"),
@@ -82,9 +74,19 @@ const createPaymentValidators = [
   validate,
 ];
 
+const updatePaymentValidators = [
+  projectIdParam,
+  paymentIdParam,
+  body("amount").optional().isFloat({ gt: 0 }).withMessage("Amount must be greater than 0"),
+  body("paymentDate").optional().isISO8601().withMessage("Invalid payment date"),
+  body("method").optional().isIn(PAID_VIA).withMessage("Invalid payment method"),
+  body("reference").optional().trim(),
+  body("notes").optional().trim(),
+  validate,
+];
+
 const createProjectValidators = [
-  body("project.clientName").optional().trim(),
-  body("project.clientId").optional().isMongoId().withMessage("Invalid client ID"),
+  body("project.clientId").isMongoId().withMessage("Client is required"),
   body("project.projectTitle").trim().notEmpty().withMessage("Project name is required"),
   body("deliverables").isArray({ min: 1 }).withMessage("At least one deliverable is required"),
   body("deliverables.*.title").trim().notEmpty().withMessage("Deliverable title is required"),
@@ -99,6 +101,7 @@ module.exports = {
   createAssignmentValidators,
   updateAssignmentValidators,
   createPaymentValidators,
+  updatePaymentValidators,
   createProjectValidators,
   projectIdParam: [projectIdParam, validate],
   deliverableIdParam: [projectIdParam, deliverableIdParam, validate],

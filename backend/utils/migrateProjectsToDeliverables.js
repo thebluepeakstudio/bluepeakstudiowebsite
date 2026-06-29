@@ -97,7 +97,6 @@ const migrate = async () => {
             [
               {
                 projectId: project._id,
-                type: "Advance",
                 amount: advance,
                 paymentDate: project.advancePaymentDate || project.createdAt,
                 method: "UPI",

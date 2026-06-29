@@ -16,13 +16,11 @@ const DELIVERABLE_STATUSES = [
   "Cancelled",
 ];
 
-const PROJECT_PAYMENT_TYPES = ["Advance", "Milestone", "Final", "Custom"];
-
 const PAID_VIA = ["UPI", "Bank", "Cash", "Card"];
 
 const FREELANCER_PAYMENT_STATUSES = ["Pending", "Partial", "Paid"];
 
-const PAYMENT_STATUSES = ["Pending", "Partial", "Paid"];
+const PAYMENT_STATUSES = ["Unpaid", "Partial", "Paid", "Pending"];
 
 const WORK_STATUSES = [
   "Not Started",
@@ -36,7 +34,6 @@ const WORK_STATUSES = [
 module.exports = {
   SERVICE_CATEGORIES,
   DELIVERABLE_STATUSES,
-  PROJECT_PAYMENT_TYPES,
   PAID_VIA,
   FREELANCER_PAYMENT_STATUSES,
   PAYMENT_STATUSES,
