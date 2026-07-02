@@ -17,6 +17,76 @@ const {
 } = require("../../services/projectCalculations.service");
 const { aggregateClientOutstanding } = require("../../utils/clientOutstanding");
 
+const FINANCIAL_CACHE_KEY = "analytics:financial";
+const FINANCIAL_CACHE_TTL = 120_000;
+
+/** Single source of truth for figures shown on Dashboard + P&L (avoids cache drift). */
+const getSharedFinancialMetrics = async () => {
+  const cached = get(FINANCIAL_CACHE_KEY);
+  if (cached) return cached;
+
+  const [clientOutstanding, revenueAgg, expenseAgg, freelancerCostsNew, freelancerCostsLegacy] =
+    await Promise.all([
+      aggregateClientOutstanding(),
+      Project.aggregate([sumRecognizedRevenue]),
+      Expense.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]),
+      aggregateFreelancerCosts(),
+      Project.aggregate(legacyFreelancerCostPipeline),
+    ]);
+
+  const totalRevenue = revenueAgg[0]?.total || 0;
+  const totalExpenses = expenseAgg[0]?.total || 0;
+  const freelancerCosts = freelancerCostsNew || freelancerCostsLegacy[0]?.total || 0;
+
+  const metrics = {
+    clientOutstanding,
+    pendingPayments: clientOutstanding,
+    totalRevenue,
+    totalExpenses,
+    freelancerCosts,
+    grossProfit: totalRevenue - freelancerCosts,
+    netProfit: totalRevenue - totalExpenses - freelancerCosts,
+  };
+
+  set(FINANCIAL_CACHE_KEY, metrics, FINANCIAL_CACHE_TTL);
+  return metrics;
+};
+
+const withFinancialMetrics = (payload, financials) => {
+  if (!payload?.data) return payload;
+
+  if (payload.data.cards) {
+    return {
+      ...payload,
+      data: {
+        ...payload.data,
+        cards: {
+          ...payload.data.cards,
+          clientOutstanding: financials.clientOutstanding,
+          pendingPayments: financials.clientOutstanding,
+          totalRevenue: financials.totalRevenue,
+          totalExpenses: financials.totalExpenses,
+          netProfit: financials.netProfit,
+        },
+      },
+    };
+  }
+
+  return {
+    ...payload,
+    data: {
+      ...payload.data,
+      totalRevenue: financials.totalRevenue,
+      totalExpenses: financials.totalExpenses,
+      grossProfit: financials.grossProfit,
+      netProfit: financials.netProfit,
+      clientOutstanding: financials.clientOutstanding,
+      pendingPayments: financials.clientOutstanding,
+      freelancerCosts: financials.freelancerCosts,
+    },
+  };
+};
+
 const enrichLatestProjects = async (projects) => {
   if (!projects.length) return [];
   const ids = projects.map((p) => p._id);
@@ -47,9 +117,10 @@ const enrichLatestProjects = async (projects) => {
 
 const getDashboard = asyncHandler(async (req, res) => {
   const cacheKey = "analytics:dashboard";
+  const financials = await getSharedFinancialMetrics();
   const cached = get(cacheKey);
   if (cached) {
-    return res.json(cached);
+    return res.json(withFinancialMetrics(cached, financials));
   }
 
   const now = new Date();
@@ -57,20 +128,12 @@ const getDashboard = asyncHandler(async (req, res) => {
 
   const [
     activeProjects,
-    pendingPayments,
-    revenueAgg,
-    expenseAgg,
-    freelancerCostFromAssignments,
-    freelancerCostLegacy,
+    financials,
     latestProjects,
     paymentsThisMonth,
   ] = await Promise.all([
     Project.countDocuments({ workStatus: { $nin: ["Completed", "Delivered"] } }),
-    aggregateClientOutstanding(),
-    Project.aggregate([sumRecognizedRevenue]),
-    Expense.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]),
-    aggregateFreelancerCosts(),
-    Project.aggregate(legacyFreelancerCostPipeline),
+    getSharedFinancialMetrics(),
     Project.find()
       .select(
         "clientName businessName projectTitle projectType workStatus paymentStatus totalAmount remainingAmount createdAt"
@@ -84,10 +147,9 @@ const getDashboard = asyncHandler(async (req, res) => {
     ]),
   ]);
 
-  const totalRevenue = revenueAgg[0]?.total || 0;
-  const totalExpenses = expenseAgg[0]?.total || 0;
-  const freelancerCosts =
-    freelancerCostFromAssignments || freelancerCostLegacy[0]?.total || 0;
+  const totalRevenue = financials.totalRevenue;
+  const totalExpenses = financials.totalExpenses;
+  const freelancerCosts = financials.freelancerCosts;
 
   const enrichedLatestProjects = await enrichLatestProjects(latestProjects);
 
@@ -96,10 +158,11 @@ const getDashboard = asyncHandler(async (req, res) => {
     data: {
       cards: {
         activeProjects,
-        pendingPayments,
+        clientOutstanding: financials.clientOutstanding,
+        pendingPayments: financials.clientOutstanding,
         totalRevenue,
         totalExpenses,
-        netProfit: totalRevenue - totalExpenses - freelancerCosts,
+        netProfit: financials.netProfit,
         paymentsReceivedThisMonth: paymentsThisMonth[0]?.total || 0,
       },
       latestProjects: enrichedLatestProjects,
@@ -112,35 +175,24 @@ const getDashboard = asyncHandler(async (req, res) => {
 
 const getPL = asyncHandler(async (req, res) => {
   const cacheKey = "analytics:pl";
+  const financials = await getSharedFinancialMetrics();
   const cached = get(cacheKey);
   if (cached) {
-    return res.json(cached);
+    return res.json(withFinancialMetrics(cached, financials));
   }
 
-  const [revenue, expenses, pendingPayments, freelancerCostsNew, freelancerCostsLegacy] =
-    await Promise.all([
-      Project.aggregate([sumRecognizedRevenue]),
-      Expense.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]),
-      aggregateClientOutstanding(),
-      aggregateFreelancerCosts(),
-      Project.aggregate(legacyFreelancerCostPipeline),
-    ]);
-
-  const totalRevenue = revenue[0]?.total || 0;
-  const totalExpenses = expenses[0]?.total || 0;
-  const freelancerCostsTotal = freelancerCostsNew || freelancerCostsLegacy[0]?.total || 0;
-  const grossProfit = totalRevenue - freelancerCostsTotal;
-  const netProfit = totalRevenue - totalExpenses - freelancerCostsTotal;
+  const financials = await getSharedFinancialMetrics();
 
   const payload = {
     success: true,
     data: {
-      totalRevenue,
-      totalExpenses,
-      grossProfit,
-      netProfit,
-      pendingPayments,
-      freelancerCosts: freelancerCostsTotal,
+      totalRevenue: financials.totalRevenue,
+      totalExpenses: financials.totalExpenses,
+      grossProfit: financials.grossProfit,
+      netProfit: financials.netProfit,
+      clientOutstanding: financials.clientOutstanding,
+      pendingPayments: financials.clientOutstanding,
+      freelancerCosts: financials.freelancerCosts,
     },
   };
 

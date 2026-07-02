@@ -33,10 +33,13 @@ export default function ProfitLoss() {
         <StatCard title="Freelancer Costs" value={formatCurrency(data?.freelancerCosts)} />
         <StatCard title="Gross Profit" value={formatCurrency(data?.grossProfit)} />
         <StatCard title="Net Profit" value={formatCurrency(data?.netProfit)} />
-        <StatCard title="Pending Payments" value={formatCurrency(data?.pendingPayments)} />
+        <StatCard
+          title="Outstanding"
+          value={formatCurrency(data?.clientOutstanding ?? data?.pendingPayments)}
+        />
       </div>
       <p className="text-sm text-admin-textMuted">
-        Pending payments are the total client balance still owed across all projects (project value minus received payments).
+        Outstanding is the total client balance still owed across all projects (sum of each project&apos;s remaining amount).
         Net profit = revenue − expenses − freelancer costs.
       </p>
     </div>

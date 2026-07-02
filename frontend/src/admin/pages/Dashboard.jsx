@@ -50,7 +50,7 @@ export default function Dashboard() {
           />
           <StatCard
             title="Outstanding"
-            value={formatCurrency(cards.pendingPayments)}
+            value={formatCurrency(cards.clientOutstanding ?? cards.pendingPayments)}
             icon={Clock}
             accent="amber"
           />
