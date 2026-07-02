@@ -17,7 +17,6 @@ blogCategorySchema.pre("validate", function setSlug(next) {
   next();
 });
 
-blogCategorySchema.index({ slug: 1 });
 blogCategorySchema.index({ name: "text" });
 
 module.exports = mongoose.model("BlogCategory", blogCategorySchema);

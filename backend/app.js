@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const ensureAdminSeed = require("./utils/ensureAdminSeed");
+const validateEnv = require("./utils/validateEnv");
 const errorHandler = require("./middleware/error.middleware");
 
 const app = express();
@@ -65,6 +66,8 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 const startServer = async () => {
+  validateEnv();
+
   try {
     await connectDB();
   } catch (err) {

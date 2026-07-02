@@ -15,6 +15,7 @@ const blogSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    excerpt: { type: String, trim: true, default: "" },
     content: { type: String, default: "" },
     featuredImage: {
       url: { type: String, default: "" },
@@ -36,7 +37,6 @@ const blogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-blogSchema.index({ slug: 1 }, { unique: true });
 blogSchema.index({ status: 1, publishedAt: -1 });
 blogSchema.index({ categoryId: 1, status: 1 });
 blogSchema.index({ isFeatured: 1, status: 1, publishedAt: -1 });

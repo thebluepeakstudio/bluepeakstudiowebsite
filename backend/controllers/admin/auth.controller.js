@@ -3,10 +3,14 @@ const { body, validationResult } = require("express-validator");
 const Admin = require("../../models/Admin");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
-const signToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, {
+const signToken = (id) => {
+  if (!process.env.JWT_SECRET) {
+    throw new ApiError(500, "Server misconfigured: JWT_SECRET is not set");
+  }
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   });
+};
 
 const loginValidators = [
   body("email").isEmail().withMessage("Valid email required"),
