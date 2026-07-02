@@ -76,16 +76,22 @@ const projectSchema = new mongoose.Schema(
 );
 
 projectSchema.pre("save", function () {
+  const total = Number(this.totalAmount) || 0;
+  const advance = Number(this.advanceReceived) || 0;
+
   if (this.paymentStatus === "Paid") {
     this.remainingAmount = 0;
-    if (this.totalAmount > 0) {
-      this.advanceReceived = this.totalAmount;
+    if (total > 0) {
+      this.advanceReceived = total;
     }
     return;
   }
-  const total = this.totalAmount || 0;
-  const advance = this.advanceReceived || 0;
-  this.remainingAmount = Math.max(0, total - advance);
+
+  this.remainingAmount = Math.max(0, Math.round((total - advance) * 100) / 100);
+
+  if (total > 0 && this.remainingAmount === 0) {
+    this.paymentStatus = "Paid";
+  }
 });
 
 projectSchema.index({ clientId: 1 });

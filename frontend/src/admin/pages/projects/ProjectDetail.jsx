@@ -105,9 +105,11 @@ const emptyExpense = {
 };
 
 const derivePaymentStatus = (totalPaid, total) => {
-  const paid = Number(totalPaid) || 0;
-  const value = Number(total) || 0;
-  if (paid >= value && value > 0) return "Paid";
+  const paid = Math.round((Number(totalPaid) || 0) * 100) / 100;
+  const value = Math.round((Number(total) || 0) * 100) / 100;
+  const remaining = Math.max(0, Math.round((value - paid) * 100) / 100);
+
+  if (value > 0 && remaining === 0) return "Paid";
   if (paid > 0) return "Partial";
   return "Unpaid";
 };

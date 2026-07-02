@@ -42,6 +42,8 @@ const {
   updatePayment,
   deletePayment,
   recomputeProjectPaymentSummary,
+  derivePaymentStatus,
+  roundMoney,
 } = require("../../services/projectPayment.service");
 
 const PROJECT_CONTAINER_FIELDS = [
@@ -277,13 +279,20 @@ const buildProjectDetail = async (project, { withArrays = true } = {}) => {
     ? deriveOverallStatus(deliverables)
     : project.workStatus;
 
+  const totalReceived = roundMoney(project.advanceReceived);
+  const remainingAmount = Math.max(0, roundMoney(totalAmount - totalReceived));
+  const paymentStatus = derivePaymentStatus(totalReceived, totalAmount);
+
   const result = {
     ...project,
     ...summary,
     totalAmount,
     overallStatus,
     workStatus: overallStatus,
-    totalReceived: Number(project.advanceReceived) || 0,
+    totalReceived,
+    remainingAmount,
+    paymentStatus,
+    advanceReceived: totalReceived,
     projectProfit,
     totalFreelancerCost,
     deliverableProfitTotal: deliverables.reduce((sum, d) => sum + (Number(d.profit) || 0), 0),

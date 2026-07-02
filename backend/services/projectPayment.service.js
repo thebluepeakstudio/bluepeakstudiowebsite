@@ -2,10 +2,14 @@ const Project = require("../models/Project");
 const ProjectPayment = require("../models/ProjectPayment");
 const ApiError = require("../utils/ApiError");
 
+const roundMoney = (amount) => Math.round((Number(amount) || 0) * 100) / 100;
+
 const derivePaymentStatus = (totalPaid, total) => {
-  const paid = Number(totalPaid) || 0;
-  const value = Number(total) || 0;
-  if (paid >= value && value > 0) return "Paid";
+  const paid = roundMoney(totalPaid);
+  const value = roundMoney(total);
+  const remaining = Math.max(0, roundMoney(value - paid));
+
+  if (value > 0 && remaining === 0) return "Paid";
   if (paid > 0) return "Partial";
   return "Unpaid";
 };
@@ -20,11 +24,12 @@ const recomputeProjectPaymentSummary = async (projectId, session = null) => {
     .session(session || null)
     .lean();
 
-  const total = Number(project.totalAmount) || 0;
-  const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const total = roundMoney(project.totalAmount);
+  const totalPaid = roundMoney(payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
 
+  project.totalAmount = total;
   project.advanceReceived = totalPaid;
-  project.remainingAmount = Math.max(0, total - totalPaid);
+  project.remainingAmount = Math.max(0, roundMoney(total - totalPaid));
   project.paymentStatus = derivePaymentStatus(totalPaid, total);
 
   if (payments.length) {
@@ -104,6 +109,7 @@ const deletePayment = async (projectId, paymentId, session = null) => {
 };
 
 module.exports = {
+  roundMoney,
   derivePaymentStatus,
   recomputeProjectPaymentSummary,
   listPayments,

@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const ProjectDeliverable = require("../models/ProjectDeliverable");
 const DeliverableAssignment = require("../models/DeliverableAssignment");
 const Expense = require("../models/Expense");
+const { derivePaymentStatus, roundMoney } = require("./projectPayment.service");
 
 const activeDeliverableFilter = { deletedAt: null };
 const activeAssignmentFilter = { deletedAt: null };
@@ -92,6 +93,19 @@ const groupDeliverablesByProject = (deliverables) => {
   return byProject;
 };
 
+const withPaymentSummary = (doc, totalAmount) => {
+  const totalReceived = roundMoney(doc.advanceReceived);
+  const remainingAmount = Math.max(0, roundMoney(totalAmount - totalReceived));
+  const paymentStatus = derivePaymentStatus(totalReceived, totalAmount);
+  return {
+    totalAmount,
+    totalReceived,
+    remainingAmount,
+    paymentStatus,
+    advanceReceived: totalReceived,
+  };
+};
+
 const enrichProjectWithDeliverables = (project, deliverableList = []) => {
   const doc = typeof project.toObject === "function" ? project.toObject() : { ...project };
 
@@ -100,7 +114,7 @@ const enrichProjectWithDeliverables = (project, deliverableList = []) => {
     const overallStatus = deriveOverallStatus(deliverableList);
     return {
       ...doc,
-      totalAmount,
+      ...withPaymentSummary(doc, totalAmount),
       workStatus: overallStatus,
       ...buildServicesSummary(deliverableList),
       overallStatus,
@@ -108,8 +122,10 @@ const enrichProjectWithDeliverables = (project, deliverableList = []) => {
     };
   }
 
+  const totalAmount = roundMoney(doc.totalAmount);
   return {
     ...doc,
+    ...withPaymentSummary(doc, totalAmount),
     services: doc.projectType ? [doc.projectType] : [],
     servicesCount: doc.projectType ? 1 : 0,
     categories: doc.projectType ? [doc.projectType] : [],
