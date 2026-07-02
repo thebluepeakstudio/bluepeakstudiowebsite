@@ -114,10 +114,21 @@ const derivePaymentStatus = (totalPaid, total) => {
 
 const enrichDeliverableRow = (d) => ({
   ...d,
-  assignments: d.assignments || [],
+  assignments: Array.isArray(d.assignments)
+    ? d.assignments.map((a) => ({
+        ...a,
+        freelancerId: a.freelancerId
+          ? typeof a.freelancerId === "object"
+            ? { ...a.freelancerId }
+            : a.freelancerId
+          : a.freelancerId,
+      }))
+    : [],
   freelancerCost: d.freelancerCost ?? 0,
   profit: d.profit ?? (Number(d.sellingPrice) || 0),
 });
+
+const deliverableIdEquals = (a, b) => String(a ?? "") === String(b ?? "");
 
 const sortPayments = (payments) =>
   [...payments].sort(
@@ -222,13 +233,17 @@ export default function ProjectDetail() {
     setProject((prev) => {
       if (!prev) return prev;
       const list = prev.deliverables || [];
-      const idx = list.findIndex((d) => d._id === updated._id);
+      const idx = list.findIndex((d) => deliverableIdEquals(d._id, updated._id));
       const deliverables =
-        idx >= 0 ? list.map((d, i) => (i === idx ? updated : d)) : [...list, updated];
+        idx >= 0
+          ? list.map((d, i) => (i === idx ? enrichDeliverableRow(updated) : d))
+          : [...list, enrichDeliverableRow(updated)];
       return { ...prev, deliverables };
     });
     setDrawerDeliverable((current) =>
-      current?._id === updated._id ? updated : current
+      deliverableIdEquals(current?._id, updated._id)
+        ? enrichDeliverableRow(updated)
+        : current
     );
   }, []);
 
@@ -445,9 +460,22 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleAssignmentsChange = async (updatedDeliverable) => {
-    patchDeliverable(updatedDeliverable);
-    await loadSummary(true);
+  const handleAssignmentsChange = async () => {
+    try {
+      const { data } = await getDeliverables(id);
+      const deliverables = (data.data || []).map(enrichDeliverableRow);
+      loadedTabsRef.current.add("deliverables");
+      setProject((prev) => ({ ...prev, deliverables }));
+      setDrawerDeliverable((current) => {
+        if (!current?._id) return current;
+        return (
+          deliverables.find((d) => deliverableIdEquals(d._id, current._id)) || current
+        );
+      });
+      await loadSummary(true);
+    } catch {
+      toast.error("Failed to refresh deliverables");
+    }
   };
 
   if (loading) return <CardSkeleton />;
@@ -709,6 +737,7 @@ export default function ProjectDetail() {
       )}
 
       <DeliverableDrawer
+        key={drawerDeliverable?._id || "closed"}
         open={!!drawerDeliverable}
         deliverable={drawerDeliverable}
         projectId={id}

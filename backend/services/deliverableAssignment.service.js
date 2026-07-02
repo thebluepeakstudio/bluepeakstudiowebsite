@@ -51,10 +51,9 @@ const createAssignment = async (projectId, deliverableId, data, session = null) 
   );
 
   await updateFreelancerCount(data.freelancerId, 1, session);
-  const query = DeliverableAssignment.findById(assignment[0]._id).populate(
-    "freelancerId",
-    "name email contactNumber skills"
-  );
+  const query = DeliverableAssignment.findById(assignment[0]._id)
+    .populate("freelancerId", "name email contactNumber skills")
+    .lean();
   if (session) query.session(session);
   return query;
 };
@@ -74,10 +73,9 @@ const updateAssignment = async (projectId, deliverableId, assignmentId, data, se
   if (data.remarks !== undefined) assignment.remarks = data.remarks;
 
   await assignment.save(session ? { session } : undefined);
-  return DeliverableAssignment.findById(assignment._id).populate(
-    "freelancerId",
-    "name email contactNumber skills"
-  );
+  return DeliverableAssignment.findById(assignment._id)
+    .populate("freelancerId", "name email contactNumber skills")
+    .lean();
 };
 
 const softDeleteAssignment = async (projectId, deliverableId, assignmentId, session = null) => {

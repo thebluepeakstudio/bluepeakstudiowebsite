@@ -13,6 +13,18 @@ import { getFreelancers } from "../../api/freelancers.api";
 import { SERVICE_CATEGORIES, DELIVERABLE_STATUSES, DELIVERABLE_AMOUNT_LABEL } from "../../utils/constants";
 import toast from "react-hot-toast";
 
+const cloneAssignments = (rows) =>
+  Array.isArray(rows)
+    ? rows.map((a) => ({
+        ...a,
+        freelancerId: a.freelancerId
+          ? typeof a.freelancerId === "object"
+            ? { ...a.freelancerId }
+            : a.freelancerId
+          : a.freelancerId,
+      }))
+    : [];
+
 export default function DeliverableDrawer({
   open,
   deliverable,
@@ -31,18 +43,20 @@ export default function DeliverableDrawer({
     cost: 0,
   });
 
+  const deliverableId = deliverable?._id;
+
   useEffect(() => {
-    if (deliverable) {
-      setForm({
-        title: deliverable.title || "",
-        category: deliverable.category || "Website",
-        description: deliverable.description || "",
-        sellingPrice: deliverable.sellingPrice ?? 0,
-        status: deliverable.status || "Not Started",
-      });
-      setAssignments(deliverable.assignments || []);
-    }
-  }, [deliverable]);
+    if (!open || !deliverableId) return;
+    setForm({
+      title: deliverable.title || "",
+      category: deliverable.category || "Website",
+      description: deliverable.description || "",
+      sellingPrice: deliverable.sellingPrice ?? 0,
+      status: deliverable.status || "Not Started",
+    });
+    setAssignments(cloneAssignments(deliverable.assignments));
+    setNewAssignment({ freelancerId: "", cost: 0 });
+  }, [open, deliverableId, deliverable]);
 
   useEffect(() => {
     if (!open || !form?.category) return;
@@ -60,33 +74,9 @@ export default function DeliverableDrawer({
     };
   }, [open]);
 
-  if (!open || !form) return null;
+  if (!open || !form || !deliverableId) return null;
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
-
-  const buildUpdatedDeliverable = (nextAssignments) => {
-    const freelancerCost = nextAssignments.reduce(
-      (sum, a) => sum + (Number(a.cost) || 0),
-      0
-    );
-    const sellingPrice = Number(form.sellingPrice) || Number(deliverable.sellingPrice) || 0;
-    return {
-      ...deliverable,
-      title: form.title,
-      category: form.category,
-      description: form.description,
-      sellingPrice,
-      status: form.status,
-      assignments: nextAssignments,
-      freelancerCost,
-      profit: sellingPrice - freelancerCost,
-    };
-  };
-
-  const syncAssignments = async (nextAssignments) => {
-    setAssignments(nextAssignments);
-    await onAssignmentsChange?.(buildUpdatedDeliverable(nextAssignments));
-  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -112,13 +102,14 @@ export default function DeliverableDrawer({
     }
     setSubmitting(true);
     try {
-      const { data } = await createAssignment(projectId, deliverable._id, {
+      const { data } = await createAssignment(projectId, deliverableId, {
         freelancerId: newAssignment.freelancerId,
         cost: Number(newAssignment.cost) || 0,
       });
       const next = [...assignments, data.data];
-      await syncAssignments(next);
+      setAssignments(next);
       setNewAssignment({ freelancerId: "", cost: 0 });
+      await onAssignmentsChange?.();
       toast.success("Freelancer assigned");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to assign");
@@ -130,9 +121,10 @@ export default function DeliverableDrawer({
   const handleRemoveAssignment = async (assignmentId) => {
     setSubmitting(true);
     try {
-      await deleteAssignment(projectId, deliverable._id, assignmentId);
+      await deleteAssignment(projectId, deliverableId, assignmentId);
       const next = assignments.filter((a) => a._id !== assignmentId);
-      await syncAssignments(next);
+      setAssignments(next);
+      await onAssignmentsChange?.();
       toast.success("Assignment removed");
     } catch (err) {
       toast.error(err.response?.data?.message || "Remove failed");
@@ -143,12 +135,12 @@ export default function DeliverableDrawer({
 
   const handleUpdateAssignmentCost = async (assignmentId, value) => {
     try {
-      const { data } = await updateAssignment(projectId, deliverable._id, assignmentId, {
+      const { data } = await updateAssignment(projectId, deliverableId, assignmentId, {
         cost: Number(value) || 0,
       });
       const next = assignments.map((a) => (a._id === assignmentId ? data.data : a));
       setAssignments(next);
-      await onAssignmentsChange?.(buildUpdatedDeliverable(next));
+      await onAssignmentsChange?.();
     } catch (err) {
       toast.error(err.response?.data?.message || "Update failed");
     }

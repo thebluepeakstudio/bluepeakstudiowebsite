@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Project = require("../models/Project");
 const ProjectDeliverable = require("../models/ProjectDeliverable");
 const ApiError = require("../utils/ApiError");
+const { toIdString } = require("../utils/toIdString");
 const {
   activeDeliverableFilter,
   deriveOverallStatus,
@@ -139,22 +140,23 @@ const listDeliverables = async (projectId) => {
 
   const byDeliverable = {};
   for (const a of assignments) {
-    const key = a.deliverableId.toString();
+    const key = toIdString(a.deliverableId);
+    if (!key) continue;
     if (!byDeliverable[key]) byDeliverable[key] = [];
     byDeliverable[key].push(a);
   }
 
-  return deliverables.map((d) => ({
-    ...d,
-    assignments: byDeliverable[d._id.toString()] || [],
-    freelancerCost: (byDeliverable[d._id.toString()] || []).reduce(
-      (sum, a) => sum + (Number(a.cost) || 0),
-      0
-    ),
-    profit:
-      (Number(d.sellingPrice) || 0) -
-      (byDeliverable[d._id.toString()] || []).reduce((sum, a) => sum + (Number(a.cost) || 0), 0),
-  }));
+  return deliverables.map((d) => {
+    const id = toIdString(d._id);
+    const rows = byDeliverable[id] ? [...byDeliverable[id]] : [];
+    const freelancerCost = rows.reduce((sum, a) => sum + (Number(a.cost) || 0), 0);
+    return {
+      ...d,
+      assignments: rows,
+      freelancerCost,
+      profit: (Number(d.sellingPrice) || 0) - freelancerCost,
+    };
+  });
 };
 
 const createDeliverablesBatch = async (projectId, items, session) => {
