@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { getProjects, createProjectWithDeliverables, updateProject, deleteProject } from "../../api/projects.api";
 import { useDebounce } from "../../hooks/useDebounce";
+import { usePaginatedQuery } from "../../hooks/usePaginatedQuery";
+import { adminQueryKeys } from "../../queryKeys";
 import Button from "../../components/ui/Button";
 import SearchInput from "../../components/ui/SearchInput";
 import FilterSelect from "../../components/ui/FilterSelect";
@@ -21,11 +24,9 @@ import toast from "react-hot-toast";
 
 export default function ProjectList() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const presetClientId = searchParams.get("clientId");
-  const [projects, setProjects] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, pages: 1 });
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({ workStatus: "", paymentStatus: "", category: "" });
   const [modalOpen, setModalOpen] = useState(false);
@@ -34,20 +35,20 @@ export default function ProjectList() {
   const [submitting, setSubmitting] = useState(false);
   const debouncedSearch = useDebounce(search);
 
-  const fetch = (page = 1) => {
-    setLoading(true);
-    getProjects({ page, limit: 10, search: debouncedSearch, ...filters })
-      .then(({ data }) => {
-        setProjects(data.data);
-        setPagination(data.pagination);
-      })
-      .catch(() => toast.error("Failed to load projects"))
-      .finally(() => setLoading(false));
-  };
+  const listParams = { search: debouncedSearch, ...filters };
 
-  useEffect(() => {
-    fetch(1);
-  }, [debouncedSearch, filters]);
+  const { list: projects, pagination, page, setPage, loading } = usePaginatedQuery(
+    adminQueryKeys.projects(listParams),
+    async (p) => {
+      const { data } = await getProjects({ page: p, limit: 10, search: debouncedSearch, ...filters });
+      return { list: data.data, pagination: data.pagination };
+    },
+    [debouncedSearch, filters.workStatus, filters.paymentStatus, filters.category]
+  );
+
+  const refreshList = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin", "projects"] });
+  };
 
   useEffect(() => {
     if (presetClientId) {
@@ -83,7 +84,7 @@ export default function ProjectList() {
       toast.success("Project updated");
       setModalOpen(false);
       setEditing(null);
-      fetch(pagination.page);
+      refreshList();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to update");
     } finally {
@@ -97,7 +98,7 @@ export default function ProjectList() {
       await deleteProject(deleteId);
       toast.success("Project deleted");
       setDeleteId(null);
-      fetch(pagination.page);
+      refreshList();
     } catch {
       toast.error("Delete failed");
     } finally {
@@ -199,7 +200,7 @@ export default function ProjectList() {
             data={projects}
             onRowClick={(r) => navigate(`/admin-panel/projects/${r._id}`)}
           />
-          <Pagination page={pagination.page} pages={pagination.pages} onPageChange={fetch} />
+          <Pagination page={page} pages={pagination.pages} onPageChange={setPage} />
         </div>
       )}
 

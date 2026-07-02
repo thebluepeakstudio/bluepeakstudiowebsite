@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Building2 } from "lucide-react";
 import { getClients, createClient, updateClient, deleteClient } from "../../api/clients.api";
 import { useDebounce } from "../../hooks/useDebounce";
+import { usePaginatedQuery } from "../../hooks/usePaginatedQuery";
+import { adminQueryKeys } from "../../queryKeys";
 import Button from "../../components/ui/Button";
 import SearchInput from "../../components/ui/SearchInput";
 import Table from "../../components/ui/Table";
@@ -18,9 +21,7 @@ import toast from "react-hot-toast";
 
 export default function ClientList() {
   const navigate = useNavigate();
-  const [list, setList] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, pages: 1 });
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -30,24 +31,23 @@ export default function ClientList() {
   const [submitting, setSubmitting] = useState(false);
   const debouncedSearch = useDebounce(search);
 
-  const fetch = (page = 1) => {
-    setLoading(true);
-    getClients({
-      page,
-      limit: 10,
-      search: debouncedSearch || undefined,
-      status: statusFilter || undefined,
-    })
-      .then(({ data }) => {
-        setList(data.data);
-        setPagination(data.pagination);
-      })
-      .finally(() => setLoading(false));
+  const listParams = {
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
   };
 
-  useEffect(() => {
-    fetch(1);
-  }, [debouncedSearch, statusFilter]);
+  const { list, pagination, page, setPage, loading } = usePaginatedQuery(
+    adminQueryKeys.clients(listParams),
+    async (p) => {
+      const { data } = await getClients({ page: p, limit: 10, ...listParams });
+      return { list: data.data, pagination: data.pagination };
+    },
+    [debouncedSearch, statusFilter]
+  );
+
+  const refreshList = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin", "clients"] });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,7 +62,7 @@ export default function ClientList() {
       }
       setModalOpen(false);
       setEditing(null);
-      fetch(pagination.page);
+      refreshList();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed");
     } finally {
@@ -146,7 +146,7 @@ export default function ClientList() {
             emptyIcon={Building2}
             emptyMessage="No clients yet"
           />
-          <Pagination page={pagination.page} pages={pagination.pages} onPageChange={fetch} />
+          <Pagination page={page} pages={pagination.pages} onPageChange={setPage} />
         </>
       )}
 
@@ -167,7 +167,7 @@ export default function ClientList() {
           try {
             await deleteClient(deleteId);
             toast.success("Client deleted");
-            fetch(pagination.page);
+            refreshList();
           } catch (err) {
             toast.error(err.response?.data?.message || "Delete failed");
           }

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Wallet } from "lucide-react";
 import {
   getFreelancers,
@@ -10,6 +11,8 @@ import {
   recordFreelancerPayment,
 } from "../api/freelancers.api";
 import { useDebounce } from "../hooks/useDebounce";
+import { usePaginatedQuery } from "../hooks/usePaginatedQuery";
+import { adminQueryKeys } from "../queryKeys";
 import Button from "../components/ui/Button";
 import SearchInput from "../components/ui/SearchInput";
 import Table from "../components/ui/Table";
@@ -48,9 +51,7 @@ const emptyPayment = {
 };
 
 export default function Freelancers() {
-  const [list, setList] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, pages: 1 });
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -65,19 +66,20 @@ export default function Freelancers() {
   const [submitting, setSubmitting] = useState(false);
   const debouncedSearch = useDebounce(search);
 
-  const fetch = (page = 1) => {
-    setLoading(true);
-    getFreelancers({ page, limit: 10, search: debouncedSearch })
-      .then(({ data }) => {
-        setList(data.data);
-        setPagination(data.pagination);
-      })
-      .finally(() => setLoading(false));
-  };
+  const listParams = { search: debouncedSearch };
 
-  useEffect(() => {
-    fetch(1);
-  }, [debouncedSearch]);
+  const { list, pagination, page, setPage, loading } = usePaginatedQuery(
+    adminQueryKeys.freelancers(listParams),
+    async (p) => {
+      const { data } = await getFreelancers({ page: p, limit: 10, search: debouncedSearch });
+      return { list: data.data, pagination: data.pagination };
+    },
+    [debouncedSearch]
+  );
+
+  const refreshList = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin", "freelancers"] });
+  };
 
   const toPayload = () => ({
     name: form.name,
@@ -107,7 +109,7 @@ export default function Freelancers() {
       }
       setModalOpen(false);
       setEditing(null);
-      fetch(pagination.page);
+      refreshList();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed");
     } finally {
@@ -138,7 +140,6 @@ export default function Freelancers() {
   };
 
   const assignmentsWithDue = outsourcedProjects.filter((p) => p.due > 0);
-  const settledProjects = outsourcedProjects.filter((p) => p.due <= 0 && (p.cost || 0) > 0);
   const selectedPayAssignment = outsourcedProjects.find(
     (p) => (p.assignmentId || p._id) === paymentForm.assignmentId
   );
@@ -189,7 +190,7 @@ export default function Freelancers() {
       toast.success(payFull ? "Full payment recorded" : "Partial payment recorded");
       const financials = await loadPayModalData(paying._id);
       setPaymentForm({ ...emptyPayment });
-      fetch(pagination.page);
+      refreshList();
       if (financials.amountDue <= 0) {
         setPayModalOpen(false);
         setPaying(null);
@@ -291,7 +292,7 @@ export default function Freelancers() {
             ]}
             data={list}
           />
-          <Pagination page={pagination.page} pages={pagination.pages} onPageChange={fetch} />
+          <Pagination page={page} pages={pagination.pages} onPageChange={setPage} />
         </>
       )}
 
@@ -439,32 +440,10 @@ export default function Freelancers() {
               </table>
             </div>
           </div>
-        ) : outsourcedProjects.length > 0 ? (
-          <p className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            All outsourced projects are fully paid.
-          </p>
         ) : (
           <p className="mb-6 rounded-lg border border-admin-border bg-admin-muted/40 px-4 py-3 text-sm text-admin-textMuted">
-            No outsourced projects assigned to this freelancer yet.
+            No pending assignments for this freelancer.
           </p>
-        )}
-
-        {settledProjects.length > 0 && (
-          <div className="mb-6">
-            <h3 className="mb-2 text-sm font-semibold text-admin-textMuted">Fully paid projects</h3>
-            <div className="overflow-x-auto rounded-lg border border-admin-border">
-              <table className="w-full text-left text-sm">
-                <tbody>
-                  {settledProjects.map((p) => (
-                    <tr key={p._id} className="border-t border-admin-border first:border-t-0">
-                      <td className="px-3 py-2">{getProjectLabel(p)}</td>
-                      <td className="px-3 py-2 text-emerald-700">{formatCurrency(p.outsourcingCost)} paid</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         )}
 
         <form onSubmit={handlePayment} className="space-y-4 rounded-xl border border-admin-border bg-admin-muted/30 p-4 sm:p-5">
@@ -646,7 +625,7 @@ export default function Freelancers() {
           await deleteFreelancer(deleteId);
           toast.success("Deleted");
           setDeleteId(null);
-          fetch(pagination.page);
+          refreshList();
         }}
         message="Delete this freelancer and all payment records?"
         danger

@@ -1,18 +1,19 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { getPL } from "../api/analytics.api";
+import { adminQueryKeys } from "../queryKeys";
 import { StatCard } from "../components/ui/Card";
 import { CardSkeleton } from "../components/ui/Skeleton";
 import { formatCurrency } from "../utils/formatCurrency";
 
 export default function ProfitLoss() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getPL()
-      .then(({ data: res }) => setData(res.data))
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useQuery({
+    queryKey: adminQueryKeys.profitLoss(),
+    queryFn: async () => {
+      const { data: res } = await getPL();
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
 
   if (loading) {
     return (

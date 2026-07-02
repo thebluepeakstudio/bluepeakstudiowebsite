@@ -26,6 +26,10 @@ const syncProjectFromDeliverables = async (projectId, session = null) => {
   }
 
   await project.save(queryOpts);
+
+  const { recomputeProjectPaymentSummary } = require("./projectPayment.service");
+  await recomputeProjectPaymentSummary(projectId, session);
+
   return project;
 };
 

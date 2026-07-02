@@ -150,7 +150,6 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
       project: {
         ...project,
         clientId: project.clientId || undefined,
-        totalAmount: calculatedTotal,
       },
       deliverables: deliverables.map((d) => ({
         title: d.title,

@@ -4,11 +4,29 @@ const Project = require("../models/Project");
 const { activeAssignmentFilter } = require("../services/projectCalculations.service");
 const {
   findAssignmentForFreelancer,
-  normalizeAssignedFreelancers,
 } = require("./projectFreelancerAssignments");
 
 const assignmentStatsPipeline = (freelancerMatch) => [
   { $match: { ...activeAssignmentFilter } },
+  {
+    $lookup: {
+      from: "projectdeliverables",
+      localField: "deliverableId",
+      foreignField: "_id",
+      as: "deliverable",
+    },
+  },
+  { $unwind: "$deliverable" },
+  { $match: { "deliverable.deletedAt": null } },
+  {
+    $lookup: {
+      from: "projects",
+      localField: "deliverable.projectId",
+      foreignField: "_id",
+      as: "project",
+    },
+  },
+  { $unwind: "$project" },
   {
     $group: {
       _id: "$freelancerId",

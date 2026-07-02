@@ -148,7 +148,9 @@ const listAssignmentsForFreelancer = async (freelancerId) => {
     .lean();
   const projectMap = Object.fromEntries(projects.map((p) => [p._id.toString(), p]));
 
-  return valid.map((a) => {
+  return valid
+    .filter((a) => projectMap[a.deliverableId.projectId.toString()])
+    .map((a) => {
     const project = projectMap[a.deliverableId.projectId.toString()];
     const cost = Number(a.cost) || 0;
     const paid = Number(a.amountPaid) || 0;

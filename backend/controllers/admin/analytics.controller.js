@@ -17,6 +17,7 @@ const {
   buildServicesSummary,
   groupDeliverablesByProject,
 } = require("../../services/projectCalculations.service");
+const { computeLeadMetrics } = require("../../utils/leadMetrics");
 
 const enrichLatestProjects = async (projects) => {
   if (!projects.length) return [];
@@ -48,9 +49,13 @@ const enrichLatestProjects = async (projects) => {
 
 const getDashboard = asyncHandler(async (req, res) => {
   const cacheKey = "analytics:dashboard";
+  const leadMetrics = await computeLeadMetrics();
   const cached = get(cacheKey);
   if (cached) {
-    return res.json(cached);
+    return res.json({
+      ...cached,
+      data: { ...cached.data, leadMetrics },
+    });
   }
 
   const now = new Date();
@@ -172,6 +177,7 @@ const getDashboard = asyncHandler(async (req, res) => {
         freelancerPaidThisMonth: freelancerPaidThisMonth[0]?.total || 0,
       },
       latestProjects: enrichedLatestProjects,
+      leadMetrics,
     },
   };
 

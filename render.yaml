@@ -1,0 +1,16 @@
+# Render Blueprint — Static Site (frontend)
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: bluepeakstudiowebsite-1
+    runtime: static
+    repo: https://github.com/thebluepeakstudio/bluepeakstudiowebsite
+    branch: main
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    # Relative to rootDir (frontend/) — NOT frontend/dist
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

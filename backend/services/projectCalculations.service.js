@@ -10,21 +10,9 @@ const deriveOverallStatus = (deliverables) => {
   const active = deliverables.filter((d) => d.status !== "Cancelled");
   if (!active.length) return "Not Started";
 
-  const statuses = active.map((d) => d.status);
-  if (statuses.every((s) => s === "Delivered")) return "Delivered";
-  if (statuses.every((s) => s === "Not Started")) return "Not Started";
-
-  const priority = [
-    "In Progress",
-    "Review",
-    "Waiting For Client",
-    "Not Started",
-    "Delivered",
-  ];
-  for (const status of priority) {
-    if (statuses.includes(status)) return status === "Waiting For Client" ? "Waiting for Client" : status;
-  }
-  return "In Progress";
+  if (active.every((d) => d.status === "Delivered")) return "Delivered";
+  if (active.some((d) => d.status !== "Not Started")) return "In Progress";
+  return "Not Started";
 };
 
 const averageDeliverableProgress = (deliverables) => {
@@ -108,10 +96,14 @@ const enrichProjectWithDeliverables = (project, deliverableList = []) => {
   const doc = typeof project.toObject === "function" ? project.toObject() : { ...project };
 
   if (deliverableList.length) {
+    const totalAmount = sumDeliverablePrices(deliverableList);
+    const overallStatus = deriveOverallStatus(deliverableList);
     return {
       ...doc,
+      totalAmount,
+      workStatus: overallStatus,
       ...buildServicesSummary(deliverableList),
-      overallStatus: doc.workStatus,
+      overallStatus,
       projectName: doc.projectTitle || doc.clientName,
     };
   }

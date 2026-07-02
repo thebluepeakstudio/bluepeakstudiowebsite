@@ -22,14 +22,14 @@ const guessMimeType = (fileName) => {
   return types[ext] || "application/octet-stream";
 };
 
-function DocumentPreviewModal({ preview, onClose }) {
+function DocumentPreviewModal({ preview, onClose, onPreviewError }) {
   useEffect(() => {
     if (!preview) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
-      URL.revokeObjectURL(preview.url);
+      if (!preview.direct) URL.revokeObjectURL(preview.url);
     };
   }, [preview]);
 
@@ -69,7 +69,12 @@ function DocumentPreviewModal({ preview, onClose }) {
           )}
           {isImage && (
             <div className="flex h-full items-center justify-center overflow-auto p-4">
-              <img src={preview.url} alt={preview.fileName} className="max-h-full max-w-full object-contain" />
+              <img
+                src={preview.url}
+                alt={preview.fileName}
+                className="max-h-full max-w-full object-contain"
+                onError={() => onPreviewError?.(preview)}
+              />
             </div>
           )}
           {!isPdf && !isImage && (
@@ -111,6 +116,14 @@ export default function ProjectFilesPanel({ projectId }) {
   const [openingId, setOpeningId] = useState(null);
   const [preview, setPreview] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const previewDocRef = useRef(null);
+
+  const loadProxyPreview = async (doc) => {
+    const mimeType = guessMimeType(doc.fileName);
+    const { data } = await getDocumentView(doc._id);
+    const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
+    setPreview({ url: URL.createObjectURL(blob), fileName: doc.fileName, mimeType, direct: false });
+  };
 
   const load = () => {
     getDocuments(projectId)
@@ -158,12 +171,14 @@ export default function ProjectFilesPanel({ projectId }) {
 
   const handleOpenDocument = async (doc) => {
     setOpeningId(doc._id);
+    previewDocRef.current = doc;
+    const mimeType = guessMimeType(doc.fileName);
     try {
-      const { data } = await getDocumentView(doc._id);
-      const mimeType = guessMimeType(doc.fileName);
-      const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      setPreview({ url, fileName: doc.fileName, mimeType });
+      if (doc.downloadUrl) {
+        setPreview({ url: doc.downloadUrl, fileName: doc.fileName, mimeType, direct: true });
+        return;
+      }
+      await loadProxyPreview(doc);
     } catch {
       toast.error("Could not open document");
     } finally {
@@ -171,7 +186,26 @@ export default function ProjectFilesPanel({ projectId }) {
     }
   };
 
+  const handlePreviewError = async () => {
+    const doc = previewDocRef.current;
+    if (!doc || !preview?.direct) return;
+    try {
+      await loadProxyPreview(doc);
+    } catch {
+      toast.error("Could not open document");
+    }
+  };
+
   const handleDownloadDocument = async (doc) => {
+    if (doc.downloadUrl) {
+      const link = document.createElement("a");
+      link.href = doc.downloadUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.download = doc.fileName;
+      link.click();
+      return;
+    }
     try {
       const { data } = await getDocumentView(doc._id);
       const mimeType = guessMimeType(doc.fileName);
@@ -197,7 +231,11 @@ export default function ProjectFilesPanel({ projectId }) {
 
   return (
     <div className="space-y-6">
-      <DocumentPreviewModal preview={preview} onClose={() => setPreview(null)} />
+      <DocumentPreviewModal
+        preview={preview}
+        onClose={() => setPreview(null)}
+        onPreviewError={handlePreviewError}
+      />
 
       <Card title="Upload documents">
         <div className="space-y-4">

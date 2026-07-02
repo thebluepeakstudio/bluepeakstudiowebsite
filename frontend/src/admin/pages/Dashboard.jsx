@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   FolderKanban,
@@ -13,7 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { getDashboard } from "../api/analytics.api";
-import { getLeadMetrics } from "../api/leads.api";
+import { adminQueryKeys } from "../queryKeys";
 import LeadMetricsCards from "../components/leads/LeadMetricsCards";
 import PageHeader, { PageSection, LinkAction } from "../components/layout/PageHeader";
 import { StatCard } from "../components/ui/Card";
@@ -27,25 +27,19 @@ import { getProjectLabel } from "../utils/constants";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
-  const [leadMetrics, setLeadMetrics] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [leadsLoading, setLeadsLoading] = useState(true);
 
-  useEffect(() => {
-    getDashboard()
-      .then((dashRes) => setData(dashRes.data.data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-
-    getLeadMetrics()
-      .then((leadRes) => setLeadMetrics(leadRes.data.data))
-      .catch(console.error)
-      .finally(() => setLeadsLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useQuery({
+    queryKey: adminQueryKeys.dashboard(),
+    queryFn: async () => {
+      const dashRes = await getDashboard();
+      return dashRes.data.data;
+    },
+    staleTime: 60_000,
+  });
 
   const cards = data?.cards || {};
   const deliverables = cards.deliverables || {};
+  const leadMetrics = data?.leadMetrics;
 
   return (
     <div className="space-y-8">
@@ -140,7 +134,7 @@ export default function Dashboard() {
         description="Track new leads, follow-ups, and conversions."
         action={<LinkAction to="/admin-panel/leads">Manage leads</LinkAction>}
       >
-        {leadsLoading ? (
+        {loading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <CardSkeleton key={i} />

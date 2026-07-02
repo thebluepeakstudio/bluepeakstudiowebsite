@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, ExternalLink, Tags } from "lucide-react";
 import { getBlogs, deleteBlog } from "../../api/blogs.api";
 import { getBlogCategories } from "../../api/blogCategories.api";
 import { useDebounce } from "../../hooks/useDebounce";
+import { usePaginatedQuery } from "../../hooks/usePaginatedQuery";
+import { adminQueryKeys } from "../../queryKeys";
 import Button from "../../components/ui/Button";
 import SearchInput from "../../components/ui/SearchInput";
 import FilterSelect from "../../components/ui/FilterSelect";
@@ -20,10 +23,7 @@ const siteBase = import.meta.env.VITE_SITE_URL || window.location.origin;
 
 export default function BlogList() {
   const navigate = useNavigate();
-  const [blogs, setBlogs] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, pages: 1 });
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -31,32 +31,33 @@ export default function BlogList() {
   const [deleting, setDeleting] = useState(false);
   const debouncedSearch = useDebounce(search);
 
-  const fetch = (page = 1) => {
-    setLoading(true);
-    getBlogs({
-      page,
-      limit: 10,
-      search: debouncedSearch || undefined,
-      status: status || undefined,
-      categoryId: categoryId || undefined,
-    })
-      .then(({ data }) => {
-        setBlogs(data.data);
-        setPagination(data.pagination);
-      })
-      .catch(() => toast.error("Failed to load blogs"))
-      .finally(() => setLoading(false));
+  const listParams = {
+    search: debouncedSearch || undefined,
+    status: status || undefined,
+    categoryId: categoryId || undefined,
   };
 
-  useEffect(() => {
-    getBlogCategories()
-      .then(({ data }) => setCategories(data.data))
-      .catch(() => {});
-  }, []);
+  const { data: categories = [] } = useQuery({
+    queryKey: adminQueryKeys.blogCategories(),
+    queryFn: async () => {
+      const { data } = await getBlogCategories();
+      return data.data;
+    },
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    fetch(1);
-  }, [debouncedSearch, status, categoryId]);
+  const { list: blogs, pagination, page, setPage, loading } = usePaginatedQuery(
+    adminQueryKeys.blogs(listParams),
+    async (p) => {
+      const { data } = await getBlogs({ page: p, limit: 10, ...listParams });
+      return { list: data.data, pagination: data.pagination };
+    },
+    [debouncedSearch, status, categoryId]
+  );
+
+  const refreshBlogs = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin", "blogs"] });
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -64,7 +65,7 @@ export default function BlogList() {
       await deleteBlog(deleteId);
       toast.success("Blog deleted");
       setDeleteId(null);
-      fetch(pagination.page);
+      refreshBlogs();
     } catch (err) {
       toast.error(err.response?.data?.message || "Delete failed");
     } finally {
@@ -197,11 +198,7 @@ export default function BlogList() {
             data={blogs}
             emptyMessage="No blogs"
           />
-          <Pagination
-            page={pagination.page}
-            pages={pagination.pages}
-            onPageChange={fetch}
-          />
+          <Pagination page={page} pages={pagination.pages} onPageChange={setPage} />
         </>
       )}
 

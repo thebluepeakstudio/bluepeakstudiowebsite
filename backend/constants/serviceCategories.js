@@ -5,6 +5,7 @@ const SERVICE_CATEGORIES = [
   "SEO",
   "Branding",
   "Video Editing",
+  "Software",
 ];
 
 const DELIVERABLE_STATUSES = [

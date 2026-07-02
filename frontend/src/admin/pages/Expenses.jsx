@@ -1,4 +1,5 @@
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import {
   getExpenses,
@@ -8,6 +9,8 @@ import {
   getExpenseSummary,
 } from "../api/expenses.api";
 import { useDebounce } from "../hooks/useDebounce";
+import { usePaginatedQuery } from "../hooks/usePaginatedQuery";
+import { adminQueryKeys } from "../queryKeys";
 import Button from "../components/ui/Button";
 import SearchInput from "../components/ui/SearchInput";
 import FilterSelect from "../components/ui/FilterSelect";
@@ -36,10 +39,7 @@ const emptyExpense = {
 };
 
 export default function Expenses() {
-  const [expenses, setExpenses] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [pagination, setPagination] = useState({ page: 1, pages: 1 });
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -49,30 +49,33 @@ export default function Expenses() {
   const [submitting, setSubmitting] = useState(false);
   const debouncedSearch = useDebounce(search);
 
-  const fetchSummary = () => {
-    const now = new Date();
-    getExpenseSummary({ month: now.getMonth() + 1, year: now.getFullYear() })
-      .then((sum) => setSummary(sum.data.data))
-      .catch(() => {});
+  const now = new Date();
+  const summaryParams = { month: now.getMonth() + 1, year: now.getFullYear() };
+
+  const { data: summary } = useQuery({
+    queryKey: adminQueryKeys.expenseSummary(summaryParams),
+    queryFn: async () => {
+      const sum = await getExpenseSummary(summaryParams);
+      return sum.data.data;
+    },
+    staleTime: 60_000,
+  });
+
+  const listParams = { search: debouncedSearch, category };
+
+  const { list: expenses, pagination, page, setPage, loading } = usePaginatedQuery(
+    adminQueryKeys.expenses(listParams),
+    async (p) => {
+      const exp = await getExpenses({ page: p, limit: 10, search: debouncedSearch, category });
+      return { list: exp.data.data, pagination: exp.data.pagination };
+    },
+    [debouncedSearch, category]
+  );
+
+  const refreshExpenses = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin", "expenses"] });
+    queryClient.invalidateQueries({ queryKey: ["admin", "expense-summary"] });
   };
-
-  const fetch = (page = 1) => {
-    setLoading(true);
-    getExpenses({ page, limit: 10, search: debouncedSearch, category })
-      .then((exp) => {
-        setExpenses(exp.data.data);
-        setPagination(exp.data.pagination);
-      })
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    fetchSummary();
-  }, []);
-
-  useEffect(() => {
-    fetch(1);
-  }, [debouncedSearch, category]);
 
   const openCreate = () => {
     setEditing(null);
@@ -106,8 +109,7 @@ export default function Expenses() {
         toast.success("Expense added");
       }
       setModalOpen(false);
-      fetch(pagination.page);
-      fetchSummary();
+      refreshExpenses();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed");
     } finally {
@@ -120,8 +122,7 @@ export default function Expenses() {
       await deleteExpense(deleteId);
       toast.success("Deleted");
       setDeleteId(null);
-      fetch(pagination.page);
-      fetchSummary();
+      refreshExpenses();
     } catch {
       toast.error("Delete failed");
     }
@@ -189,7 +190,7 @@ export default function Expenses() {
             ]}
             data={expenses}
           />
-          <Pagination page={pagination.page} pages={pagination.pages} onPageChange={fetch} />
+          <Pagination page={page} pages={pagination.pages} onPageChange={setPage} />
         </>
       )}
 

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/fetch-seo-files.mjs",
+    "build": "vite build && node scripts/fetch-seo-files.mjs && node scripts/verify-build.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -13,6 +13,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@tanstack/react-query": "^5.101.2",
     "@tiptap/extension-image": "^3.27.1",
     "@tiptap/extension-link": "^3.27.1",
     "@tiptap/extension-placeholder": "^3.27.1",

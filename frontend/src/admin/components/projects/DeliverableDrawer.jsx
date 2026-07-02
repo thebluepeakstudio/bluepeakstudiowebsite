@@ -64,9 +64,28 @@ export default function DeliverableDrawer({
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
+  const buildUpdatedDeliverable = (nextAssignments) => {
+    const freelancerCost = nextAssignments.reduce(
+      (sum, a) => sum + (Number(a.cost) || 0),
+      0
+    );
+    const sellingPrice = Number(form.sellingPrice) || Number(deliverable.sellingPrice) || 0;
+    return {
+      ...deliverable,
+      title: form.title,
+      category: form.category,
+      description: form.description,
+      sellingPrice,
+      status: form.status,
+      assignments: nextAssignments,
+      freelancerCost,
+      profit: sellingPrice - freelancerCost,
+    };
+  };
+
   const syncAssignments = async (nextAssignments) => {
     setAssignments(nextAssignments);
-    await onAssignmentsChange?.();
+    await onAssignmentsChange?.(buildUpdatedDeliverable(nextAssignments));
   };
 
   const handleSave = async (e) => {
@@ -129,7 +148,7 @@ export default function DeliverableDrawer({
       });
       const next = assignments.map((a) => (a._id === assignmentId ? data.data : a));
       setAssignments(next);
-      await onAssignmentsChange?.();
+      await onAssignmentsChange?.(buildUpdatedDeliverable(next));
     } catch (err) {
       toast.error(err.response?.data?.message || "Update failed");
     }

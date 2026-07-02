@@ -1,8 +1,10 @@
 import "./admin.css";
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
+import { adminQueryClient } from "./queryClient";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import AdminLayout from "./components/layout/AdminLayout";
 import Login from "./pages/Login";
@@ -31,7 +33,8 @@ const PageLoader = () => (
 
 export default function AdminApp() {
   return (
-    <AuthProvider>
+    <QueryClientProvider client={adminQueryClient}>
+      <AuthProvider>
       <div className="admin-panel min-h-screen bg-admin-muted text-admin-text">
         <Toaster
           position="top-center"
@@ -71,6 +74,7 @@ export default function AdminApp() {
           </Routes>
         </Suspense>
       </div>
-    </AuthProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

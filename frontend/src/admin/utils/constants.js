@@ -5,6 +5,7 @@ export const SERVICE_CATEGORIES = [
   "SEO",
   "Branding",
   "Video Editing",
+  "Software",
 ];
 
 export const PROJECT_TYPES = SERVICE_CATEGORIES;

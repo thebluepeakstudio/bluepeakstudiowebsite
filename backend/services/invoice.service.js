@@ -27,6 +27,16 @@ const fetchImageBuffer = async (url) => {
   return Buffer.from(await response.arrayBuffer());
 };
 
+let cachedLogoBuffer = null;
+let cachedLogoUrl = null;
+
+const getLogoBuffer = async (logoUrl) => {
+  if (cachedLogoBuffer && cachedLogoUrl === logoUrl) return cachedLogoBuffer;
+  cachedLogoBuffer = await fetchImageBuffer(logoUrl);
+  cachedLogoUrl = logoUrl;
+  return cachedLogoBuffer;
+};
+
 /** Stable invoice number derived from project ID (same project → same number). */
 const getProjectInvoiceNumber = (projectId) => {
   const hex = String(projectId).replace(/[^a-f0-9]/gi, "");
@@ -90,7 +100,7 @@ const generateProjectInvoicePdf = async (projectId) => {
       const left = doc.page.margins.left;
 
       try {
-        const logoBuffer = await fetchImageBuffer(logoUrl);
+        const logoBuffer = await getLogoBuffer(logoUrl);
         doc.image(logoBuffer, left, 40, { width: 72 });
       } catch {
         doc.font("Roboto").fontSize(10).fillColor("#64748b").text(companyName, left, 45);

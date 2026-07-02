@@ -1,6 +1,10 @@
 const mongoose = require("mongoose");
 const Project = require("../../models/Project");
+const Freelancer = require("../../models/Freelancer");
 const ProjectDeliverable = require("../../models/ProjectDeliverable");
+const ProjectPayment = require("../../models/ProjectPayment");
+const Document = require("../../models/Document");
+const DeliverableAssignment = require("../../models/DeliverableAssignment");
 const Expense = require("../../models/Expense");
 const FreelancerPayment = require("../../models/FreelancerPayment");
 const ApiError = require("../../utils/ApiError");
@@ -12,6 +16,8 @@ const {
   activeDeliverableFilter,
   buildServicesSummary,
   computeProjectProfit,
+  deriveOverallStatus,
+  sumDeliverablePrices,
   enrichProjectsWithDeliverables,
 } = require("../../services/projectCalculations.service");
 const {
@@ -27,6 +33,7 @@ const {
   updateAssignment,
   softDeleteAssignment,
   createAssignmentsBatch,
+  updateFreelancerCount,
 } = require("../../services/deliverableAssignment.service");
 const { generateProjectInvoicePdf } = require("../../services/invoice.service");
 const {
@@ -59,6 +66,55 @@ const pickContainerFields = (body) => {
     if (body[key] !== undefined) payload[key] = body[key];
   });
   return payload;
+};
+
+const METADATA_ONLY_UPDATE_FIELDS = new Set([
+  "notes",
+  "googleDriveLink",
+  "projectDescription",
+  "projectTitle",
+  "dateOfOnboarding",
+  "expectedCompletionDate",
+  "actualCompletionDate",
+  "clientId",
+  "clientName",
+  "businessName",
+  "contactNumber",
+  "email",
+]);
+
+const normalizeFieldValue = (value) => {
+  if (value == null || value === "") return "";
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "object" && value._id) return value._id.toString();
+  return String(value);
+};
+
+const projectFieldChanged = (key, body, existing) => {
+  if (body[key] === undefined) return false;
+  return normalizeFieldValue(body[key]) !== normalizeFieldValue(existing[key]);
+};
+
+/** Skip deliverable sync when only metadata changed — preserves workStatus re-derive on status edits. */
+const shouldSyncProjectFromDeliverables = async (projectId, body, existing) => {
+  const deliverableCount = await ProjectDeliverable.countDocuments({
+    projectId,
+    deletedAt: null,
+  });
+  if (!deliverableCount) return false;
+
+  const changedKeys = PROJECT_CONTAINER_FIELDS.filter((key) =>
+    projectFieldChanged(key, body, existing)
+  );
+  if (!changedKeys.length) return false;
+
+  return !changedKeys.every((key) => METADATA_ONLY_UPDATE_FIELDS.has(key));
+};
+
+const resolveProjectIncludeParam = (query) => {
+  if (query.fields === "full" || query.fields === "all") return "all";
+  if (query.fields === "summary") return query.include || undefined;
+  return query.include;
 };
 
 const buildFilter = (query) => {
@@ -187,12 +243,12 @@ const getProjectSummary = asyncHandler(async (req, res) => {
   });
 });
 
-const buildProjectDetail = async (project) => {
+const buildProjectDetail = async (project, { withArrays = true } = {}) => {
   const deliverables = await listDeliverables(project._id);
-  const payments = await listPayments(project._id);
-  const expenses = await Expense.find({ projectId: project._id })
-    .sort({ expenseDate: -1 })
-    .lean();
+  const payments = withArrays ? await listPayments(project._id) : [];
+  const expenses = withArrays
+    ? await Expense.find({ projectId: project._id }).sort({ expenseDate: -1 }).lean()
+    : [];
 
   const summary = deliverables.length
     ? buildServicesSummary(deliverables)
@@ -214,18 +270,43 @@ const buildProjectDetail = async (project) => {
     0
   );
 
-  return {
+  const totalAmount = deliverables.length
+    ? sumDeliverablePrices(deliverables)
+    : Number(project.totalAmount) || 0;
+  const overallStatus = deliverables.length
+    ? deriveOverallStatus(deliverables)
+    : project.workStatus;
+
+  const result = {
     ...project,
     ...summary,
-    deliverables,
-    payments,
-    expenses,
-    overallStatus: project.workStatus,
+    totalAmount,
+    overallStatus,
+    workStatus: overallStatus,
     totalReceived: Number(project.advanceReceived) || 0,
     projectProfit,
     totalFreelancerCost,
     deliverableProfitTotal: deliverables.reduce((sum, d) => sum + (Number(d.profit) || 0), 0),
   };
+
+  if (withArrays) {
+    result.deliverables = deliverables;
+    result.payments = payments;
+    result.expenses = expenses;
+  }
+
+  return result;
+};
+
+const parseIncludeParam = (includeParam) => {
+  if (!includeParam || includeParam === "summary") return new Set();
+  if (includeParam === "all") return new Set(["deliverables", "payments", "expenses"]);
+  return new Set(
+    String(includeParam)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
 };
 
 const getProject = asyncHandler(async (req, res) => {
@@ -235,7 +316,28 @@ const getProject = asyncHandler(async (req, res) => {
     .lean();
   if (!project) throw new ApiError(404, "Project not found");
 
-  const data = await buildProjectDetail(project);
+  const includeParam = resolveProjectIncludeParam(req.query);
+
+  if (includeParam === "all") {
+    const data = await buildProjectDetail(project, { withArrays: true });
+    return res.json({ success: true, data });
+  }
+
+  const data = await buildProjectDetail(project, { withArrays: false });
+  const includes = parseIncludeParam(includeParam);
+
+  if (includes.has("deliverables")) {
+    data.deliverables = await listDeliverables(project._id);
+  }
+  if (includes.has("payments")) {
+    data.payments = await listPayments(project._id);
+  }
+  if (includes.has("expenses")) {
+    data.expenses = await Expense.find({ projectId: project._id })
+      .sort({ expenseDate: -1 })
+      .lean();
+  }
+
   res.json({ success: true, data });
 });
 
@@ -294,13 +396,8 @@ const createProject = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
 
-    const populated = await Project.findById(project._id)
-      .populate("clientId", "name companyName email phone")
-      .lean();
-    const data = await buildProjectDetail(populated);
-
     invalidateAnalyticsCache();
-    res.status(201).json({ success: true, data });
+    res.status(201).json({ success: true, data: { _id: project._id } });
   } catch (err) {
     await session.abortTransaction();
     throw err;
@@ -323,14 +420,17 @@ const updateProject = asyncHandler(async (req, res) => {
     .populate("clientId", "name companyName email phone")
     .lean();
 
-  await syncProjectFromDeliverables(project._id);
-  await recomputeProjectPaymentSummary(project._id);
+  if (await shouldSyncProjectFromDeliverables(project._id, body, existing)) {
+    await syncProjectFromDeliverables(project._id);
+    const refreshed = await Project.findById(project._id)
+      .populate("clientId", "name companyName email phone")
+      .lean();
+    const data = await buildProjectDetail(refreshed, { withArrays: false });
+    invalidateAnalyticsCache();
+    return res.json({ success: true, data });
+  }
 
-  const refreshed = await Project.findById(project._id)
-    .populate("clientId", "name companyName email phone")
-    .lean();
-  const data = await buildProjectDetail(refreshed);
-
+  const data = await buildProjectDetail(project, { withArrays: false });
   invalidateAnalyticsCache();
   res.json({ success: true, data });
 });
@@ -343,9 +443,42 @@ const deleteProject = asyncHandler(async (req, res) => {
     await deleteFromCloudinary(att.publicId);
   }
 
+  const deliverableIds = await ProjectDeliverable.find({
+    projectId: project._id,
+    deletedAt: null,
+  }).distinct("_id");
+
+  if (deliverableIds.length) {
+    const decrementByFreelancer = await DeliverableAssignment.aggregate([
+      { $match: { deliverableId: { $in: deliverableIds }, deletedAt: null } },
+      { $group: { _id: "$freelancerId", count: { $sum: 1 } } },
+    ]);
+    if (decrementByFreelancer.length) {
+      await Freelancer.bulkWrite(
+        decrementByFreelancer.map((row) => ({
+          updateOne: {
+            filter: { _id: row._id },
+            update: { $inc: { totalProjectsAssigned: -row.count } },
+          },
+        }))
+      );
+    }
+  }
+
+  const documents = await Document.find({ projectId: project._id });
+  for (const doc of documents) {
+    await deleteFromCloudinary(doc.publicId, doc.resourceType || "image");
+  }
+
   await Promise.all([
     ProjectDeliverable.updateMany({ projectId: project._id }, { deletedAt: new Date() }),
+    DeliverableAssignment.updateMany(
+      { deliverableId: { $in: deliverableIds }, deletedAt: null },
+      { deletedAt: new Date() }
+    ),
     FreelancerPayment.deleteMany({ projectId: project._id }),
+    ProjectPayment.deleteMany({ projectId: project._id }),
+    Document.deleteMany({ projectId: project._id }),
     Expense.updateMany({ projectId: project._id }, { $unset: { projectId: 1 } }),
     Project.findByIdAndDelete(req.params.id),
   ]);

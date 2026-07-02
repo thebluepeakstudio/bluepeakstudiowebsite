@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Pencil, Plus, ExternalLink, FileDown } from "lucide-react";
 import { getProject, updateProject, downloadProjectInvoice } from "../../api/projects.api";
@@ -6,6 +6,9 @@ import {
   createDeliverable,
   updateDeliverable,
   deleteDeliverable,
+  getDeliverables,
+  getProjectPayments,
+  getProjectExpenses,
   createProjectPayment,
   updateProjectPayment,
   deleteProjectPayment,
@@ -101,6 +104,45 @@ const emptyExpense = {
   notes: "",
 };
 
+const derivePaymentStatus = (totalPaid, total) => {
+  const paid = Number(totalPaid) || 0;
+  const value = Number(total) || 0;
+  if (paid >= value && value > 0) return "Paid";
+  if (paid > 0) return "Partial";
+  return "Unpaid";
+};
+
+const enrichDeliverableRow = (d) => ({
+  ...d,
+  assignments: d.assignments || [],
+  freelancerCost: d.freelancerCost ?? 0,
+  profit: d.profit ?? (Number(d.sellingPrice) || 0),
+});
+
+const sortPayments = (payments) =>
+  [...payments].sort(
+    (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+  );
+
+const applyPaymentTotals = (project, payments) => {
+  const totalAmount = Number(project.totalAmount) || 0;
+  const totalReceived = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const remainingAmount = Math.max(0, totalAmount - totalReceived);
+  return {
+    payments,
+    totalReceived,
+    advanceReceived: totalReceived,
+    remainingAmount,
+    paymentStatus: derivePaymentStatus(totalReceived, totalAmount),
+  };
+};
+
+const TAB_DATA_KEY = {
+  deliverables: "deliverables",
+  payments: "payments",
+  expenses: "expenses",
+};
+
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -121,24 +163,85 @@ export default function ProjectDetail() {
   const [deleteDeliverableId, setDeleteDeliverableId] = useState(null);
   const [deletePaymentId, setDeletePaymentId] = useState(null);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [tabLoading, setTabLoading] = useState(false);
+  const loadedTabsRef = useRef(new Set());
 
-  const load = (keepDrawerId, silent = false) => {
-    if (!silent) setLoading(true);
-    getProject(id)
-      .then(({ data }) => {
-        setProject(data.data);
-        if (keepDrawerId) {
-          const updated = data.data.deliverables?.find((d) => d._id === keepDrawerId);
-          if (updated) setDrawerDeliverable(updated);
+  const loadSummary = useCallback(
+    (silent = false) => {
+      if (!silent) setLoading(true);
+      return getProject(id)
+        .then(({ data }) => {
+          setProject((prev) => ({
+            ...prev,
+            ...data.data,
+            deliverables: prev?.deliverables,
+            payments: prev?.payments,
+            expenses: prev?.expenses,
+          }));
+        })
+        .catch(() => toast.error("Project not found"))
+        .finally(() => {
+          if (!silent) setLoading(false);
+        });
+    },
+    [id]
+  );
+
+  const loadTabData = useCallback(
+    async (tabId, { force = false } = {}) => {
+      const key = TAB_DATA_KEY[tabId];
+      if (!key || (!force && loadedTabsRef.current.has(tabId))) return;
+
+      setTabLoading(true);
+      try {
+        if (tabId === "deliverables") {
+          const { data } = await getDeliverables(id);
+          const deliverables = (data.data || []).map(enrichDeliverableRow);
+          loadedTabsRef.current.add("deliverables");
+          setProject((prev) => ({ ...prev, deliverables }));
+        } else if (tabId === "payments") {
+          const { data } = await getProjectPayments(id);
+          const payments = sortPayments(data.data || []);
+          loadedTabsRef.current.add("payments");
+          setProject((prev) => ({ ...prev, ...applyPaymentTotals(prev, payments) }));
+        } else if (tabId === "expenses") {
+          const { data } = await getProjectExpenses(id);
+          loadedTabsRef.current.add("expenses");
+          setProject((prev) => ({ ...prev, expenses: data.data || [] }));
         }
-      })
-      .catch(() => toast.error("Project not found"))
-      .finally(() => setLoading(false));
-  };
+      } catch {
+        toast.error("Failed to load tab data");
+      } finally {
+        setTabLoading(false);
+      }
+    },
+    [id]
+  );
+
+  const patchDeliverable = useCallback((updated) => {
+    setProject((prev) => {
+      if (!prev) return prev;
+      const list = prev.deliverables || [];
+      const idx = list.findIndex((d) => d._id === updated._id);
+      const deliverables =
+        idx >= 0 ? list.map((d, i) => (i === idx ? updated : d)) : [...list, updated];
+      return { ...prev, deliverables };
+    });
+    setDrawerDeliverable((current) =>
+      current?._id === updated._id ? updated : current
+    );
+  }, []);
 
   useEffect(() => {
-    load();
-  }, [id]);
+    loadedTabsRef.current = new Set();
+    setProject(null);
+    loadSummary();
+  }, [id, loadSummary]);
+
+  useEffect(() => {
+    if (!project || tab === "overview" || tab === "files" || tab === "notes") return;
+    loadTabData(tab);
+  }, [tab, project, loadTabData]);
 
   const handleUpdate = async (payload) => {
     setSubmitting(true);
@@ -146,7 +249,12 @@ export default function ProjectDetail() {
       await updateProject(id, payload);
       toast.success("Project updated");
       setEditOpen(false);
-      load();
+      loadedTabsRef.current.delete("deliverables");
+      loadedTabsRef.current.delete("payments");
+      await loadSummary(true);
+      if (tab !== "overview" && tab !== "files" && tab !== "notes") {
+        await loadTabData(tab, { force: true });
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || "Update failed");
     } finally {
@@ -158,14 +266,21 @@ export default function ProjectDetail() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await createDeliverable(id, {
+      const { data } = await createDeliverable(id, {
         ...newDeliverable,
         sellingPrice: Number(newDeliverable.sellingPrice) || 0,
       });
       toast.success("Deliverable added");
       setAddDeliverableOpen(false);
       setNewDeliverable(emptyDeliverable);
-      load();
+      const row = enrichDeliverableRow(data.data);
+      if (loadedTabsRef.current.has("deliverables")) {
+        setProject((prev) => ({
+          ...prev,
+          deliverables: [...(prev.deliverables || []), row],
+        }));
+      }
+      await loadSummary(true);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to add deliverable");
     } finally {
@@ -174,8 +289,18 @@ export default function ProjectDetail() {
   };
 
   const handleSaveDeliverable = async (payload) => {
-    await updateDeliverable(id, drawerDeliverable._id, payload);
-    load();
+    const { data } = await updateDeliverable(id, drawerDeliverable._id, payload);
+    const existing = drawerDeliverable;
+    const updated = enrichDeliverableRow({
+      ...existing,
+      ...data.data,
+      assignments: existing.assignments || [],
+      freelancerCost: existing.freelancerCost,
+      profit:
+        (Number(data.data.sellingPrice) || 0) - (Number(existing.freelancerCost) || 0),
+    });
+    patchDeliverable(updated);
+    await loadSummary(true);
   };
 
   const handleDeleteDeliverable = async () => {
@@ -186,7 +311,13 @@ export default function ProjectDetail() {
       toast.success("Deliverable deleted");
       setDeleteDeliverableId(null);
       setDrawerDeliverable(null);
-      load();
+      if (loadedTabsRef.current.has("deliverables")) {
+        setProject((prev) => ({
+          ...prev,
+          deliverables: (prev.deliverables || []).filter((d) => d._id !== deleteDeliverableId),
+        }));
+      }
+      await loadSummary(true);
     } catch (err) {
       toast.error(err.response?.data?.message || "Delete failed");
     } finally {
@@ -198,14 +329,16 @@ export default function ProjectDetail() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await createProjectPayment(id, {
+      const { data } = await createProjectPayment(id, {
         ...paymentForm,
         amount: Number(paymentForm.amount),
       });
       toast.success("Payment recorded");
       setPaymentModalOpen(false);
       setPaymentForm(emptyPayment);
-      load();
+      const payments = sortPayments([data.data, ...(project.payments || [])]);
+      loadedTabsRef.current.add("payments");
+      setProject((prev) => ({ ...prev, ...applyPaymentTotals(prev, payments) }));
     } catch (err) {
       toast.error(err.response?.data?.message || "Payment failed");
     } finally {
@@ -218,14 +351,17 @@ export default function ProjectDetail() {
     if (!editingPayment) return;
     setSubmitting(true);
     try {
-      await updateProjectPayment(id, editingPayment._id, {
+      const { data } = await updateProjectPayment(id, editingPayment._id, {
         ...paymentForm,
         amount: Number(paymentForm.amount),
       });
       toast.success("Payment updated");
       setEditingPayment(null);
       setPaymentForm(emptyPayment);
-      load();
+      const payments = sortPayments(
+        (project.payments || []).map((p) => (p._id === data.data._id ? data.data : p))
+      );
+      setProject((prev) => ({ ...prev, ...applyPaymentTotals(prev, payments) }));
     } catch (err) {
       toast.error(err.response?.data?.message || "Update failed");
     } finally {
@@ -256,7 +392,8 @@ export default function ProjectDetail() {
       await deleteProjectPayment(id, deletePaymentId);
       toast.success("Payment removed");
       setDeletePaymentId(null);
-      load();
+      const payments = (project.payments || []).filter((p) => p._id !== deletePaymentId);
+      setProject((prev) => ({ ...prev, ...applyPaymentTotals(prev, payments) }));
     } catch {
       toast.error("Delete failed");
     } finally {
@@ -286,7 +423,7 @@ export default function ProjectDetail() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await createExpense({
+      const { data } = await createExpense({
         ...expenseForm,
         projectId: id,
         amount: Number(expenseForm.amount),
@@ -294,12 +431,23 @@ export default function ProjectDetail() {
       toast.success("Expense added");
       setExpenseModalOpen(false);
       setExpenseForm(emptyExpense);
-      load();
+      if (loadedTabsRef.current.has("expenses")) {
+        setProject((prev) => ({
+          ...prev,
+          expenses: [data.data, ...(prev.expenses || [])],
+        }));
+      }
+      await loadSummary(true);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to add expense");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleAssignmentsChange = async (updatedDeliverable) => {
+    patchDeliverable(updatedDeliverable);
+    await loadSummary(true);
   };
 
   if (loading) return <CardSkeleton />;
@@ -414,6 +562,9 @@ export default function ProjectDetail() {
             </Button>
           }
         >
+          {tabLoading && !project.deliverables ? (
+            <p className="text-sm text-admin-textMuted">Loading deliverables…</p>
+          ) : (
           <Table
             columns={[
               { key: "title", label: "Title" },
@@ -438,6 +589,7 @@ export default function ProjectDetail() {
             emptyMessage="No deliverables yet"
             onRowClick={(r) => setDrawerDeliverable(r)}
           />
+          )}
         </Card>
       )}
 
@@ -460,6 +612,9 @@ export default function ProjectDetail() {
               </Button>
             }
           >
+            {tabLoading && !project.payments ? (
+              <p className="text-sm text-admin-textMuted">Loading payments…</p>
+            ) : (
             <Table
               columns={[
                 {
@@ -503,6 +658,7 @@ export default function ProjectDetail() {
               data={project.payments || []}
               emptyMessage="No payments recorded yet"
             />
+            )}
           </Card>
         </>
       )}
@@ -516,6 +672,9 @@ export default function ProjectDetail() {
             </Button>
           }
         >
+          {tabLoading && !project.expenses ? (
+            <p className="text-sm text-admin-textMuted">Loading expenses…</p>
+          ) : (
           <Table
             columns={[
               { key: "title", label: "Title" },
@@ -527,6 +686,7 @@ export default function ProjectDetail() {
             data={project.expenses || []}
             emptyMessage="No project-linked expenses"
           />
+          )}
         </Card>
       )}
 
@@ -555,7 +715,7 @@ export default function ProjectDetail() {
         onClose={() => setDrawerDeliverable(null)}
         onSave={handleSaveDeliverable}
         onDelete={() => setDeleteDeliverableId(drawerDeliverable?._id)}
-        onAssignmentsChange={() => load(drawerDeliverable?._id, true)}
+        onAssignmentsChange={handleAssignmentsChange}
       />
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Project" size="xl">
