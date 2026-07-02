@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const ensureAdminSeed = require("./utils/ensureAdminSeed");
+const ensurePaymentSummariesRecalculated = require("./utils/ensurePaymentSummaries");
 const validateEnv = require("./utils/validateEnv");
 const errorHandler = require("./middleware/error.middleware");
 
@@ -83,6 +84,12 @@ const startServer = async () => {
     await ensureAdminSeed();
   } catch (err) {
     console.error("[admin-seed] Failed:", err.message);
+  }
+
+  try {
+    await ensurePaymentSummariesRecalculated();
+  } catch (err) {
+    console.error("[payment-recompute] Failed:", err.message);
   }
 
   app.listen(PORT, () => {
