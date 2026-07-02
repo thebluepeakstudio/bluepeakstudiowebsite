@@ -12,6 +12,7 @@ const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
 const { syncClientToProject } = require("../../utils/syncClientToProject");
 const { invalidateAnalyticsCache } = require("./analytics.controller");
+const { aggregateClientOutstanding } = require("../../utils/clientOutstanding");
 const {
   activeDeliverableFilter,
   buildServicesSummary,
@@ -193,10 +194,7 @@ const getProjectSummary = asyncHandler(async (req, res) => {
     Project.countDocuments({ workStatus: { $in: ["Completed", "Delivered"] } }),
     Project.countDocuments({ workStatus: "Waiting for Client" }),
     Project.countDocuments({ paymentStatus: "Partial" }),
-    Project.aggregate([
-      { $match: { paymentStatus: { $ne: "Paid" } } },
-      { $group: { _id: null, total: { $sum: "$remainingAmount" } } },
-    ]),
+    aggregateClientOutstanding(),
     ProjectDeliverable.aggregate([
       { $match: { deletedAt: null } },
       {
@@ -234,7 +232,7 @@ const getProjectSummary = asyncHandler(async (req, res) => {
       completedProjects: completed,
       waitingForClientProjects: waitingForClient,
       partialPayments,
-      pendingPayments: pendingPayments[0]?.total || 0,
+      pendingPayments: typeof pendingPayments === "number" ? pendingPayments : 0,
       deliverables: deliverableStats[0] || {
         inProgress: 0,
         review: 0,

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Plus, ExternalLink, FileDown } from "lucide-react";
 import { getProject, updateProject, downloadProjectInvoice } from "../../api/projects.api";
 import {
@@ -38,6 +39,7 @@ import {
 import { formatCurrency, formatDate } from "../../utils/formatCurrency";
 import { CardSkeleton } from "../../components/ui/Skeleton";
 import toast from "react-hot-toast";
+import { adminQueryKeys } from "../../queryKeys";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -159,6 +161,7 @@ const TAB_DATA_KEY = {
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -178,6 +181,11 @@ export default function ProjectDetail() {
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [tabLoading, setTabLoading] = useState(false);
   const loadedTabsRef = useRef(new Set());
+
+  const refreshFinancials = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: adminQueryKeys.dashboard() });
+    queryClient.invalidateQueries({ queryKey: adminQueryKeys.profitLoss() });
+  }, [queryClient]);
 
   const loadSummary = useCallback(
     (silent = false) => {
@@ -356,6 +364,8 @@ export default function ProjectDetail() {
       const payments = sortPayments([data.data, ...(project.payments || [])]);
       loadedTabsRef.current.add("payments");
       setProject((prev) => ({ ...prev, ...applyPaymentTotals(prev, payments) }));
+      refreshFinancials();
+      await loadSummary(true);
     } catch (err) {
       toast.error(err.response?.data?.message || "Payment failed");
     } finally {
@@ -379,6 +389,8 @@ export default function ProjectDetail() {
         (project.payments || []).map((p) => (p._id === data.data._id ? data.data : p))
       );
       setProject((prev) => ({ ...prev, ...applyPaymentTotals(prev, payments) }));
+      refreshFinancials();
+      await loadSummary(true);
     } catch (err) {
       toast.error(err.response?.data?.message || "Update failed");
     } finally {
@@ -411,6 +423,8 @@ export default function ProjectDetail() {
       setDeletePaymentId(null);
       const payments = (project.payments || []).filter((p) => p._id !== deletePaymentId);
       setProject((prev) => ({ ...prev, ...applyPaymentTotals(prev, payments) }));
+      refreshFinancials();
+      await loadSummary(true);
     } catch {
       toast.error("Delete failed");
     } finally {

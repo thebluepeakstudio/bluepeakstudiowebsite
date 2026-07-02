@@ -3,8 +3,6 @@ const ProjectDeliverable = require("../../models/ProjectDeliverable");
 const ProjectPayment = require("../../models/ProjectPayment");
 const Expense = require("../../models/Expense");
 const Freelancer = require("../../models/Freelancer");
-const DeliverableAssignment = require("../../models/DeliverableAssignment");
-const FreelancerPayment = require("../../models/FreelancerPayment");
 const asyncHandler = require("../../utils/asyncHandler");
 const { get, set, invalidatePrefix } = require("../../utils/responseCache");
 const { sumRecognizedRevenue } = require("../../utils/revenue");
@@ -17,7 +15,7 @@ const {
   buildServicesSummary,
   groupDeliverablesByProject,
 } = require("../../services/projectCalculations.service");
-const { computeLeadMetrics } = require("../../utils/leadMetrics");
+const { aggregateClientOutstanding } = require("../../utils/clientOutstanding");
 
 const enrichLatestProjects = async (projects) => {
   if (!projects.length) return [];
@@ -49,13 +47,9 @@ const enrichLatestProjects = async (projects) => {
 
 const getDashboard = asyncHandler(async (req, res) => {
   const cacheKey = "analytics:dashboard";
-  const leadMetrics = await computeLeadMetrics();
   const cached = get(cacheKey);
   if (cached) {
-    return res.json({
-      ...cached,
-      data: { ...cached.data, leadMetrics },
-    });
+    return res.json(cached);
   }
 
   const now = new Date();
@@ -63,34 +57,20 @@ const getDashboard = asyncHandler(async (req, res) => {
 
   const [
     activeProjects,
-    completedProjects,
-    waitingForClientProjects,
-    partialPaymentProjects,
-    pendingPaymentsAgg,
+    pendingPayments,
     revenueAgg,
     expenseAgg,
     freelancerCostFromAssignments,
     freelancerCostLegacy,
-    freelancerCount,
     latestProjects,
-    deliverableStats,
     paymentsThisMonth,
-    freelancerPendingAgg,
-    freelancerPaidThisMonth,
   ] = await Promise.all([
     Project.countDocuments({ workStatus: { $nin: ["Completed", "Delivered"] } }),
-    Project.countDocuments({ workStatus: { $in: ["Completed", "Delivered"] } }),
-    Project.countDocuments({ workStatus: "Waiting for Client" }),
-    Project.countDocuments({ paymentStatus: "Partial" }),
-    Project.aggregate([
-      { $match: { paymentStatus: { $ne: "Paid" } } },
-      { $group: { _id: null, total: { $sum: "$remainingAmount" } } },
-    ]),
+    aggregateClientOutstanding(),
     Project.aggregate([sumRecognizedRevenue]),
     Expense.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]),
     aggregateFreelancerCosts(),
     Project.aggregate(legacyFreelancerCostPipeline),
-    Freelancer.countDocuments(),
     Project.find()
       .select(
         "clientName businessName projectTitle projectType workStatus paymentStatus totalAmount remainingAmount createdAt"
@@ -98,47 +78,7 @@ const getDashboard = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5)
       .lean(),
-    ProjectDeliverable.aggregate([
-      { $match: activeDeliverableFilter },
-      {
-        $group: {
-          _id: null,
-          inProgress: { $sum: { $cond: [{ $eq: ["$status", "In Progress"] }, 1, 0] } },
-          review: { $sum: { $cond: [{ $eq: ["$status", "Review"] }, 1, 0] } },
-          delivered: { $sum: { $cond: [{ $eq: ["$status", "Delivered"] }, 1, 0] } },
-          delayed: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $lt: ["$expectedCompletion", now] },
-                    { $ne: ["$status", "Delivered"] },
-                    { $ne: ["$status", "Cancelled"] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-        },
-      },
-    ]),
     ProjectPayment.aggregate([
-      { $match: { paymentDate: { $gte: monthStart } } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]),
-    DeliverableAssignment.aggregate([
-      { $match: { deletedAt: null } },
-      {
-        $project: {
-          due: { $subtract: [{ $ifNull: ["$cost", 0] }, { $ifNull: ["$amountPaid", 0] }] },
-        },
-      },
-      { $match: { due: { $gt: 0 } } },
-      { $group: { _id: null, total: { $sum: "$due" } } },
-    ]),
-    FreelancerPayment.aggregate([
       { $match: { paymentDate: { $gte: monthStart } } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]),
@@ -148,7 +88,6 @@ const getDashboard = asyncHandler(async (req, res) => {
   const totalExpenses = expenseAgg[0]?.total || 0;
   const freelancerCosts =
     freelancerCostFromAssignments || freelancerCostLegacy[0]?.total || 0;
-  const pendingPayments = pendingPaymentsAgg[0]?.total || 0;
 
   const enrichedLatestProjects = await enrichLatestProjects(latestProjects);
 
@@ -157,27 +96,13 @@ const getDashboard = asyncHandler(async (req, res) => {
     data: {
       cards: {
         activeProjects,
-        completedProjects,
-        waitingForClientProjects,
-        partialPaymentProjects,
         pendingPayments,
         totalRevenue,
         totalExpenses,
-        freelancerCosts,
         netProfit: totalRevenue - totalExpenses - freelancerCosts,
-        totalFreelancers: freelancerCount,
-        deliverables: deliverableStats[0] || {
-          inProgress: 0,
-          review: 0,
-          delivered: 0,
-          delayed: 0,
-        },
         paymentsReceivedThisMonth: paymentsThisMonth[0]?.total || 0,
-        freelancerPendingPayments: freelancerPendingAgg[0]?.total || 0,
-        freelancerPaidThisMonth: freelancerPaidThisMonth[0]?.total || 0,
       },
       latestProjects: enrichedLatestProjects,
-      leadMetrics,
     },
   };
 
@@ -192,16 +117,14 @@ const getPL = asyncHandler(async (req, res) => {
     return res.json(cached);
   }
 
-  const [revenue, expenses, pending, freelancerCostsNew, freelancerCostsLegacy] = await Promise.all([
-    Project.aggregate([sumRecognizedRevenue]),
-    Expense.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]),
-    Project.aggregate([
-      { $match: { paymentStatus: { $ne: "Paid" } } },
-      { $group: { _id: null, total: { $sum: "$remainingAmount" } } },
-    ]),
-    aggregateFreelancerCosts(),
-    Project.aggregate(legacyFreelancerCostPipeline),
-  ]);
+  const [revenue, expenses, pendingPayments, freelancerCostsNew, freelancerCostsLegacy] =
+    await Promise.all([
+      Project.aggregate([sumRecognizedRevenue]),
+      Expense.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]),
+      aggregateClientOutstanding(),
+      aggregateFreelancerCosts(),
+      Project.aggregate(legacyFreelancerCostPipeline),
+    ]);
 
   const totalRevenue = revenue[0]?.total || 0;
   const totalExpenses = expenses[0]?.total || 0;
@@ -216,7 +139,7 @@ const getPL = asyncHandler(async (req, res) => {
       totalExpenses,
       grossProfit,
       netProfit,
-      pendingPayments: pending[0]?.total || 0,
+      pendingPayments,
       freelancerCosts: freelancerCostsTotal,
     },
   };

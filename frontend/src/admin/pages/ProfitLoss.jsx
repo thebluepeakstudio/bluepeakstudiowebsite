@@ -12,7 +12,7 @@ export default function ProfitLoss() {
       const { data: res } = await getPL();
       return res.data;
     },
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
   if (loading) {
@@ -36,7 +36,8 @@ export default function ProfitLoss() {
         <StatCard title="Pending Payments" value={formatCurrency(data?.pendingPayments)} />
       </div>
       <p className="text-sm text-admin-textMuted">
-        Freelancer costs are the total outsourcing cost on outsourced projects. Net profit = revenue − expenses − freelancer costs.
+        Pending payments are the total client balance still owed across all projects (project value minus received payments).
+        Net profit = revenue − expenses − freelancer costs.
       </p>
     </div>
   );
