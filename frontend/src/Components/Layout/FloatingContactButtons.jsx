@@ -1,14 +1,19 @@
+import { createPortal } from "react-dom";
 import { Phone } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { TEL_URL, WHATSAPP_URL } from "../../config/contact";
 
 const btnBase =
-  "flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 active:scale-95 sm:h-14 sm:w-14";
+  "pointer-events-auto flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-md transition-[filter,opacity] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 active:opacity-90 sm:h-12 sm:w-12";
 
 export default function FloatingContactButtons() {
-  return (
+  return createPortal(
     <div
-      className="fixed bottom-5 right-4 z-[60] flex flex-col gap-3 sm:bottom-6 sm:right-6"
+      className="pointer-events-none fixed z-[60] flex w-11 flex-col gap-2.5 sm:w-12 sm:gap-3"
+      style={{
+        bottom: "max(1rem, env(safe-area-inset-bottom, 0px))",
+        right: "max(0.75rem, env(safe-area-inset-right, 0px))",
+      }}
       aria-label="Quick contact"
     >
       <a
@@ -17,7 +22,7 @@ export default function FloatingContactButtons() {
         aria-label="Call BluePeak Studio"
         title="Call us"
       >
-        <Phone size={22} strokeWidth={2.25} aria-hidden />
+        <Phone size={20} strokeWidth={2.25} aria-hidden />
       </a>
       <a
         href={WHATSAPP_URL}
@@ -27,8 +32,9 @@ export default function FloatingContactButtons() {
         aria-label="Chat on WhatsApp"
         title="WhatsApp"
       >
-        <FaWhatsapp size={26} aria-hidden />
+        <FaWhatsapp size={22} aria-hidden />
       </a>
-    </div>
+    </div>,
+    document.body
   );
 }

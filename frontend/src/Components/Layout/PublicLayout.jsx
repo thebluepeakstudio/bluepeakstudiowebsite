@@ -40,7 +40,7 @@ export default function PublicLayout() {
   }, []);
 
   return (
-    <div className="public-site min-h-screen bg-gradient-to-br from-[#050816] via-[#0f172a] to-[#1e3a8a] text-white">
+    <div className="public-site min-h-screen overflow-x-clip bg-gradient-to-br from-[#050816] via-[#0f172a] to-[#1e3a8a] text-white">
       <GlobalSeo />
       <SeoRouteHandler />
       <Toaster
