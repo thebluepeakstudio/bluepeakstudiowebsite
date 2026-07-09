@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 import ScrollTop from "../UI/ScrollTop";
 import Footer from "./Footer";
 import ContactFormPopup from "./ContactFormPopup";
+import FloatingContactButtons from "./FloatingContactButtons";
 import GlobalSeo from "../SEO/GlobalSeo";
 import SeoRouteHandler from "../SEO/SeoRouteHandler";
 import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion";
@@ -76,6 +77,7 @@ export default function PublicLayout() {
         </Suspense>
       </main>
       <Footer />
+      <FloatingContactButtons />
       <ContactFormPopup />
     </div>
   );
