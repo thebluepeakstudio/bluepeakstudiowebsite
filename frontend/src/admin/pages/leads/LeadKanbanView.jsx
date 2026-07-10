@@ -13,6 +13,7 @@ import { LEAD_STAGES } from "../../utils/constants";
 import { formatCurrency, formatDate } from "../../utils/formatCurrency";
 import Badge from "../../components/ui/Badge";
 import { useState } from "react";
+import { adminPath } from "../../utils/adminPaths";
 
 function KanbanCard({ lead, isDragging }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
@@ -108,7 +109,7 @@ export default function LeadKanbanView({ grouped, onStatusChange }) {
             key={stage}
             stage={stage}
             leads={leads}
-            onCardClick={(id) => navigate(`/admin-panel/leads/${id}`)}
+            onCardClick={(id) => navigate(adminPath("leads", id))}
           />
         ))}
       </div>

@@ -39,6 +39,7 @@ import {
 import { formatCurrency, formatDate } from "../../utils/formatCurrency";
 import { CardSkeleton } from "../../components/ui/Skeleton";
 import toast from "react-hot-toast";
+import { adminPath } from "../../utils/adminPaths";
 import { adminQueryKeys } from "../../queryKeys";
 
 const TABS = [
@@ -505,7 +506,7 @@ export default function ProjectDetail() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start gap-3">
-        <Button variant="ghost" onClick={() => navigate("/admin-panel/projects")}>
+        <Button variant="ghost" onClick={() => navigate(adminPath("projects"))}>
           <ArrowLeft size={18} /> Back
         </Button>
         <div className="min-w-0 flex-1">
@@ -549,7 +550,7 @@ export default function ProjectDetail() {
               {project.clientId && (
                 <div className="sm:col-span-2">
                   <Link
-                    to={`/admin-panel/clients/${project.clientId._id || project.clientId}`}
+                    to={adminPath("clients", project.clientId._id || project.clientId)}
                     className="text-sm font-medium text-admin-primary hover:underline"
                   >
                     View client profile

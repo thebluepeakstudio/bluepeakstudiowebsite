@@ -18,6 +18,7 @@ import { CLIENT_STATUSES } from "../../utils/constants";
 import { formatDate } from "../../utils/formatCurrency";
 import { TableSkeleton } from "../../components/ui/Skeleton";
 import toast from "react-hot-toast";
+import { adminPath } from "../../utils/adminPaths";
 
 export default function ClientList() {
   const navigate = useNavigate();
@@ -99,7 +100,7 @@ export default function ClientList() {
       ) : (
         <>
           <Table
-            onRowClick={(r) => navigate(`/admin-panel/clients/${r._id}`)}
+            onRowClick={(r) => navigate(adminPath("clients", r._id))}
             columns={[
               { key: "name", label: "Name" },
               { key: "companyName", label: "Company" },

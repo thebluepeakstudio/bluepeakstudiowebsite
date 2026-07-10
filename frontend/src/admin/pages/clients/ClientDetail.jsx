@@ -23,6 +23,7 @@ import { ACTIVITY_TYPES, getProjectLabel } from "../../utils/constants";
 import { formatCurrency, formatDate } from "../../utils/formatCurrency";
 import { CardSkeleton } from "../../components/ui/Skeleton";
 import toast from "react-hot-toast";
+import { adminPath } from "../../utils/adminPaths";
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -47,7 +48,7 @@ export default function ClientDetail() {
       setAttachments(overview.attachments);
     } catch {
       toast.error("Client not found");
-      navigate("/admin-panel/clients");
+      navigate(adminPath("clients"));
     } finally {
       setLoading(false);
     }
@@ -115,7 +116,7 @@ export default function ClientDetail() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start gap-3">
-        <Button variant="ghost" onClick={() => navigate("/admin-panel/clients")}>
+        <Button variant="ghost" onClick={() => navigate(adminPath("clients"))}>
           <ArrowLeft size={18} /> Back
         </Button>
         <div className="min-w-0 flex-1">
@@ -125,7 +126,7 @@ export default function ClientDetail() {
           )}
         </div>
         <Badge status={client.status}>{client.status}</Badge>
-        <Link to={`/admin-panel/projects?clientId=${id}`} className="w-full sm:w-auto">
+        <Link to={`${adminPath("projects")}?clientId=${id}`} className="w-full sm:w-auto">
           <Button variant="secondary" className="w-full">
             <FolderKanban size={16} /> New Project
           </Button>
@@ -210,7 +211,7 @@ export default function ClientDetail() {
               key: "link",
               label: "",
               render: (r) => (
-                <Link to={`/admin-panel/projects/${r._id}`} className="text-xs text-admin-primary hover:underline">
+                <Link to={adminPath("projects", r._id)} className="text-xs text-admin-primary hover:underline">
                   View
                 </Link>
               ),

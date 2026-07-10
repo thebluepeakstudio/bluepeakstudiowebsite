@@ -3,11 +3,12 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { adminQueryClient } from "./queryClient";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import AdminLayout from "./components/layout/AdminLayout";
 import Login from "./pages/Login";
+import { ADMIN_HOME } from "./utils/adminPaths";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ProjectList = lazy(() => import("./pages/projects/ProjectList"));
@@ -31,6 +32,30 @@ const PageLoader = () => (
   </div>
 );
 
+function AdminHome() {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-admin-muted">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-200 border-t-admin-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  return (
+    <AdminLayout>
+      <Suspense fallback={<PageLoader />}>
+        <Dashboard />
+      </Suspense>
+    </AdminLayout>
+  );
+}
+
 export default function AdminApp() {
   return (
     <QueryClientProvider client={adminQueryClient}>
@@ -49,11 +74,11 @@ export default function AdminApp() {
         />
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="login" element={<Login />} />
+            <Route index element={<AdminHome />} />
+            <Route path="login" element={<Navigate to={ADMIN_HOME} replace />} />
+            <Route path="dashboard" element={<Navigate to={ADMIN_HOME} replace />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<AdminLayout />}>
-                <Route index element={<Navigate to="dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
                 <Route path="leads" element={<LeadsPage />} />
                 <Route path="leads/:id" element={<LeadDetail />} />
                 <Route path="clients" element={<ClientList />} />

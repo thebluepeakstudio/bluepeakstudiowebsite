@@ -18,6 +18,7 @@ import { TableSkeleton } from "../../components/ui/Skeleton";
 import { BLOG_STATUSES } from "../../../types/blog";
 import { formatDate } from "../../utils/formatCurrency";
 import toast from "react-hot-toast";
+import { adminPath } from "../../utils/adminPaths";
 
 const siteBase = import.meta.env.VITE_SITE_URL || window.location.origin;
 
@@ -86,10 +87,10 @@ export default function BlogList() {
           <p className="text-sm text-admin-textMuted">Create and manage published content</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => navigate("/admin-panel/blog/categories")}>
+          <Button variant="secondary" onClick={() => navigate(adminPath("blog", "categories"))}>
             <Tags size={16} /> Categories
           </Button>
-          <Button onClick={() => navigate("/admin-panel/blog/new")}>
+          <Button onClick={() => navigate(adminPath("blog", "new"))}>
             <Plus size={18} /> New blog
           </Button>
         </div>
@@ -118,7 +119,7 @@ export default function BlogList() {
       ) : blogs.length === 0 ? (
         <div className="rounded-xl border border-dashed border-admin-border bg-admin-surface p-12 text-center">
           <p className="text-admin-textMuted">No blogs found. Create your first post.</p>
-          <Button className="mt-4" onClick={() => navigate("/admin-panel/blog/new")}>
+          <Button className="mt-4" onClick={() => navigate(adminPath("blog", "new"))}>
             <Plus size={18} /> New blog
           </Button>
         </div>
@@ -177,7 +178,7 @@ export default function BlogList() {
                       </a>
                     )}
                     <Link
-                      to={`/admin-panel/blog/${r._id}/edit`}
+                      to={adminPath("blog", r._id, "edit")}
                       className="rounded p-2 text-admin-textMuted hover:bg-admin-muted"
                       title="Edit"
                     >

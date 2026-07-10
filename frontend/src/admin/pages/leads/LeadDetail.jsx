@@ -28,6 +28,7 @@ import { ACTIVITY_TYPES, FOLLOW_UP_STATUSES } from "../../utils/constants";
 import { formatCurrency, formatDate } from "../../utils/formatCurrency";
 import { CardSkeleton } from "../../components/ui/Skeleton";
 import toast from "react-hot-toast";
+import { adminPath } from "../../utils/adminPaths";
 
 export default function LeadDetail() {
   const { id } = useParams();
@@ -74,7 +75,7 @@ export default function LeadDetail() {
       });
     } catch {
       toast.error("Lead not found");
-      navigate("/admin-panel/leads");
+      navigate(adminPath("leads"));
     } finally {
       setLoading(false);
     }
@@ -159,7 +160,7 @@ export default function LeadDetail() {
     try {
       await deleteLead(id);
       toast.success("Lead deleted");
-      navigate("/admin-panel/leads");
+      navigate(adminPath("leads"));
     } catch (err) {
       toast.error(err.response?.data?.message || "Delete failed");
     }
@@ -172,7 +173,7 @@ export default function LeadDetail() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
-        <Button variant="ghost" className="w-fit" onClick={() => navigate("/admin-panel/leads")}>
+        <Button variant="ghost" className="w-fit" onClick={() => navigate(adminPath("leads"))}>
           <ArrowLeft size={18} /> Back
         </Button>
         <div className="min-w-0 flex-1">

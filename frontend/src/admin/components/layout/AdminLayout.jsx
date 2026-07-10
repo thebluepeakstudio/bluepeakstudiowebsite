@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
+import { getAdminPathSegments } from "../../utils/adminPaths";
 
 const segmentTitles = {
   dashboard: "Dashboard",
@@ -16,9 +17,7 @@ const segmentTitles = {
 };
 
 function resolveTitle(pathname) {
-  const parts = pathname.split("/").filter(Boolean);
-  const adminIdx = parts.indexOf("admin-panel");
-  const segments = adminIdx >= 0 ? parts.slice(adminIdx + 1) : parts;
+  const segments = getAdminPathSegments(pathname);
 
   if (segments.length >= 2) {
     const parent = segments[0];
@@ -40,7 +39,7 @@ function resolveTitle(pathname) {
   return segmentTitles[last] || "Admin";
 }
 
-export default function AdminLayout() {
+export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const title = resolveTitle(location.pathname);
@@ -56,7 +55,7 @@ export default function AdminLayout() {
         />
         <main className="admin-main min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <div className="admin-content-inner mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-5 sm:py-6 lg:px-8 lg:py-7">
-            <Outlet />
+            {children ?? <Outlet />}
           </div>
         </main>
       </div>

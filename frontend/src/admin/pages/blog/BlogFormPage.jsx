@@ -12,6 +12,7 @@ import { BLOG_STATUSES, emptyBlog, slugify } from "../../../types/blog";
 import { readingTimeFromHtml } from "../../../utils/readingTime";
 import SeoPreview from "../../components/blog/SeoPreview";
 import toast from "react-hot-toast";
+import { adminPath } from "../../utils/adminPaths";
 
 export default function BlogFormPage() {
   const { id } = useParams();
@@ -61,7 +62,7 @@ export default function BlogFormPage() {
       })
       .catch(() => {
         toast.error("Blog not found");
-        navigate("/admin-panel/blog");
+        navigate(adminPath("blog"));
       })
       .finally(() => setLoading(false));
   }, [id, isEdit, navigate]);
@@ -114,7 +115,7 @@ export default function BlogFormPage() {
         await createBlog(payload);
         toast.success("Blog created");
       }
-      navigate("/admin-panel/blog");
+      navigate(adminPath("blog"));
     } catch (err) {
       toast.error(err.response?.data?.message || "Save failed");
     } finally {
@@ -138,7 +139,7 @@ export default function BlogFormPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <button
         type="button"
-        onClick={() => navigate("/admin-panel/blog")}
+        onClick={() => navigate(adminPath("blog"))}
         className="flex items-center gap-2 text-sm text-admin-textMuted hover:text-admin-text"
       >
         <ArrowLeft size={16} /> Back to blogs
@@ -314,7 +315,7 @@ export default function BlogFormPage() {
         </FormSection>
 
         <FormFooter
-          onCancel={() => navigate("/admin-panel/blog")}
+          onCancel={() => navigate(adminPath("blog"))}
           submitLabel={isEdit ? "Update blog" : "Create blog"}
           loading={submitting}
         />

@@ -12,6 +12,7 @@ import ServicesPillList from "../components/projects/ServicesPillList";
 import { CardSkeleton } from "../components/ui/Skeleton";
 import { formatCurrency } from "../utils/formatCurrency";
 import { getProjectLabel } from "../utils/constants";
+import { adminPath } from "../utils/adminPaths";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -72,7 +73,7 @@ export default function Dashboard() {
       <Card
         title="Latest Projects"
         subtitle="Recently added projects"
-        action={<LinkAction to="/admin-panel/projects">View all</LinkAction>}
+        action={<LinkAction to={adminPath("projects")}>View all</LinkAction>}
       >
         {loading ? (
           <div className="space-y-3">
@@ -96,7 +97,7 @@ export default function Dashboard() {
               { key: "paymentStatus", label: "Payment", render: (r) => <Badge status={r.paymentStatus} /> },
             ]}
             data={data?.latestProjects || []}
-            onRowClick={(r) => navigate(`/admin-panel/projects/${r._id}`)}
+            onRowClick={(r) => navigate(adminPath("projects", r._id))}
             emptyMessage="No projects yet"
           />
         )}

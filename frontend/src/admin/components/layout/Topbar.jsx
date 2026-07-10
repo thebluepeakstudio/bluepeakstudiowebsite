@@ -3,24 +3,23 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Button from "../ui/Button";
+import { adminPath, ADMIN_HOME, getAdminPathSegments } from "../../utils/adminPaths";
 
 const breadcrumbMeta = {
-  dashboard: { group: "Overview", href: "/admin-panel/dashboard" },
-  leads: { group: "CRM & Sales", href: "/admin-panel/leads" },
-  clients: { group: "CRM & Sales", href: "/admin-panel/clients" },
-  projects: { group: "Operations", href: "/admin-panel/projects" },
-  freelancers: { group: "Operations", href: "/admin-panel/freelancers" },
-  blog: { group: "Content", href: "/admin-panel/blog" },
-  expenses: { group: "Finance", href: "/admin-panel/expenses" },
-  pl: { group: "Finance", href: "/admin-panel/pl" },
+  dashboard: { group: "Overview", href: ADMIN_HOME },
+  leads: { group: "CRM & Sales", href: adminPath("leads") },
+  clients: { group: "CRM & Sales", href: adminPath("clients") },
+  projects: { group: "Operations", href: adminPath("projects") },
+  freelancers: { group: "Operations", href: adminPath("freelancers") },
+  blog: { group: "Content", href: adminPath("blog") },
+  expenses: { group: "Finance", href: adminPath("expenses") },
+  pl: { group: "Finance", href: adminPath("pl") },
 };
 
 function getBreadcrumb(pathname) {
-  const parts = pathname.split("/").filter(Boolean);
-  const idx = parts.indexOf("admin-panel");
-  const segments = idx >= 0 ? parts.slice(idx + 1) : parts;
+  const segments = getAdminPathSegments(pathname);
   const root = segments[0] || "dashboard";
-  const meta = breadcrumbMeta[root] || { group: "Admin", href: "/admin-panel/dashboard" };
+  const meta = breadcrumbMeta[root] || { group: "Admin", href: ADMIN_HOME };
   return { ...meta, root };
 }
 
@@ -31,7 +30,7 @@ export default function Topbar({ onMenuClick, title, pathname }) {
 
   const handleLogout = () => {
     logout();
-    navigate("/admin-panel/login");
+    navigate(ADMIN_HOME);
   };
 
   const initials =

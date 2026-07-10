@@ -12,6 +12,7 @@ import {
   Newspaper,
   ExternalLink,
 } from "lucide-react";
+import { adminPath, ADMIN_HOME, PUBLIC_SITE_URL } from "../../utils/adminPaths";
 
 const LOGO_URL =
   "https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/BPS.png?updatedAt=1773667763921";
@@ -19,31 +20,31 @@ const LOGO_URL =
 const navGroups = [
   {
     title: "Overview",
-    items: [{ to: "/admin-panel/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true }],
+    items: [{ to: ADMIN_HOME, icon: LayoutDashboard, label: "Dashboard", end: true }],
   },
   {
     title: "CRM & Sales",
     items: [
-      { to: "/admin-panel/leads", icon: Target, label: "Leads" },
-      { to: "/admin-panel/clients", icon: Building2, label: "Clients" },
+      { to: adminPath("leads"), icon: Target, label: "Leads" },
+      { to: adminPath("clients"), icon: Building2, label: "Clients" },
     ],
   },
   {
     title: "Operations",
     items: [
-      { to: "/admin-panel/projects", icon: FolderKanban, label: "Projects" },
-      { to: "/admin-panel/freelancers", icon: Users, label: "Freelancers" },
+      { to: adminPath("projects"), icon: FolderKanban, label: "Projects" },
+      { to: adminPath("freelancers"), icon: Users, label: "Freelancers" },
     ],
   },
   {
     title: "Content",
-    items: [{ to: "/admin-panel/blog", icon: Newspaper, label: "Blog" }],
+    items: [{ to: adminPath("blog"), icon: Newspaper, label: "Blog" }],
   },
   {
     title: "Finance",
     items: [
-      { to: "/admin-panel/expenses", icon: Receipt, label: "Expenses" },
-      { to: "/admin-panel/pl", icon: TrendingUp, label: "P&L" },
+      { to: adminPath("expenses"), icon: Receipt, label: "Expenses" },
+      { to: adminPath("pl"), icon: TrendingUp, label: "P&L" },
     ],
   },
 ];
@@ -148,7 +149,7 @@ export default function Sidebar({ open, onClose }) {
 
         <div className="shrink-0 border-t border-slate-800/80 p-4">
           <a
-            href="/"
+            href={PUBLIC_SITE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"

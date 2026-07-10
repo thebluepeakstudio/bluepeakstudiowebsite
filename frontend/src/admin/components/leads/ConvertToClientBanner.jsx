@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import Button from "../ui/Button";
 import { convertLead } from "../../api/leads.api";
 import toast from "react-hot-toast";
+import { adminPath } from "../../utils/adminPaths";
 
 export default function ConvertToClientBanner({ lead, onConverted }) {
   if (!lead) return null;
@@ -11,7 +12,7 @@ export default function ConvertToClientBanner({ lead, onConverted }) {
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
         Converted to client.{" "}
-        <Link to={`/admin-panel/clients/${clientId}`} className="font-semibold underline">
+        <Link to={adminPath("clients", clientId)} className="font-semibold underline">
           View client profile
         </Link>
       </div>

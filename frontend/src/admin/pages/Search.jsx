@@ -7,6 +7,7 @@ import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import { useEffect } from "react";
 import { getProjectLabel } from "../utils/constants";
+import { adminPath } from "../utils/adminPaths";
 
 export default function Search() {
   const [query, setQuery] = useState("");
@@ -40,7 +41,7 @@ export default function Search() {
               <ul className="space-y-2">
                 {results.projects.map((p) => (
                   <li key={p._id}>
-                    <Link to={`/admin-panel/projects/${p._id}`} className="block rounded-lg p-2 transition-colors hover:bg-blue-50">
+                    <Link to={adminPath("projects", p._id)} className="block rounded-lg p-2 transition-colors hover:bg-blue-50">
                       <p className="font-medium text-sm">{getProjectLabel(p)}</p>
                       <p className="text-xs text-admin-textMuted">{p.projectTitle || p.clientName}</p>
                       <div className="mt-1 flex gap-1">

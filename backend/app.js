@@ -17,6 +17,7 @@ const allowedOrigins = [
   "https://bluepeakstudiowebsite-cx3r.onrender.com",
   "https://bluepeakstudio.in",
   "https://www.bluepeakstudio.in",
+  "https://crm.bluepeakstudio.in",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ];

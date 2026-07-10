@@ -13,6 +13,7 @@ import Table from "../../components/ui/Table";
 import Badge from "../../components/ui/Badge";
 import ServicesPillList from "../../components/projects/ServicesPillList";
 import Pagination from "../../components/ui/Pagination";
+import { adminPath } from "../../utils/adminPaths";
 import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { PageToolbar } from "../../components/layout/PageHeader";
@@ -63,7 +64,7 @@ export default function ProjectList() {
       const { data } = await createProjectWithDeliverables(payload);
       toast.success("Project created");
       setModalOpen(false);
-      navigate(`/admin-panel/projects/${data.data._id}`);
+      navigate(adminPath("projects", data.data._id));
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to create");
     } finally {
@@ -198,7 +199,7 @@ export default function ProjectList() {
               },
             ]}
             data={projects}
-            onRowClick={(r) => navigate(`/admin-panel/projects/${r._id}`)}
+            onRowClick={(r) => navigate(adminPath("projects", r._id))}
           />
           <Pagination page={page} pages={pagination.pages} onPageChange={setPage} />
         </div>

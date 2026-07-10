@@ -4,6 +4,7 @@ import Pagination from "../../components/ui/Pagination";
 import LeadStatusBadge from "../../components/leads/LeadStatusBadge";
 import Badge from "../../components/ui/Badge";
 import { formatCurrency, formatDate } from "../../utils/formatCurrency";
+import { adminPath } from "../../utils/adminPaths";
 
 export default function LeadTableView({
   list,
@@ -21,7 +22,7 @@ export default function LeadTableView({
     <>
       <Table
         mobileTitleKey="fullName"
-        onRowClick={(r) => navigate(`/admin-panel/leads/${r._id}`)}
+        onRowClick={(r) => navigate(adminPath("leads", r._id))}
         columns={[
           {
             key: "select",
