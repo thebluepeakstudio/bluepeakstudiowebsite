@@ -8,7 +8,7 @@ import { adminQueryClient } from "./queryClient";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import AdminLayout from "./components/layout/AdminLayout";
 import Login from "./pages/Login";
-import { ADMIN_HOME } from "./utils/adminPaths";
+import { adminHome, isProductionCrmHost } from "./utils/adminPaths";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ProjectList = lazy(() => import("./pages/projects/ProjectList"));
@@ -30,6 +30,25 @@ const PageLoader = () => (
   <div className="flex min-h-[40vh] items-center justify-center">
     <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
   </div>
+);
+
+const protectedRoutes = (
+  <>
+    <Route path="leads" element={<LeadsPage />} />
+    <Route path="leads/:id" element={<LeadDetail />} />
+    <Route path="clients" element={<ClientList />} />
+    <Route path="clients/:id" element={<ClientDetail />} />
+    <Route path="projects" element={<ProjectList />} />
+    <Route path="projects/:id" element={<ProjectDetail />} />
+    <Route path="projects/:id/documents" element={<ProjectDocuments />} />
+    <Route path="expenses" element={<Expenses />} />
+    <Route path="freelancers" element={<Freelancers />} />
+    <Route path="pl" element={<ProfitLoss />} />
+    <Route path="blog" element={<BlogList />} />
+    <Route path="blog/new" element={<BlogFormPage />} />
+    <Route path="blog/categories" element={<BlogCategories />} />
+    <Route path="blog/:id/edit" element={<BlogFormPage />} />
+  </>
 );
 
 function AdminHome() {
@@ -74,27 +93,27 @@ export default function AdminApp() {
         />
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route index element={<AdminHome />} />
-            <Route path="login" element={<Navigate to={ADMIN_HOME} replace />} />
-            <Route path="dashboard" element={<Navigate to={ADMIN_HOME} replace />} />
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AdminLayout />}>
-                <Route path="leads" element={<LeadsPage />} />
-                <Route path="leads/:id" element={<LeadDetail />} />
-                <Route path="clients" element={<ClientList />} />
-                <Route path="clients/:id" element={<ClientDetail />} />
-                <Route path="projects" element={<ProjectList />} />
-                <Route path="projects/:id" element={<ProjectDetail />} />
-                <Route path="projects/:id/documents" element={<ProjectDocuments />} />
-                <Route path="expenses" element={<Expenses />} />
-                <Route path="freelancers" element={<Freelancers />} />
-                <Route path="pl" element={<ProfitLoss />} />
-                <Route path="blog" element={<BlogList />} />
-                <Route path="blog/new" element={<BlogFormPage />} />
-                <Route path="blog/categories" element={<BlogCategories />} />
-                <Route path="blog/:id/edit" element={<BlogFormPage />} />
-              </Route>
-            </Route>
+            {isProductionCrmHost() ? (
+              <>
+                <Route index element={<AdminHome />} />
+                <Route path="login" element={<Navigate to={adminHome()} replace />} />
+                <Route path="dashboard" element={<Navigate to={adminHome()} replace />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<AdminLayout />}>{protectedRoutes}</Route>
+                </Route>
+              </>
+            ) : (
+              <>
+                <Route path="login" element={<Login />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<AdminLayout />}>
+                    <Route index element={<Navigate to="dashboard" replace />} />
+                    <Route path="dashboard" element={<Dashboard />} />
+                    {protectedRoutes}
+                  </Route>
+                </Route>
+              </>
+            )}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

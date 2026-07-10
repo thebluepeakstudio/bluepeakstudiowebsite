@@ -7,6 +7,8 @@ const BillingCycleInvoice = require("../models/BillingCycleInvoice");
 const BillingCycleDeliverable = require("../models/BillingCycleDeliverable");
 const BillingCycleFreelancerDue = require("../models/BillingCycleFreelancerDue");
 const FreelancerDue = require("../models/FreelancerDue");
+const FreelancerPayment = require("../models/FreelancerPayment");
+const PaymentAllocation = require("../models/PaymentAllocation");
 const {
   syncDueForCycleDeliverable,
   payFreelancerDueRecord,
@@ -21,7 +23,19 @@ const {
   startOfMonth,
   buildBillingDate,
   formatPeriodLabel,
+  addMonths,
 } = require("../utils/recurringDates");
+const { listClientPayments } = require("./clientPaymentAllocation.service");
+const {
+  syncCurrentCycleAmount,
+  syncTemplateToCurrentCycle,
+} = require("./recurringTemplateApply.service");
+const {
+  normalizeApplyScope,
+  getCurrentPeriodMonth,
+  getCurrentBillingCycle,
+  annotateCycleScope,
+} = require("../utils/recurringCycleScope");
 
 const SERVICE_CONTAINER_FIELDS = [
   "clientId",
@@ -140,6 +154,8 @@ const updateRecurringConfig = async (serviceId, updates) => {
   const config = await RecurringServiceConfig.findOne({ serviceId });
   if (!config) throw new ApiError(404, "Recurring config not found");
 
+  const applyScope = normalizeApplyScope(updates.applyScope);
+
   const allowed = [
     "startDate",
     "billingDay",
@@ -164,12 +180,23 @@ const updateRecurringConfig = async (serviceId, updates) => {
       totalPrice: roundMoney(config.monthlyClientAmount),
       outsourcingCost: roundMoney(config.monthlyFreelancerCost),
     });
+
+    if (applyScope === "current_and_future") {
+      await syncCurrentCycleAmount(
+        serviceId,
+        config.monthlyClientAmount,
+        config.monthlyFreelancerCost
+      );
+    }
   }
 
   return getRecurringConfig(serviceId);
 };
 
 const upsertTemplateDeliverable = async (serviceId, data, templateId = null) => {
+  const applyScope = normalizeApplyScope(data.applyScope);
+  let result;
+
   if (templateId) {
     const existing = await RecurringDeliverableTemplate.findOne({
       _id: templateId,
@@ -183,27 +210,32 @@ const upsertTemplateDeliverable = async (serviceId, data, templateId = null) => 
       sortOrder: data.sortOrder ?? existing.sortOrder,
     });
     await existing.save();
-    return existing.toObject();
+    result = existing.toObject();
+  } else {
+    const service = await Service.findById(serviceId).lean();
+    const doc = await RecurringDeliverableTemplate.create({
+      serviceId,
+      title: data.title,
+      category: data.category || service?.category || service?.name,
+      description: data.description || "",
+      sortOrder: data.sortOrder ?? 0,
+    });
+    result = doc.toObject();
   }
 
-  const service = await Service.findById(serviceId).lean();
-  const doc = await RecurringDeliverableTemplate.create({
-    serviceId,
-    title: data.title,
-    category: data.category || service?.category || service?.name,
-    description: data.description || "",
-    sortOrder: data.sortOrder ?? 0,
-  });
-  return doc.toObject();
+  await syncTemplateToCurrentCycle(serviceId, applyScope);
+  return result;
 };
 
-const deleteTemplateDeliverable = async (serviceId, templateId) => {
+const deleteTemplateDeliverable = async (serviceId, templateId, applyScope = "future_only") => {
   const doc = await RecurringDeliverableTemplate.findOneAndUpdate(
     { _id: templateId, serviceId, deletedAt: null },
     { deletedAt: new Date() },
     { new: true }
   );
   if (!doc) throw new ApiError(404, "Template deliverable not found");
+
+  await syncTemplateToCurrentCycle(serviceId, applyScope);
   return doc;
 };
 
@@ -217,6 +249,7 @@ const listBillingCycles = async (serviceId) => {
     BillingCycleDeliverable.find({ billingCycleId: { $in: cycleIds } })
       .sort({ sortOrder: 1 })
       .populate("freelancerId", "name")
+      .populate("freelancerAssignments.freelancerId", "name")
       .lean(),
     BillingCycleFreelancerDue.find({ billingCycleId: { $in: cycleIds } }).lean(),
     FreelancerDue.find({
@@ -246,14 +279,19 @@ const listBillingCycles = async (serviceId) => {
     return acc;
   }, {});
 
-  return cycles.map((cycle) => ({
-    ...cycle,
-    periodLabel: formatPeriodLabel(new Date(cycle.periodMonth)),
-    invoice: invoiceByCycle[cycle._id.toString()] || null,
-    deliverables: deliverablesByCycle[cycle._id.toString()] || [],
-    freelancerDue: dueByCycle[cycle._id.toString()] || null,
-    freelancerDues: duesByCycle[cycle._id.toString()] || [],
-  }));
+  return cycles.map((cycle) => {
+    const scope = annotateCycleScope(cycle);
+    return {
+      ...cycle,
+      periodLabel: formatPeriodLabel(new Date(cycle.periodMonth)),
+      isHistorical: scope.isHistorical,
+      isCurrent: scope.isCurrent,
+      invoice: invoiceByCycle[cycle._id.toString()] || null,
+      deliverables: deliverablesByCycle[cycle._id.toString()] || [],
+      freelancerDue: dueByCycle[cycle._id.toString()] || null,
+      freelancerDues: duesByCycle[cycle._id.toString()] || [],
+    };
+  });
 };
 
 const buildRecurringServiceDetail = async (service) => {
@@ -261,18 +299,81 @@ const buildRecurringServiceDetail = async (service) => {
   const wallet = await require("./recurringWallet.service").listWalletTransactions(service._id);
   const billingCycles = await listBillingCycles(service._id);
 
-  const openInvoices = billingCycles
+  const ALLOCATABLE_STATUSES = ["due", "partial", "overdue"];
+  const dueInvoices = billingCycles
     .map((c) => c.invoice)
-    .filter((inv) => inv && ["due", "partial", "overdue", "upcoming"].includes(inv.status));
-  const totalOutstanding = roundMoney(
-    openInvoices.reduce((sum, inv) => {
+    .filter((inv) => inv && ALLOCATABLE_STATUSES.includes(inv.status));
+  const outstandingAmount = roundMoney(
+    dueInvoices.reduce((sum, inv) => {
       const open = roundMoney(inv.amountDue - inv.creditApplied - inv.amountPaid);
       return sum + Math.max(0, open);
     }, 0)
   );
 
+  const invoiceIds = billingCycles
+    .map((c) => c.invoice?._id)
+    .filter(Boolean);
+  const [allocations, allInvoices] = await Promise.all([
+    PaymentAllocation.find({
+      $or: [
+        { targetType: "recurring_wallet", targetId: service._id },
+        { targetType: "cycle_invoice", targetId: { $in: invoiceIds } },
+      ],
+    }).lean(),
+    BillingCycleInvoice.find({ serviceId: service._id }).lean(),
+  ]);
+
+  const totalPaid = roundMoney(allocations.reduce((sum, row) => sum + (Number(row.amount) || 0), 0));
+  const lifetimeRevenue = roundMoney(
+    allInvoices.reduce(
+      (sum, inv) => sum + roundMoney(inv.amountPaid) + roundMoney(inv.creditApplied),
+      0
+    )
+  );
+
+  let nextBillingDate = null;
+  if (config?.billingDay && config?.startDate) {
+    const sortedCycles = [...billingCycles].sort(
+      (a, b) => new Date(b.periodMonth) - new Date(a.periodMonth)
+    );
+    if (sortedCycles.length) {
+      const lastPeriod = new Date(sortedCycles[0].periodMonth);
+      const nextPeriod = addMonths(lastPeriod, 1);
+      nextBillingDate = buildBillingDate(
+        nextPeriod.getFullYear(),
+        nextPeriod.getMonth(),
+        config.billingDay
+      );
+    } else {
+      nextBillingDate = buildBillingDate(
+        parseLocalDate(config.startDate).getFullYear(),
+        parseLocalDate(config.startDate).getMonth(),
+        config.billingDay
+      );
+    }
+  }
+
+  let paymentHistory = [];
+  if (service.clientId) {
+    const clientId =
+      typeof service.clientId === "object" ? service.clientId._id : service.clientId;
+    const allPayments = await listClientPayments(clientId);
+    paymentHistory = allPayments.filter((payment) => {
+      if (payment.serviceId?.toString() === service._id.toString()) return true;
+      return payment.allocations?.some(
+        (row) =>
+          (row.targetType === "recurring_wallet" &&
+            row.targetId?.toString() === service._id.toString()) ||
+          (row.targetType === "cycle_invoice" &&
+            invoiceIds.some((id) => id.toString() === row.targetId?.toString()))
+      );
+    });
+  }
+
   const { withLegacyServiceFields } = require("../utils/serviceCompat");
   const legacy = withLegacyServiceFields(service);
+  const currentPeriod = getCurrentPeriodMonth();
+  const currentCycle = await getCurrentBillingCycle(service._id, currentPeriod);
 
   return {
     ...legacy,
@@ -280,13 +381,27 @@ const buildRecurringServiceDetail = async (service) => {
     recurringConfig: config,
     templateDeliverables: templates,
     wallet,
+    prepaidCredit: roundMoney(wallet.balance),
     billingCycles,
+    monthlyFee: roundMoney(config.monthlyClientAmount),
+    currentRecurringAmount: roundMoney(config.monthlyClientAmount),
+    currentBillingCycleId: currentCycle?._id || null,
+    currentPeriodLabel: formatPeriodLabel(currentPeriod),
+    applyScopeOptions: {
+      currentCycleExists: !!currentCycle,
+      currentPeriodLabel: formatPeriodLabel(currentPeriod),
+    },
+    nextBillingDate,
+    outstandingAmount,
+    totalPaid,
+    lifetimeRevenue,
+    paymentHistory,
     totalAmount: roundMoney(config.monthlyClientAmount),
     totalPrice: roundMoney(config.monthlyClientAmount),
     monthlyClientAmount: roundMoney(config.monthlyClientAmount),
     monthlyFreelancerCost: roundMoney(config.monthlyFreelancerCost),
-    remainingAmount: Math.max(0, roundMoney(totalOutstanding - wallet.balance)),
-    paymentStatus: totalOutstanding <= 0 ? "Paid" : wallet.balance > 0 ? "Partial" : "Pending",
+    remainingAmount: outstandingAmount,
+    paymentStatus: outstandingAmount <= 0 ? "Paid" : totalPaid > 0 ? "Partial" : "Pending",
     advanceReceived: 0,
     services: [...new Set(templates.map((t) => t.category))],
     categories: [...new Set(templates.map((t) => t.category))],
@@ -312,6 +427,16 @@ const updateCycleDeliverable = async (serviceId, cycleId, deliverableId, updates
   }
   if (updates.freelancerFee !== undefined) {
     deliverable.freelancerFee = roundMoney(updates.freelancerFee);
+  }
+  if (updates.freelancerAssignments !== undefined) {
+    deliverable.freelancerAssignments = (updates.freelancerAssignments || [])
+      .filter((row) => row.freelancerId)
+      .map((row) => ({
+        freelancerId: row.freelancerId,
+        fee: roundMoney(row.fee),
+      }));
+    deliverable.freelancerId = null;
+    deliverable.freelancerFee = 0;
   }
   await deliverable.save();
   await syncDueForCycleDeliverable(deliverable);

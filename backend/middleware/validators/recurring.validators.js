@@ -1,4 +1,4 @@
-const { body, param, validationResult } = require("express-validator");
+const { body, param, query, validationResult } = require("express-validator");
 const mongoose = require("mongoose");
 const {
   RECURRING_STATUSES,
@@ -56,12 +56,22 @@ const patchRecurringConfigValidators = [
   body("monthlyFreelancerCost").optional().isFloat({ min: 0 }),
   body("generationLeadDays").optional().isInt({ min: 3, max: 7 }),
   body("status").optional().isIn(RECURRING_STATUSES),
+  body("applyScope").optional().isIn(["future_only", "current_and_future"]),
   validate,
 ];
 
 const templateDeliverableValidators = [
   param("id").isMongoId(),
   body("title").trim().notEmpty(),
+  body("applyScope").optional().isIn(["future_only", "current_and_future"]),
+  validate,
+];
+
+const deleteTemplateDeliverableValidators = [
+  param("id").isMongoId(),
+  param("templateId").isMongoId(),
+  body("applyScope").optional().isIn(["future_only", "current_and_future"]),
+  query("applyScope").optional().isIn(["future_only", "current_and_future"]),
   validate,
 ];
 
@@ -112,6 +122,7 @@ module.exports = {
   createRecurringProjectValidators: createRecurringServiceValidators,
   patchRecurringConfigValidators,
   templateDeliverableValidators,
+  deleteTemplateDeliverableValidators,
   templateIdParam,
   cycleIdParam,
   deliverableIdParam,

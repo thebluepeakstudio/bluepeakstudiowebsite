@@ -49,6 +49,27 @@ export const EXPENSE_CATEGORIES = [
 
 export const PAID_VIA = ["UPI", "Bank", "Cash", "Card"];
 
+export const BILLING_MODELS = ["one_time", "recurring"];
+
+export const RECURRING_STATUSES = ["active", "paused", "cancelled"];
+
+/** Map internal recurring invoice status to display label */
+export const formatInvoiceStatus = (status) => {
+  if (status === "partial") return "Partially Paid";
+  if (status === "paid") return "Paid";
+  if (status === "cancelled") return "Cancelled";
+  if (["due", "upcoming", "overdue"].includes(status)) return "Pending";
+  return status || "Pending";
+};
+
+export const getInvoiceOpenAmount = (invoice) => {
+  if (!invoice) return 0;
+  const due = Number(invoice.amountDue) || 0;
+  const paid = Number(invoice.amountPaid) || 0;
+  const credit = Number(invoice.creditApplied) || 0;
+  return Math.max(0, due - paid - credit);
+};
+
 export const DOCUMENT_CATEGORIES = [
   "Onboarding Documents",
   "Contracts",
@@ -63,6 +84,8 @@ export const DOCUMENT_CATEGORIES = [
 export const AVAILABILITY = ["Available", "Busy", "Unavailable"];
 
 export const CLIENT_STATUSES = ["Active", "Inactive"];
+
+export const BRAND_STATUSES = ["Active", "Inactive"];
 
 export const LEAD_STAGES = [
   "New",

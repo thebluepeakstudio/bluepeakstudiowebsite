@@ -1,6 +1,8 @@
 const express = require("express");
+const { validationResult } = require("express-validator");
 const { protect } = require("../../middleware/auth.middleware");
 const upload = require("../../middleware/upload.middleware");
+const ApiError = require("../../utils/ApiError");
 const {
   getServices,
   getService,
@@ -39,10 +41,12 @@ const {
 const {
   patchRecurringConfigValidators,
   templateDeliverableValidators,
+  deleteTemplateDeliverableValidators,
   templateIdParam,
   cycleIdParam,
   deliverableIdParam: cycleDeliverableIdParam,
   dueIdParam,
+  createRecurringServiceValidators,
 } = require("../../middleware/validators/recurring.validators");
 const {
   getRecurringConfigHandler,
@@ -61,9 +65,27 @@ const {
 const router = express.Router();
 router.use(protect);
 
+const runValidatorChain = (validators) => async (req, res, next) => {
+  const chains = validators.filter((validation) => typeof validation.run === "function");
+  await Promise.all(chains.map((validation) => validation.run(req)));
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(new ApiError(400, errors.array()[0].msg));
+  }
+  next();
+};
+
+const createServiceRouteValidators = (req, res, next) => {
+  const billingModel =
+    req.body?.service?.billingModel || req.body?.project?.billingModel;
+  const chain =
+    billingModel === "recurring" ? createRecurringServiceValidators : createServiceValidators;
+  return runValidatorChain(chain)(req, res, next);
+};
+
 router.get("/summary", getServiceSummary);
 router.get("/", getServices);
-router.post("/", createServiceValidators, createService);
+router.post("/", createServiceRouteValidators, createService);
 router.get("/:id", serviceIdParam, getService);
 router.put("/:id", serviceIdParam, updateService);
 router.delete("/:id", serviceIdParam, deleteService);
@@ -112,7 +134,7 @@ router.put(
 );
 router.delete(
   "/:id/template-deliverables/:templateId",
-  [...serviceIdParam, ...templateIdParam],
+  [...deleteTemplateDeliverableValidators],
   deleteTemplateDeliverableHandler
 );
 router.patch(

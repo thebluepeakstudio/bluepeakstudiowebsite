@@ -2,12 +2,16 @@ const Client = require("../../models/Client");
 const ClientActivity = require("../../models/ClientActivity");
 const ClientAttachment = require("../../models/ClientAttachment");
 const Project = require("../../models/Project");
+const Service = require("../../models/Service");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
 const {
-  enrichProjectsWithDeliverables,
+  enrichProjectsWithDeliverables: enrichLegacyProjects,
 } = require("../../services/projectCalculations.service");
+const {
+  enrichServicesWithDeliverables,
+} = require("../../services/serviceCalculations.service");
 
 const CLIENT_FIELDS = [
   "name",
@@ -43,6 +47,38 @@ const buildFilter = (query) => {
   return filter;
 };
 
+const SERVICE_LIST_SELECT =
+  "clientName businessName name category billingModel workStatus paymentStatus totalPrice remainingAmount createdAt legacyProjectId";
+
+const LEGACY_PROJECT_SELECT =
+  "clientName businessName projectType projectTitle workStatus paymentStatus totalAmount createdAt";
+
+const listClientLinkedProjects = async (clientId) => {
+  const [services, legacyProjects] = await Promise.all([
+    Service.find({ clientId })
+      .select(SERVICE_LIST_SELECT)
+      .sort({ createdAt: -1 })
+      .lean(),
+    Project.find({ clientId }).select(LEGACY_PROJECT_SELECT).sort({ createdAt: -1 }).lean(),
+  ]);
+
+  const migratedLegacyIds = new Set(
+    services.map((s) => String(s.legacyProjectId || "")).filter(Boolean)
+  );
+  const unmigratedProjects = legacyProjects.filter(
+    (p) => !migratedLegacyIds.has(String(p._id))
+  );
+
+  const [enrichedServices, enrichedLegacy] = await Promise.all([
+    enrichServicesWithDeliverables(services),
+    unmigratedProjects.length ? enrichLegacyProjects(unmigratedProjects) : [],
+  ]);
+
+  return [...enrichedServices, ...enrichedLegacy].sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
+};
+
 const getClients = asyncHandler(async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(50, parseInt(req.query.limit, 10) || 10);
@@ -71,15 +107,8 @@ const getClientProjects = asyncHandler(async (req, res) => {
   const client = await Client.findById(req.params.id);
   if (!client) throw new ApiError(404, "Client not found");
 
-  const projects = await Project.find({ clientId: req.params.id })
-    .select(
-      "clientName businessName projectType projectTitle workStatus paymentStatus totalAmount createdAt"
-    )
-    .sort({ createdAt: -1 })
-    .lean();
-
-  const enriched = await enrichProjectsWithDeliverables(projects);
-  res.json({ success: true, data: enriched });
+  const projects = await listClientLinkedProjects(req.params.id);
+  res.json({ success: true, data: projects });
 });
 
 const getClientActivities = asyncHandler(async (req, res) => {
@@ -106,18 +135,11 @@ const getClientOverview = asyncHandler(async (req, res) => {
   const client = await Client.findById(req.params.id);
   if (!client) throw new ApiError(404, "Client not found");
 
-  const [projectDocs, activities, attachments] = await Promise.all([
-    Project.find({ clientId: req.params.id })
-      .select(
-        "clientName businessName projectType projectTitle workStatus paymentStatus totalAmount createdAt"
-      )
-      .sort({ createdAt: -1 })
-      .lean(),
+  const [projects, activities, attachments] = await Promise.all([
+    listClientLinkedProjects(req.params.id),
     ClientActivity.find({ clientId: req.params.id }).sort({ occurredAt: -1 }),
     ClientAttachment.find({ clientId: req.params.id }).sort({ createdAt: -1 }),
   ]);
-
-  const projects = await enrichProjectsWithDeliverables(projectDocs);
 
   res.json({
     success: true,
@@ -143,8 +165,11 @@ const deleteClient = asyncHandler(async (req, res) => {
   const client = await Client.findById(req.params.id);
   if (!client) throw new ApiError(404, "Client not found");
 
-  const projectCount = await Project.countDocuments({ clientId: client._id });
-  if (projectCount > 0) {
+  const [projectCount, serviceCount] = await Promise.all([
+    Project.countDocuments({ clientId: client._id }),
+    Service.countDocuments({ clientId: client._id }),
+  ]);
+  if (projectCount > 0 || serviceCount > 0) {
     throw new ApiError(400, "Cannot delete client with linked projects");
   }
 

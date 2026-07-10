@@ -12,6 +12,39 @@ const { formatPeriodLabel } = require("../utils/recurringDates");
 
 const isDueTriggerStatus = (status) => DELIVERABLE_DUE_TRIGGER_STATUSES.includes(status);
 
+const getCycleDeliverableAssignments = (cycleDeliverable) => {
+  if (Array.isArray(cycleDeliverable.freelancerAssignments) && cycleDeliverable.freelancerAssignments.length) {
+    return cycleDeliverable.freelancerAssignments;
+  }
+  if (cycleDeliverable.freelancerId) {
+    return [
+      {
+        freelancerId: cycleDeliverable.freelancerId,
+        fee: roundMoney(cycleDeliverable.freelancerFee),
+      },
+    ];
+  }
+  return [];
+};
+
+const cancelCycleDeliverableDues = async (cycleDeliverableId, session = null, exceptFreelancerIds = null) => {
+  const filter = {
+    billingCycleDeliverableId: cycleDeliverableId,
+    status: { $in: ["pending", "partial"] },
+  };
+  if (exceptFreelancerIds) {
+    filter.freelancerId = { $nin: [...exceptFreelancerIds] };
+  }
+  const query = FreelancerDue.find(filter);
+  if (session) query.session(session);
+  const dues = await query;
+  for (const due of dues) {
+    due.status = "cancelled";
+    due.cancelledAt = new Date();
+    await due.save(session ? { session } : undefined);
+  }
+};
+
 const resolveServiceContext = async (serviceId, session = null) => {
   const query = Service.findById(serviceId)
     .populate("clientId", "name companyName")
@@ -161,58 +194,65 @@ const syncDueForDeliverableStatus = async (deliverableId, session = null) => {
 };
 
 const syncDueForCycleDeliverable = async (cycleDeliverable, session = null) => {
-  if (!cycleDeliverable) return null;
+  if (!cycleDeliverable) return [];
 
-  const fee = roundMoney(cycleDeliverable.freelancerFee);
-  if (!cycleDeliverable.freelancerId || fee <= 0) {
-    await cancelOpenDue(
-      { billingCycleDeliverableId: cycleDeliverable._id },
-      session
-    );
-    return null;
-  }
+  const assignments = getCycleDeliverableAssignments(cycleDeliverable);
 
   if (!isDueTriggerStatus(cycleDeliverable.status)) {
-    await cancelOpenDue(
-      { billingCycleDeliverableId: cycleDeliverable._id },
-      session
-    );
-    return null;
+    await cancelCycleDeliverableDues(cycleDeliverable._id, session);
+    return [];
   }
 
   const cycleQuery = BillingCycle.findById(cycleDeliverable.billingCycleId);
   if (session) cycleQuery.session(session);
   const cycle = await cycleQuery;
-
   const ctx = await resolveServiceContext(cycleDeliverable.serviceId, session);
 
-  const existingPaidQuery = FreelancerDue.findOne({
-    billingCycleDeliverableId: cycleDeliverable._id,
-    freelancerId: cycleDeliverable.freelancerId,
-    status: "paid",
-  });
-  if (session) existingPaidQuery.session(session);
-  const paidDue = await existingPaidQuery;
-  if (paidDue) return paidDue;
+  const activeFreelancerIds = [];
+  const results = [];
 
-  return upsertFreelancerDue(
-    {
-      freelancerId: cycleDeliverable.freelancerId,
-      clientId: ctx.clientId,
-      brandId: ctx.brandId,
-      serviceId: cycleDeliverable.serviceId,
-      billingCycleId: cycleDeliverable.billingCycleId,
-      billingMonth: cycle?.periodMonth || null,
+  for (const row of assignments) {
+    const freelancerId = row.freelancerId?._id || row.freelancerId;
+    const fee = roundMoney(row.fee);
+    if (!freelancerId || fee <= 0) continue;
+
+    activeFreelancerIds.push(freelancerId);
+
+    const existingPaidQuery = FreelancerDue.findOne({
       billingCycleDeliverableId: cycleDeliverable._id,
-      deliverableTitle: cycleDeliverable.title,
-      serviceTitle: ctx.serviceTitle,
-      clientName: ctx.clientName,
-      brandName: ctx.brandName,
-      amount: fee,
-      amountPaid: 0,
-    },
-    session
-  );
+      freelancerId,
+      status: "paid",
+    });
+    if (session) existingPaidQuery.session(session);
+    const paidDue = await existingPaidQuery;
+    if (paidDue) {
+      results.push(paidDue);
+      continue;
+    }
+
+    const due = await upsertFreelancerDue(
+      {
+        freelancerId,
+        clientId: ctx.clientId,
+        brandId: ctx.brandId,
+        serviceId: cycleDeliverable.serviceId,
+        billingCycleId: cycleDeliverable.billingCycleId,
+        billingMonth: cycle?.periodMonth || null,
+        billingCycleDeliverableId: cycleDeliverable._id,
+        deliverableTitle: cycleDeliverable.title,
+        serviceTitle: ctx.serviceTitle,
+        clientName: ctx.clientName,
+        brandName: ctx.brandName,
+        amount: fee,
+        amountPaid: 0,
+      },
+      session
+    );
+    if (due) results.push(due);
+  }
+
+  await cancelCycleDeliverableDues(cycleDeliverable._id, session, activeFreelancerIds);
+  return results;
 };
 
 const payFreelancerDueRecord = async (dueId, paymentData, adminName, session = null) => {
@@ -514,4 +554,5 @@ module.exports = {
   aggregateFreelancerCostsByMonth,
   cancelOpenDue,
   upsertFreelancerDue,
+  cancelCycleDeliverableDues,
 };

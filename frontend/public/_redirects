@@ -1,1 +1,6 @@
+# CRM subdomain — serve the CRM SPA shell for all routes (refresh-safe)
+https://crm.bluepeakstudio.in/*  /crm.html  200
+http://crm.bluepeakstudio.in/*   /crm.html  200
+
+# Main website — marketing SPA
 /*    /index.html   200

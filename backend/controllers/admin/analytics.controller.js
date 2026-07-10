@@ -16,6 +16,7 @@ const {
   groupDeliverablesByProject,
 } = require("../../services/projectCalculations.service");
 const { aggregateClientOutstanding } = require("../../utils/clientOutstanding");
+const { runDaily } = require("../../services/recurringBillingJob.service");
 
 const FINANCIAL_CACHE_KEY = "analytics:financial";
 const FINANCIAL_CACHE_TTL = 120_000;
@@ -116,6 +117,12 @@ const enrichLatestProjects = async (projects) => {
 };
 
 const getDashboard = asyncHandler(async (req, res) => {
+  try {
+    await runDaily();
+  } catch (err) {
+    console.error("[recurring-billing] Dashboard sync failed:", err.message);
+  }
+
   const cacheKey = "analytics:dashboard";
   const financials = await getSharedFinancialMetrics();
   const cached = get(cacheKey);
@@ -126,14 +133,8 @@ const getDashboard = asyncHandler(async (req, res) => {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [
-    activeProjects,
-    financials,
-    latestProjects,
-    paymentsThisMonth,
-  ] = await Promise.all([
+  const [activeProjects, latestProjects, paymentsThisMonth] = await Promise.all([
     Project.countDocuments({ workStatus: { $nin: ["Completed", "Delivered"] } }),
-    getSharedFinancialMetrics(),
     Project.find()
       .select(
         "clientName businessName projectTitle projectType workStatus paymentStatus totalAmount remainingAmount createdAt"
@@ -180,8 +181,6 @@ const getPL = asyncHandler(async (req, res) => {
   if (cached) {
     return res.json(withFinancialMetrics(cached, financials));
   }
-
-  const financials = await getSharedFinancialMetrics();
 
   const payload = {
     success: true,

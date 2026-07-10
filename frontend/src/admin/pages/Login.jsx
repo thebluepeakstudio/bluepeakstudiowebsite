@@ -13,7 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import Button from "../components/ui/Button";
 import { RequiredMark } from "../components/ui/Input";
 import toast from "react-hot-toast";
-import { ADMIN_HOME } from "../utils/adminPaths";
+import { adminHome } from "../utils/adminPaths";
 
 const LOGO_URL =
   "https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/BPS.png?updatedAt=1773667763921";
@@ -114,7 +114,7 @@ export default function Login() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={ADMIN_HOME} replace />;
+    return <Navigate to={adminHome()} replace />;
   }
 
   const handleSubmit = async (e) => {
@@ -123,7 +123,7 @@ export default function Login() {
     try {
       await login(email, password);
       toast.success("Welcome back!");
-      navigate(ADMIN_HOME);
+      navigate(adminHome());
     } catch (err) {
       toast.error(err.response?.data?.message || "Login failed");
     } finally {

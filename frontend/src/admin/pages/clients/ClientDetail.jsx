@@ -5,11 +5,13 @@ import {
   getClientOverview,
   getClientActivities,
   getClientAttachments,
+  getClientBrands,
   logClientActivity,
   uploadClientAttachments,
   deleteClientAttachment,
   updateClient,
 } from "../../api/clients.api";
+import { createBrand, deleteBrand } from "../../api/brands.api";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -19,7 +21,7 @@ import { Input, Textarea, Select } from "../../components/ui/Input";
 import { Form, FormSection, FormFooter } from "../../components/ui/Form";
 import ActivityTimeline from "../../components/leads/ActivityTimeline";
 import ServicesPillList from "../../components/projects/ServicesPillList";
-import { ACTIVITY_TYPES, getProjectLabel } from "../../utils/constants";
+import { ACTIVITY_TYPES, BRAND_STATUSES, getProjectLabel } from "../../utils/constants";
 import { formatCurrency, formatDate } from "../../utils/formatCurrency";
 import { CardSkeleton } from "../../components/ui/Skeleton";
 import toast from "react-hot-toast";
@@ -32,8 +34,18 @@ export default function ClientDetail() {
   const [projects, setProjects] = useState([]);
   const [activities, setActivities] = useState([]);
   const [attachments, setAttachments] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activityModal, setActivityModal] = useState(false);
+  const [brandModal, setBrandModal] = useState(false);
+  const [brandForm, setBrandForm] = useState({
+    name: "",
+    industry: "",
+    website: "",
+    description: "",
+    status: "Active",
+    isDefault: false,
+  });
   const [activityForm, setActivityForm] = useState({ type: "note", title: "", body: "" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -46,6 +58,8 @@ export default function ClientDetail() {
       setProjects(overview.projects);
       setActivities(overview.activities);
       setAttachments(overview.attachments);
+      const brandsRes = await getClientBrands(id);
+      setBrands(brandsRes.data.data || []);
     } catch {
       toast.error("Client not found");
       navigate(adminPath("clients"));
@@ -110,6 +124,65 @@ export default function ClientDetail() {
     }
   };
 
+  const handleCreateBrand = async (e) => {
+    e.preventDefault();
+    if (!brandForm.name.trim()) {
+      toast.error("Brand name is required");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createBrand({
+        clientId: id,
+        name: brandForm.name.trim(),
+        industry: brandForm.industry.trim(),
+        website: brandForm.website.trim(),
+        description: brandForm.description.trim(),
+        status: brandForm.status,
+        isDefault: brandForm.isDefault,
+      });
+      toast.success("Brand added");
+      setBrandModal(false);
+      setBrandForm({
+        name: "",
+        industry: "",
+        website: "",
+        description: "",
+        status: "Active",
+        isDefault: false,
+      });
+      const brandsRes = await getClientBrands(id);
+      setBrands(brandsRes.data.data || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to add brand");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteBrand = async (brandId) => {
+    if (!confirm("Delete this brand? Services linked to it must be moved first.")) return;
+    try {
+      await deleteBrand(brandId);
+      toast.success("Brand deleted");
+      setBrands((prev) => prev.filter((b) => b._id !== brandId));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Delete failed");
+    }
+  };
+
+  const openBrandModal = () => {
+    setBrandForm({
+      name: client.companyName || "",
+      industry: "",
+      website: client.website || "",
+      description: "",
+      status: "Active",
+      isDefault: brands.length === 0,
+    });
+    setBrandModal(true);
+  };
+
   if (loading) return <CardSkeleton />;
   if (!client) return null;
 
@@ -153,6 +226,54 @@ export default function ClientDetail() {
           <Button className="mt-2" size="sm" onClick={saveNotes}>Save notes</Button>
         </Card>
       </div>
+
+      <Card
+        title="Brands"
+        subtitle="Business units or properties under this client"
+        action={
+          <Button size="sm" onClick={openBrandModal}>
+            <Plus size={14} /> Add brand
+          </Button>
+        }
+      >
+        {brands.length === 0 ? (
+          <p className="text-sm text-admin-textMuted">
+            No brands yet. Add a brand to organize services (e.g. separate businesses or product lines).
+          </p>
+        ) : (
+          <Table
+            columns={[
+              { key: "name", label: "Brand" },
+              { key: "industry", label: "Industry", render: (r) => r.industry || "—" },
+              {
+                key: "status",
+                label: "Status",
+                render: (r) => <Badge status={r.status}>{r.status}</Badge>,
+              },
+              {
+                key: "default",
+                label: "Default",
+                render: (r) => (r.isDefault ? "Yes" : "—"),
+              },
+              {
+                key: "actions",
+                label: "",
+                render: (r) => (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteBrand(r._id)}
+                    className="text-xs text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
+                ),
+              },
+            ]}
+            data={brands}
+            emptyMessage="No brands yet"
+          />
+        )}
+      </Card>
 
       <Card
         title="Activity Timeline"
@@ -250,6 +371,59 @@ export default function ClientDetail() {
           <FormFooter
             onCancel={() => setActivityModal(false)}
             submitLabel="Save activity"
+            loading={submitting}
+          />
+        </Form>
+      </Modal>
+
+      <Modal
+        open={brandModal}
+        onClose={() => setBrandModal(false)}
+        title="Add brand"
+        description="Brands group services under this client (e.g. separate companies or product lines)."
+      >
+        <Form onSubmit={handleCreateBrand}>
+          <FormSection>
+            <Input
+              label="Brand name"
+              value={brandForm.name}
+              onChange={(e) => setBrandForm({ ...brandForm, name: e.target.value })}
+              required
+            />
+            <Input
+              label="Industry"
+              value={brandForm.industry}
+              onChange={(e) => setBrandForm({ ...brandForm, industry: e.target.value })}
+            />
+            <Input
+              label="Website"
+              value={brandForm.website}
+              onChange={(e) => setBrandForm({ ...brandForm, website: e.target.value })}
+            />
+            <Textarea
+              label="Description"
+              value={brandForm.description}
+              onChange={(e) => setBrandForm({ ...brandForm, description: e.target.value })}
+              rows={3}
+            />
+            <Select
+              label="Status"
+              value={brandForm.status}
+              onChange={(e) => setBrandForm({ ...brandForm, status: e.target.value })}
+              options={BRAND_STATUSES.map((s) => ({ value: s, label: s }))}
+            />
+            <label className="flex items-center gap-2 text-sm text-admin-text">
+              <input
+                type="checkbox"
+                checked={brandForm.isDefault}
+                onChange={(e) => setBrandForm({ ...brandForm, isDefault: e.target.checked })}
+              />
+              Set as default brand for new services
+            </label>
+          </FormSection>
+          <FormFooter
+            onCancel={() => setBrandModal(false)}
+            submitLabel="Add brand"
             loading={submitting}
           />
         </Form>

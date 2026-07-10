@@ -16,3 +16,5 @@ export const uploadClientAttachments = (id, formData) =>
   });
 export const deleteClientAttachment = (id, attachmentId) =>
   api.delete(`/clients/${id}/attachments/${attachmentId}`);
+
+export const getClientBrands = (clientId) => api.get("/brands", { params: { clientId } });

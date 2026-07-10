@@ -1,6 +1,10 @@
 const express = require("express");
 const authRoutes = require("./auth.routes");
 const projectRoutes = require("./projects.routes");
+const serviceRoutes = require("./services.routes");
+const clientPaymentRoutes = require("./client-payments.routes");
+const jobRoutes = require("./jobs.routes");
+const brandRoutes = require("./brands.routes");
 const documentRoutes = require("./documents.routes");
 const expenseRoutes = require("./expenses.routes");
 const freelancerRoutes = require("./freelancers.routes");
@@ -15,6 +19,10 @@ const router = express.Router();
 
 router.use("/auth", authRoutes);
 router.use("/projects", projectRoutes);
+router.use("/services", serviceRoutes);
+router.use("/client-payments", clientPaymentRoutes);
+router.use("/jobs", jobRoutes);
+router.use("/brands", brandRoutes);
 router.use("/", documentRoutes);
 router.use("/expenses", expenseRoutes);
 router.use("/freelancers", freelancerRoutes);

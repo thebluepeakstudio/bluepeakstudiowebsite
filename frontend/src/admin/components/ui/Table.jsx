@@ -12,6 +12,8 @@ export default function Table({
   onRowClick,
   emptyMessage = "No data found",
   mobileTitleKey,
+  hideMobileActions = false,
+  actionsAlign = "start",
 }) {
   if (!data?.length) {
     return (
@@ -60,7 +62,7 @@ export default function Table({
                   </div>
                 )}
               </div>
-              {actionColumn && (
+              {actionColumn && !hideMobileActions && (
                 <div
                   className="shrink-0"
                   onClick={(e) => e.stopPropagation()}
@@ -93,7 +95,9 @@ export default function Table({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-admin-textMuted"
+                  className={`whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-admin-textMuted ${
+                    isActionColumn(col) && actionsAlign === "end" ? "text-right" : ""
+                  }`}
                 >
                   {col.label}
                 </th>
@@ -110,7 +114,12 @@ export default function Table({
                 }`}
               >
                 {columns.map((col) => (
-                  <td key={col.key} className="px-4 py-3.5 text-admin-text">
+                  <td
+                    key={col.key}
+                    className={`px-4 py-3.5 text-admin-text ${
+                      isActionColumn(col) && actionsAlign === "end" ? "text-right" : ""
+                    }`}
+                  >
                     {cellContent(col, row)}
                   </td>
                 ))}

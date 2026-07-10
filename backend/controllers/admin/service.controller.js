@@ -50,7 +50,7 @@ const {
   createRecurringService,
   buildRecurringServiceDetail,
 } = require("../../services/recurringService.service");
-const { runDaily } = require("../../services/recurringBillingJob.service");
+const { runDaily, syncRecurringBillingForService } = require("../../services/recurringBillingJob.service");
 
 const SERVICE_CONTAINER_FIELDS = [
   "clientId",
@@ -358,6 +358,11 @@ const getService = asyncHandler(async (req, res) => {
   if (!service) throw new ApiError(404, "Service not found");
 
   if (service.billingModel === "recurring") {
+    try {
+      await syncRecurringBillingForService(service._id);
+    } catch (err) {
+      console.error("[recurring-billing] Service sync failed:", err.message);
+    }
     const data = await buildRecurringServiceDetail(service);
     return res.json({ success: true, data });
   }
@@ -643,6 +648,14 @@ const getServicePayments = asyncHandler(async (req, res) => {
 });
 
 const postServicePayment = asyncHandler(async (req, res) => {
+  const service = await Service.findById(req.params.id).select("billingModel").lean();
+  if (!service) throw new ApiError(404, "Service not found");
+  if (service.billingModel === "recurring") {
+    throw new ApiError(
+      400,
+      "Recurring services use client payments with automatic invoice allocation"
+    );
+  }
   const payment = await createPayment(req.params.id, req.body, req.admin.name);
   invalidateAnalyticsCache();
   res.status(201).json({ success: true, data: payment });

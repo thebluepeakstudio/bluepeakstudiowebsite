@@ -87,6 +87,18 @@ const generateCycleForMonth = async (config, periodMonth, session = null) => {
     );
   }
 
+  if (startOfToday() >= billingDate) {
+    const creditResult = await autoApplyWalletCredit(serviceId, session);
+    const invoice = await BillingCycleInvoice.findOne({ billingCycleId: cycle._id }).session(
+      session || null
+    );
+    if (invoice && creditResult.applied > 0) {
+      invoice.status = deriveInvoiceStatus(invoice);
+      if (invoice.status === "paid" && !invoice.paidAt) invoice.paidAt = new Date();
+      await invoice.save(session ? { session } : undefined);
+    }
+  }
+
   return { created: true, cycle };
 };
 
@@ -119,6 +131,83 @@ const flipCycleToDue = async (cycle, session = null) => {
   return true;
 };
 
+const syncRecurringBillingForConfig = async (config) => {
+  const today = startOfToday();
+  let cyclesGenerated = 0;
+  let cyclesDueFlipped = 0;
+  let creditsApplied = 0;
+
+  const months = monthsFromStartToNow(config.startDate);
+
+  for (const periodMonth of months) {
+    const year = periodMonth.getFullYear();
+    const month = periodMonth.getMonth();
+    const generationDate = buildGenerationDate(
+      year,
+      month,
+      config.billingDay,
+      config.generationLeadDays
+    );
+
+    if (today >= generationDate) {
+      const result = await generateCycleForMonth(config, periodMonth);
+      if (result.created) cyclesGenerated += 1;
+    }
+  }
+
+  const upcomingCycles = await BillingCycle.find({
+    serviceId: config.serviceId,
+    phase: "upcoming",
+    billingDate: { $lte: today },
+  });
+
+  for (const cycle of upcomingCycles) {
+    const flipped = await flipCycleToDue(cycle);
+    if (flipped) {
+      cyclesDueFlipped += 1;
+      const creditResult = await autoApplyWalletCredit(config.serviceId);
+      creditsApplied = roundMoney(creditsApplied + creditResult.applied);
+
+      const invoice = await BillingCycleInvoice.findOne({ billingCycleId: cycle._id });
+      if (invoice) {
+        invoice.status = deriveInvoiceStatus(invoice);
+        if (invoice.status === "paid" && !invoice.paidAt) invoice.paidAt = new Date();
+        await invoice.save();
+      }
+    }
+  }
+
+  const dueCyclesNeedingCredit = await BillingCycle.find({
+    serviceId: config.serviceId,
+    phase: "due",
+    billingDate: { $lte: today },
+  });
+
+  for (const cycle of dueCyclesNeedingCredit) {
+    const invoice = await BillingCycleInvoice.findOne({
+      billingCycleId: cycle._id,
+      status: { $in: ["due", "partial", "overdue"] },
+    });
+    if (!invoice) continue;
+    const open = roundMoney(invoice.amountDue - invoice.creditApplied - invoice.amountPaid);
+    if (open <= 0) continue;
+    const creditResult = await autoApplyWalletCredit(config.serviceId);
+    creditsApplied = roundMoney(creditsApplied + creditResult.applied);
+    const refreshed = await BillingCycleInvoice.findById(invoice._id);
+    refreshed.status = deriveInvoiceStatus(refreshed);
+    if (refreshed.status === "paid" && !refreshed.paidAt) refreshed.paidAt = new Date();
+    await refreshed.save();
+  }
+
+  return { cyclesGenerated, cyclesDueFlipped, creditsApplied };
+};
+
+const syncRecurringBillingForService = async (serviceId) => {
+  const config = await RecurringServiceConfig.findOne({ serviceId, status: "active" }).lean();
+  if (!config) return { cyclesGenerated: 0, cyclesDueFlipped: 0, creditsApplied: 0 };
+  return syncRecurringBillingForConfig(config);
+};
+
 const runDaily = async () => {
   const run = await BillingJobRun.create({ status: "running", startedAt: new Date() });
   let cyclesGenerated = 0;
@@ -127,70 +216,12 @@ const runDaily = async () => {
 
   try {
     const configs = await RecurringServiceConfig.find({ status: "active" }).lean();
-    const today = startOfToday();
 
     for (const config of configs) {
-      const months = monthsFromStartToNow(config.startDate);
-
-      for (const periodMonth of months) {
-        const year = periodMonth.getFullYear();
-        const month = periodMonth.getMonth();
-        const generationDate = buildGenerationDate(
-          year,
-          month,
-          config.billingDay,
-          config.generationLeadDays
-        );
-
-        if (today >= generationDate) {
-          const result = await generateCycleForMonth(config, periodMonth);
-          if (result.created) cyclesGenerated += 1;
-        }
-      }
-
-      const upcomingCycles = await BillingCycle.find({
-        serviceId: config.serviceId,
-        phase: "upcoming",
-        billingDate: { $lte: today },
-      });
-
-      for (const cycle of upcomingCycles) {
-        const flipped = await flipCycleToDue(cycle);
-        if (flipped) {
-          cyclesDueFlipped += 1;
-          const creditResult = await autoApplyWalletCredit(config.serviceId);
-          creditsApplied = roundMoney(creditsApplied + creditResult.applied);
-
-          const invoice = await BillingCycleInvoice.findOne({ billingCycleId: cycle._id });
-          if (invoice) {
-            invoice.status = deriveInvoiceStatus(invoice);
-            if (invoice.status === "paid" && !invoice.paidAt) invoice.paidAt = new Date();
-            await invoice.save();
-          }
-        }
-      }
-
-      const dueCyclesNeedingCredit = await BillingCycle.find({
-        serviceId: config.serviceId,
-        phase: "due",
-        billingDate: { $lte: today },
-      });
-
-      for (const cycle of dueCyclesNeedingCredit) {
-        const invoice = await BillingCycleInvoice.findOne({
-          billingCycleId: cycle._id,
-          status: { $in: ["due", "partial", "overdue"] },
-        });
-        if (!invoice) continue;
-        const open = roundMoney(invoice.amountDue - invoice.creditApplied - invoice.amountPaid);
-        if (open <= 0) continue;
-        const creditResult = await autoApplyWalletCredit(config.serviceId);
-        creditsApplied = roundMoney(creditsApplied + creditResult.applied);
-        const refreshed = await BillingCycleInvoice.findById(invoice._id);
-        refreshed.status = deriveInvoiceStatus(refreshed);
-        if (refreshed.status === "paid" && !refreshed.paidAt) refreshed.paidAt = new Date();
-        await refreshed.save();
-      }
+      const result = await syncRecurringBillingForConfig(config);
+      cyclesGenerated += result.cyclesGenerated;
+      cyclesDueFlipped += result.cyclesDueFlipped;
+      creditsApplied = roundMoney(creditsApplied + result.creditsApplied);
     }
 
     run.status = "success";
@@ -217,5 +248,7 @@ const runDaily = async () => {
 module.exports = {
   generateCycleForMonth,
   flipCycleToDue,
+  syncRecurringBillingForService,
+  syncRecurringBillingForConfig,
   runDaily,
 };

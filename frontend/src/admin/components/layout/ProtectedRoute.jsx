@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { ADMIN_HOME } from "../../utils/adminPaths";
+import { adminLogin } from "../../utils/adminPaths";
 
 export default function ProtectedRoute() {
   const { isAuthenticated, loading } = useAuth();
@@ -14,7 +14,7 @@ export default function ProtectedRoute() {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to={ADMIN_HOME} replace />;
+    return <Navigate to={adminLogin()} replace />;
   }
 
   return <Outlet />;

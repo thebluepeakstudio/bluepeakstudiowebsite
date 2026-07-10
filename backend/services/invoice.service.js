@@ -197,4 +197,10 @@ const generateProjectInvoicePdf = async (projectId) => {
   });
 };
 
-module.exports = { generateProjectInvoicePdf, getProjectInvoiceNumber };
+const getServiceInvoiceNumber = getProjectInvoiceNumber;
+
+module.exports = {
+  generateProjectInvoicePdf,
+  getProjectInvoiceNumber,
+  getServiceInvoiceNumber,
+};

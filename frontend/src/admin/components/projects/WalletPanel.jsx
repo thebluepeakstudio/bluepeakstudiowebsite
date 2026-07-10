@@ -4,13 +4,21 @@ export default function WalletPanel({ wallet, onAllocate }) {
   const balance = wallet?.balance ?? 0;
   const transactions = wallet?.transactions || [];
 
+  const typeLabel = (type) => {
+    if (type === "credit_add") return "Credit added";
+    if (type === "auto_apply") return "Auto-applied to invoice";
+    if (type === "manual_adjust") return "Manual adjustment";
+    return type?.replace(/_/g, " ") || "—";
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-admin-border bg-admin-surface p-5">
-        <p className="text-sm text-admin-textMuted">Wallet balance</p>
+        <p className="text-sm text-admin-textMuted">Prepaid Credit</p>
         <p className="mt-1 text-3xl font-bold text-admin-text">{formatCurrency(balance)}</p>
         <p className="mt-2 text-xs text-admin-textMuted">
-          Credit is applied automatically to this project&apos;s invoices on each billing date.
+          Unused payments are stored as prepaid credit and applied automatically to the oldest
+          unpaid invoices.
         </p>
         {onAllocate && (
           <button
@@ -24,9 +32,9 @@ export default function WalletPanel({ wallet, onAllocate }) {
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-admin-text">Transactions</h3>
+        <h3 className="mb-3 text-sm font-semibold text-admin-text">Credit transactions</h3>
         {transactions.length === 0 ? (
-          <p className="text-sm text-admin-textMuted">No wallet transactions yet.</p>
+          <p className="text-sm text-admin-textMuted">No prepaid credit transactions yet.</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-admin-border">
             <table className="w-full text-sm">
@@ -43,7 +51,7 @@ export default function WalletPanel({ wallet, onAllocate }) {
                 {transactions.map((txn) => (
                   <tr key={txn._id} className="border-t border-admin-border">
                     <td className="px-4 py-3">{formatDate(txn.createdAt)}</td>
-                    <td className="px-4 py-3 capitalize">{txn.type.replace(/_/g, " ")}</td>
+                    <td className="px-4 py-3">{typeLabel(txn.type)}</td>
                     <td className="px-4 py-3">{formatCurrency(txn.amount)}</td>
                     <td className="px-4 py-3">{formatCurrency(txn.balanceAfter)}</td>
                     <td className="px-4 py-3 text-admin-textMuted">{txn.notes || "—"}</td>

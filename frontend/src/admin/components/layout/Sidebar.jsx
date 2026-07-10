@@ -12,7 +12,7 @@ import {
   Newspaper,
   ExternalLink,
 } from "lucide-react";
-import { adminPath, ADMIN_HOME, PUBLIC_SITE_URL } from "../../utils/adminPaths";
+import { adminPath, adminHome, PUBLIC_SITE_URL } from "../../utils/adminPaths";
 
 const LOGO_URL =
   "https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/BPS.png?updatedAt=1773667763921";
@@ -20,7 +20,7 @@ const LOGO_URL =
 const navGroups = [
   {
     title: "Overview",
-    items: [{ to: ADMIN_HOME, icon: LayoutDashboard, label: "Dashboard", end: true }],
+    items: [{ to: adminHome(), icon: LayoutDashboard, label: "Dashboard", end: true }],
   },
   {
     title: "CRM & Sales",

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Plus, ExternalLink, FileDown } from "lucide-react";
-import { getProject, updateProject, downloadProjectInvoice } from "../../api/projects.api";
+import { getProject, updateProject, downloadProjectInvoice } from "../../api/services.api";
 import {
   createDeliverable,
   updateDeliverable,
@@ -25,6 +25,7 @@ import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import DeliverableDrawer from "../../components/projects/DeliverableDrawer";
 import ProjectFilesPanel from "../../components/projects/ProjectFilesPanel";
 import ProjectEditForm from "./ProjectEditForm";
+import RecurringProjectDetail from "./RecurringProjectDetail";
 import { Input, Textarea, Select } from "../../components/ui/Input";
 import { Form, FormSection, FormGrid, FormFooter } from "../../components/ui/Form";
 import {
@@ -497,6 +498,10 @@ export default function ProjectDetail() {
 
   if (loading) return <CardSkeleton />;
   if (!project) return null;
+
+  if (project.billingModel === "recurring") {
+    return <RecurringProjectDetail projectId={id} />;
+  }
 
   const totalReceived = Number(project.totalReceived ?? project.advanceReceived) || 0;
   const projectValue = Number(project.totalAmount) || 0;

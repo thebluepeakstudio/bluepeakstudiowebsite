@@ -20,7 +20,7 @@ const buildProjectDocumentFolder = (project) => {
     client?.name?.trim() ||
     "client";
 
-  const projectLabel = project.projectTitle?.trim() || "project";
+  const projectLabel = project.projectTitle?.trim() || project.name?.trim() || "project";
 
   const clientSlug = slugify(clientLabel, "client");
   const projectSlug = slugify(projectLabel, "project");

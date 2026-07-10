@@ -7,32 +7,18 @@ const ensureAdminSeed = require("./utils/ensureAdminSeed");
 const ensurePaymentSummariesRecalculated = require("./utils/ensurePaymentSummaries");
 const validateEnv = require("./utils/validateEnv");
 const errorHandler = require("./middleware/error.middleware");
+const { corsOrigin } = require("./utils/corsOrigins");
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-const allowedOrigins = [
-  "https://bluepeakstudiowebsite.onrender.com",
-  "https://bluepeakstudiowebsite-1.onrender.com",
-  "https://bluepeakstudiowebsite-cx3r.onrender.com",
-  "https://bluepeakstudio.in",
-  "https://www.bluepeakstudio.in",
-  "https://crm.bluepeakstudio.in",
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-];
-
 app.use(
   cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    origin: corsOrigin,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
+    optionsSuccessStatus: 204,
   })
 );
 

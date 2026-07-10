@@ -1,7 +1,7 @@
-import React, { lazy, Suspense, useEffect } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import PublicLayout from "./Components/Layout/PublicLayout";
-import { isCrmHost, normalizeLegacyAdminPath, CRM_ORIGIN } from "./admin/utils/adminPaths";
+import { normalizeLegacyAdminPath, CRM_ORIGIN } from "./admin/utils/adminPaths";
 
 const AdminApp = lazy(() => import("./admin/AdminApp"));
 
@@ -10,12 +10,6 @@ const AdminLoader = () => (
     <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
   </div>
 );
-
-function LegacyAdminRedirect() {
-  const { pathname, search, hash } = useLocation();
-  const target = normalizeLegacyAdminPath(pathname);
-  return <Navigate to={`${target}${search}${hash}`} replace />;
-}
 
 function RedirectToCrmSubdomain() {
   const { pathname, search, hash } = useLocation();
@@ -32,16 +26,15 @@ function RedirectToCrmSubdomain() {
   );
 }
 
-function App() {
-  const crmHost = isCrmHost();
-
+/** Marketing website. In dev, CRM is mounted at /admin-panel. */
+export default function App() {
   return (
     <Suspense fallback={<AdminLoader />}>
       <Routes>
-        {crmHost ? (
+        {import.meta.env.DEV ? (
           <>
-            <Route path="/admin-panel/*" element={<LegacyAdminRedirect />} />
-            <Route path="/*" element={<AdminApp />} />
+            <Route path="/admin-panel/*" element={<AdminApp />} />
+            <Route path="/*" element={<PublicLayout />} />
           </>
         ) : (
           <>
@@ -53,5 +46,3 @@ function App() {
     </Suspense>
   );
 }
-
-export default App;

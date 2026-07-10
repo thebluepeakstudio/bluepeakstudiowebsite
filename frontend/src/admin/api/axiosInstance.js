@@ -1,6 +1,6 @@
 import axios from "axios";
 import { getApiBaseUrl } from "../../utils/apiBase";
-import { ADMIN_HOME } from "../utils/adminPaths";
+import { adminLogin } from "../utils/adminPaths";
 
 const backendUrl = getApiBaseUrl();
 
@@ -32,8 +32,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !error.config?.url?.includes("/auth/login")) {
       localStorage.removeItem("adminToken");
       localStorage.removeItem("adminUser");
-      if (window.location.pathname !== ADMIN_HOME) {
-        window.location.href = ADMIN_HOME;
+      const loginPath = adminLogin();
+      if (window.location.pathname !== loginPath) {
+        window.location.href = loginPath;
       }
     }
     return Promise.reject(error);

@@ -28,18 +28,19 @@ const formatInvoiceDate = (date = new Date()) =>
 
 const buildIssuedToLines = (service, client) => {
   const lines = [];
-  const company = service.businessName || client?.companyName;
-  const contact = service.clientName || client?.name;
+  const company = client?.companyName || service.businessName;
+  const contact = client?.name || service.clientName;
   if (company) lines.push(company);
-  if (client?.address) {
-    lines.push(...client.address.split(/\n|,/).map((s) => s.trim()).filter(Boolean));
+  if (contact && contact !== company) lines.push(contact);
+  const address = client?.address?.trim();
+  if (address) {
+    lines.push(...address.split(/\n|,/).map((s) => s.trim()).filter(Boolean));
   }
-  if (service.contactNumber || client?.phone) {
-    const label = contact && contact !== company ? `${contact}: ` : "";
-    lines.push(`${label}${service.contactNumber || client?.phone}`);
+  if (client?.phone || service.contactNumber) {
+    lines.push(client?.phone || service.contactNumber);
   }
-  if (service.email || client?.email) lines.push(service.email || client?.email);
-  if (!lines.length) lines.push(service.clientName || "Client");
+  if (client?.email || service.email) lines.push(client?.email || service.email);
+  if (!lines.length) lines.push(contact || company || "Client");
   return lines;
 };
 
@@ -61,7 +62,8 @@ const generateBillingCycleInvoicePdf = async (serviceId, cycleId) => {
     .sort({ sortOrder: 1 })
     .lean();
 
-  const client = service.clientId ? await Client.findById(service.clientId).lean() : null;
+  const clientId = serviceDoc.clientId?._id || serviceDoc.clientId;
+  const client = clientId ? await Client.findById(clientId).lean() : null;
   const periodLabel = formatPeriodLabel(new Date(cycle.periodMonth));
   const invoiceNumber = `${getServiceInvoiceNumber(serviceId)}-${periodLabel.replace(/\s/g, "")}`;
   const issuedDate = formatInvoiceDate(invoice.dueDate || cycle.billingDate);

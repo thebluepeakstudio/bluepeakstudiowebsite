@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Button from "../ui/Button";
-import { adminPath, ADMIN_HOME, getAdminPathSegments } from "../../utils/adminPaths";
+import { adminPath, adminHome, adminLogin, getAdminPathSegments } from "../../utils/adminPaths";
 
 const breadcrumbMeta = {
-  dashboard: { group: "Overview", href: ADMIN_HOME },
+  dashboard: { group: "Overview", href: adminHome() },
   leads: { group: "CRM & Sales", href: adminPath("leads") },
   clients: { group: "CRM & Sales", href: adminPath("clients") },
   projects: { group: "Operations", href: adminPath("projects") },
@@ -19,7 +19,7 @@ const breadcrumbMeta = {
 function getBreadcrumb(pathname) {
   const segments = getAdminPathSegments(pathname);
   const root = segments[0] || "dashboard";
-  const meta = breadcrumbMeta[root] || { group: "Admin", href: ADMIN_HOME };
+  const meta = breadcrumbMeta[root] || { group: "Admin", href: adminHome() };
   return { ...meta, root };
 }
 
@@ -30,7 +30,7 @@ export default function Topbar({ onMenuClick, title, pathname }) {
 
   const handleLogout = () => {
     logout();
-    navigate(ADMIN_HOME);
+    navigate(adminLogin());
   };
 
   const initials =

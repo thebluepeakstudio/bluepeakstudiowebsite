@@ -18,8 +18,10 @@ export const createTemplateDeliverable = (id, data) =>
   api.post(`/services/${id}/template-deliverables`, data);
 export const updateTemplateDeliverable = (id, templateId, data) =>
   api.put(`/services/${id}/template-deliverables/${templateId}`, data);
-export const deleteTemplateDeliverable = (id, templateId) =>
-  api.delete(`/services/${id}/template-deliverables/${templateId}`);
+export const deleteTemplateDeliverable = (id, templateId, applyScope = "future_only") =>
+  api.delete(`/services/${id}/template-deliverables/${templateId}`, {
+    params: { applyScope },
+  });
 export const updateCycleDeliverable = (id, cycleId, deliverableId, data) =>
   api.patch(`/services/${id}/billing-cycles/${cycleId}/deliverables/${deliverableId}`, data);
 export const payCycleFreelancerDue = (id, cycleId, dueId, data) =>

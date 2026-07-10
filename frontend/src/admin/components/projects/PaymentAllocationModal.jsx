@@ -5,7 +5,7 @@ import Button from "../ui/Button";
 import { Input, Select, Textarea } from "../ui/Input";
 import { Form, FormGrid } from "../ui/Form";
 import { PAID_VIA } from "../../utils/constants";
-import { getProjects } from "../../api/projects.api";
+import { getServices } from "../../api/services.api";
 import { createClientPayment, previewClientPayment } from "../../api/clientPayments.api";
 import { formatCurrency } from "../../utils/formatCurrency";
 import toast from "react-hot-toast";
@@ -74,7 +74,7 @@ function AllocationPreview({ preview, totalAmount }) {
                   </li>
                 ))}
                 <li className="flex justify-between px-2 py-1.5">
-                  <span>Wallet credit</span>
+                  <span>Prepaid Credit</span>
                   <span>{formatCurrency(plan.walletCredit || 0)}</span>
                 </li>
               </ul>
@@ -126,7 +126,7 @@ export default function PaymentAllocationModal({
 
   useEffect(() => {
     if (!open || !clientId || isServicePage) return;
-    getProjects({ clientId, limit: 50 })
+    getServices({ clientId, limit: 50 })
       .then(({ data }) => setServices(data.data || []))
       .catch(() => setServices([]));
   }, [open, clientId, isServicePage]);
@@ -360,7 +360,7 @@ export default function PaymentAllocationModal({
           </div>
         )}
 
-        {(isServicePage || previewPayload) && (
+        {!(isServicePage && fixedBillingModel === "recurring") && (isServicePage || previewPayload) && (
           <div className="mt-4 rounded-xl border border-admin-border bg-admin-muted/30 p-4">
             <h3 className="mb-3 text-sm font-semibold text-admin-text">Allocation preview</h3>
             {previewLoading && (

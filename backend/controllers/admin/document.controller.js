@@ -1,5 +1,6 @@
 const Document = require("../../models/Document");
 const Project = require("../../models/Project");
+const Service = require("../../models/Service");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const {
@@ -20,12 +21,30 @@ const withDocumentUrls = (doc) => {
   };
 };
 
+const resolveDocumentOwner = async (ownerId) => {
+  const project = await Project.findById(ownerId).populate("clientId", "name companyName");
+  if (project) {
+    return { owner: project, ownerId, documentIds: [ownerId] };
+  }
+
+  const service = await Service.findById(ownerId).populate("clientId", "name companyName");
+  if (!service) return null;
+
+  const documentIds = [ownerId];
+  if (service.legacyProjectId) documentIds.push(service.legacyProjectId);
+
+  const owner = service.toObject();
+  owner.projectTitle = service.name;
+
+  return { owner, ownerId, documentIds };
+};
+
 const getDocuments = asyncHandler(async (req, res) => {
   const { projectId } = req.params;
-  const project = await Project.findById(projectId);
-  if (!project) throw new ApiError(404, "Project not found");
+  const resolved = await resolveDocumentOwner(projectId);
+  if (!resolved) throw new ApiError(404, "Project not found");
 
-  const filter = { projectId };
+  const filter = { projectId: { $in: resolved.documentIds } };
   if (req.query.category) filter.category = req.query.category;
 
   const documents = await Document.find(filter).sort({ createdAt: -1 });
@@ -34,15 +53,15 @@ const getDocuments = asyncHandler(async (req, res) => {
 
 const uploadDocuments = asyncHandler(async (req, res) => {
   const { projectId } = req.params;
-  const project = await Project.findById(projectId).populate("clientId", "name companyName");
-  if (!project) throw new ApiError(404, "Project not found");
+  const resolved = await resolveDocumentOwner(projectId);
+  if (!resolved) throw new ApiError(404, "Project not found");
 
   if (!req.files?.length) {
     throw new ApiError(400, "No files received. Ensure files are attached before uploading.");
   }
 
   const category = req.body.category || "Other Attachments";
-  const folder = buildProjectDocumentFolder(project);
+  const folder = buildProjectDocumentFolder(resolved.owner);
 
   const docs = await Promise.all(
     req.files.map(async (file) => {
@@ -51,7 +70,7 @@ const uploadDocuments = asyncHandler(async (req, res) => {
         mimeType: file.mimetype,
       });
       return Document.create({
-        projectId,
+        projectId: resolved.ownerId,
         fileName: file.originalname,
         fileUrl: result.secure_url,
         publicId: result.public_id,

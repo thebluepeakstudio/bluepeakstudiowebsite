@@ -1,4 +1,5 @@
 const { body, param, validationResult } = require("express-validator");
+const mongoose = require("mongoose");
 const {
   SERVICE_CATEGORIES,
   DELIVERABLE_STATUSES,
@@ -14,7 +15,8 @@ const validate = (req, res, next) => {
   next();
 };
 
-const projectIdParam = param("id").isMongoId().withMessage("Invalid project ID");
+const projectIdParam = param("id").isMongoId().withMessage("Invalid service ID");
+const serviceIdParam = projectIdParam;
 const deliverableIdParam = param("deliverableId").isMongoId().withMessage("Invalid deliverable ID");
 const assignmentIdParam = param("assignmentId").isMongoId().withMessage("Invalid assignment ID");
 const paymentIdParam = param("paymentId").isMongoId().withMessage("Invalid payment ID");
@@ -95,6 +97,28 @@ const createProjectValidators = [
   validate,
 ];
 
+const requireServiceContainer = body().custom((_, { req }) => {
+  const container = req.body?.service || req.body?.project;
+  if (!container?.clientId) throw new Error("Client is required");
+  if (!mongoose.Types.ObjectId.isValid(String(container.clientId))) {
+    throw new Error("Client is required");
+  }
+  const name = container?.name || container?.projectTitle || container?.category;
+  if (!name?.trim()) throw new Error("Service name is required");
+  return true;
+});
+
+const createServiceValidators = [
+  requireServiceContainer,
+  body("service.clientId").optional().isMongoId(),
+  body("project.clientId").optional().isMongoId(),
+  body("deliverables").isArray({ min: 1 }).withMessage("At least one deliverable is required"),
+  body("deliverables.*.title").trim().notEmpty().withMessage("Deliverable title is required"),
+  body("deliverables.*.category").isIn(SERVICE_CATEGORIES).withMessage("Invalid deliverable category"),
+  body("deliverables.*.sellingPrice").optional().isFloat({ min: 0 }),
+  validate,
+];
+
 module.exports = {
   createDeliverableValidators,
   updateDeliverableValidators,
@@ -103,7 +127,9 @@ module.exports = {
   createPaymentValidators,
   updatePaymentValidators,
   createProjectValidators,
+  createServiceValidators,
   projectIdParam: [projectIdParam, validate],
+  serviceIdParam: [serviceIdParam, validate],
   deliverableIdParam: [projectIdParam, deliverableIdParam, validate],
   assignmentIdParam: [projectIdParam, deliverableIdParam, assignmentIdParam, validate],
   paymentIdParam: [projectIdParam, paymentIdParam, validate],

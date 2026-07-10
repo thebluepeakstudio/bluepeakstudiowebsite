@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { getProjects, createProjectWithDeliverables, updateProject, deleteProject } from "../../api/projects.api";
+import { getProjects, createProjectWithDeliverables, createService, updateProject, deleteProject } from "../../api/services.api";
 import { useDebounce } from "../../hooks/useDebounce";
 import { usePaginatedQuery } from "../../hooks/usePaginatedQuery";
 import { adminQueryKeys } from "../../queryKeys";
@@ -18,6 +18,7 @@ import Modal from "../../components/ui/Modal";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { PageToolbar } from "../../components/layout/PageHeader";
 import ProjectWizard from "./ProjectWizard";
+import RecurringProjectWizard from "./RecurringProjectWizard";
 import ProjectEditForm from "./ProjectEditForm";
 import { TableSkeleton } from "../../components/ui/Skeleton";
 import { WORK_STATUSES, PAYMENT_STATUSES, SERVICE_CATEGORIES, getProjectLabel, normalizePaymentStatus } from "../../utils/constants";
@@ -31,6 +32,7 @@ export default function ProjectList() {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({ workStatus: "", paymentStatus: "", category: "" });
   const [modalOpen, setModalOpen] = useState(false);
+  const [recurringModalOpen, setRecurringModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -67,6 +69,20 @@ export default function ProjectList() {
       navigate(adminPath("projects", data.data._id));
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to create");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateRecurring = async (payload) => {
+    setSubmitting(true);
+    try {
+      const { data } = await createService(payload);
+      toast.success("Recurring service created");
+      setRecurringModalOpen(false);
+      navigate(adminPath("projects", data.data._id));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to create recurring service");
     } finally {
       setSubmitting(false);
     }
@@ -138,9 +154,14 @@ export default function ProjectList() {
             className="sm:col-span-2 lg:col-span-1"
           />
         </div>
-        <Button onClick={openCreate} className="w-full shrink-0 sm:w-auto">
-          <Plus size={18} /> Add Project
-        </Button>
+        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+          <Button variant="secondary" onClick={() => setRecurringModalOpen(true)} className="w-full sm:w-auto">
+            <Plus size={18} /> Recurring Service
+          </Button>
+          <Button onClick={openCreate} className="w-full sm:w-auto">
+            <Plus size={18} /> One-Time Service
+          </Button>
+        </div>
       </PageToolbar>
 
       {loading ? (
@@ -151,6 +172,13 @@ export default function ProjectList() {
             columns={[
               { key: "client", label: "Client", render: (r) => r.clientName || "—" },
               { key: "project", label: "Project", render: (r) => getProjectLabel(r) },
+              {
+                key: "billingModel",
+                label: "Billing",
+                render: (r) => (
+                  <Badge status={r.billingModel === "recurring" ? "Recurring" : "One-Time"} />
+                ),
+              },
               {
                 key: "services",
                 label: "Services",
@@ -241,6 +269,22 @@ export default function ProjectList() {
             submitLabel="Create project"
           />
         )}
+      </Modal>
+
+      <Modal
+        open={recurringModalOpen}
+        onClose={() => setRecurringModalOpen(false)}
+        title="New Recurring Service"
+        description="Set up a retainer with monthly billing, invoices, and prepaid credit."
+        size="xl"
+      >
+        <RecurringProjectWizard
+          initial={presetClientId ? { clientId: presetClientId } : undefined}
+          onSubmit={handleCreateRecurring}
+          loading={submitting}
+          onCancel={() => setRecurringModalOpen(false)}
+          submitLabel="Create recurring service"
+        />
       </Modal>
 
       <ConfirmDialog

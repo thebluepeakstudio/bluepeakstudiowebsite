@@ -16,7 +16,7 @@ const ALLOCATABLE_INVOICE_STATUSES = ["due", "partial", "overdue"];
 const allocationTypeLabel = (targetType) => {
   if (targetType === "one_time_service") return "One-time service";
   if (targetType === "cycle_invoice") return "Recurring invoice";
-  if (targetType === "recurring_wallet") return "Wallet credit";
+  if (targetType === "recurring_wallet") return "Prepaid credit";
   return targetType;
 };
 

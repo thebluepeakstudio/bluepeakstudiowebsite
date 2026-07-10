@@ -38,6 +38,16 @@ const billingCycleDeliverableSchema = new mongoose.Schema(
       default: null,
     },
     freelancerFee: { type: Number, default: 0, min: 0 },
+    freelancerAssignments: [
+      {
+        freelancerId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Freelancer",
+          required: true,
+        },
+        fee: { type: Number, default: 0, min: 0 },
+      },
+    ],
     sortOrder: { type: Number, default: 0 },
   },
   { timestamps: true }
