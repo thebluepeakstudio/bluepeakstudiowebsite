@@ -15,7 +15,5 @@ services:
         sync: false
       - key: VITE_SITE_URL
         value: https://bluepeakstudio.in
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+    # SPA routing lives in frontend/public/_redirects (copied to dist/ on build).
+    # Do not add a catch-all rewrite here — it overrides CRM subdomain → crm.html rules.
