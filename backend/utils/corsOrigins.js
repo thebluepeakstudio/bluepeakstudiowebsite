@@ -65,11 +65,11 @@ function isAllowedOrigin(origin) {
 
 function corsOrigin(origin, callback) {
   if (isAllowedOrigin(origin)) {
-    callback(null, true);
+    callback(null, origin || true);
     return;
   }
   console.warn(`[cors] Blocked origin: ${origin}`);
-  callback(new Error(`Not allowed by CORS: ${origin}`));
+  callback(null, false);
 }
 
 module.exports = {

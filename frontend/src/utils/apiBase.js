@@ -20,5 +20,12 @@ export function apiUrl(path) {
 /** Ping backend on load to wake cold starts (e.g. Render free tier). */
 export function wakeBackend() {
   const url = apiUrl("/api/health");
-  fetch(url, { method: "GET", cache: "no-store" }).catch(() => {});
+  const attempt = (left) => {
+    fetch(url, { method: "GET", cache: "no-store" }).catch(() => {
+      if (left > 1) {
+        window.setTimeout(() => attempt(left - 1), 3000);
+      }
+    });
+  };
+  attempt(3);
 }

@@ -10,6 +10,11 @@ services:
     buildCommand: npm install && npm run build
     # Relative to rootDir (frontend/) — NOT frontend/dist
     staticPublishPath: ./dist
+    envVars:
+      - key: VITE_BACKEND_URL
+        sync: false
+      - key: VITE_SITE_URL
+        value: https://bluepeakstudio.in
     routes:
       - type: rewrite
         source: /*
