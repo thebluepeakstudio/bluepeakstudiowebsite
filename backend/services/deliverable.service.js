@@ -6,11 +6,20 @@ const { toIdString } = require("../utils/toIdString");
 const {
   activeDeliverableFilter,
   deriveOverallStatus,
+  sumDeliverablePrices,
 } = require("./serviceCalculations.service");
 const { syncDueForDeliverableStatus } = require("./freelancerDue.service");
 
-/** Sync work status only — service totalPrice is set on Service, not summed from deliverables. */
-const syncServiceWorkStatusFromDeliverables = async (serviceId, session = null) => {
+const validateDeliverableInput = (data) => {
+  if (data.sellingPrice === undefined) return;
+  const price = Number(data.sellingPrice);
+  if (Number.isNaN(price) || price < 0) {
+    throw new ApiError(400, "Invalid amount");
+  }
+};
+
+/** Sync work status and one-time service totalPrice from deliverables. */
+const syncServiceFromDeliverables = async (serviceId, session = null) => {
   const queryOpts = session ? { session } : {};
   const deliverables = await Deliverable.find({
     serviceId,
@@ -24,16 +33,28 @@ const syncServiceWorkStatusFromDeliverables = async (serviceId, session = null) 
 
   if (deliverables.length) {
     service.workStatus = deriveOverallStatus(deliverables);
+    if (service.billingModel !== "recurring") {
+      service.totalPrice = sumDeliverablePrices(deliverables);
+    }
   }
 
   await service.save(queryOpts);
+
+  if (service.billingModel !== "recurring") {
+    const { recomputeServicePaymentSummary } = require("./servicePayment.service");
+    await recomputeServicePaymentSummary(serviceId, session);
+  }
+
   return service;
 };
+
+const syncServiceWorkStatusFromDeliverables = syncServiceFromDeliverables;
 
 const resolveDeliverableCategory = (service, data = {}) =>
   data.category || service?.category || service?.name || SERVICE_CATEGORIES[0];
 
 const createDeliverable = async (serviceId, data, session = null) => {
+  validateDeliverableInput(data);
   const service = await Service.findById(serviceId).session(session || null);
   if (!service) throw new ApiError(404, "Service not found");
 
@@ -44,6 +65,7 @@ const createDeliverable = async (serviceId, data, session = null) => {
         title: data.title,
         category: resolveDeliverableCategory(service, data),
         description: data.description,
+        sellingPrice: Number(data.sellingPrice) || 0,
         dueDate: data.dueDate || data.expectedCompletion || undefined,
         actualCompletion: data.actualCompletion || undefined,
         status: data.status || "Not Started",
@@ -53,11 +75,12 @@ const createDeliverable = async (serviceId, data, session = null) => {
     session ? { session } : undefined
   );
 
-  await syncServiceWorkStatusFromDeliverables(serviceId, session);
+  await syncServiceFromDeliverables(serviceId, session);
   return deliverable[0];
 };
 
 const updateDeliverable = async (serviceId, deliverableId, data, session = null) => {
+  validateDeliverableInput(data);
   const deliverable = await Deliverable.findOne({
     _id: deliverableId,
     serviceId,
@@ -67,14 +90,22 @@ const updateDeliverable = async (serviceId, deliverableId, data, session = null)
 
   const fields = [
     "title",
+    "category",
     "description",
+    "sellingPrice",
     "dueDate",
     "actualCompletion",
     "status",
     "progress",
   ];
   fields.forEach((key) => {
-    if (data[key] !== undefined) deliverable[key] = data[key];
+    if (data[key] !== undefined) {
+      if (key === "sellingPrice") {
+        deliverable[key] = Number(data[key]) || 0;
+      } else {
+        deliverable[key] = data[key];
+      }
+    }
   });
   if (data.expectedCompletion !== undefined && data.dueDate === undefined) {
     deliverable.dueDate = data.expectedCompletion;
@@ -84,7 +115,7 @@ const updateDeliverable = async (serviceId, deliverableId, data, session = null)
   if (data.status !== undefined) {
     await syncDueForDeliverableStatus(deliverableId, session);
   }
-  await syncServiceWorkStatusFromDeliverables(serviceId, session);
+  await syncServiceFromDeliverables(serviceId, session);
   return deliverable;
 };
 
@@ -106,7 +137,7 @@ const softDeleteDeliverable = async (serviceId, deliverableId, session = null) =
     session ? { session } : undefined
   );
 
-  await syncServiceWorkStatusFromDeliverables(serviceId, session);
+  await syncServiceFromDeliverables(serviceId, session);
   return deliverable;
 };
 
@@ -139,12 +170,13 @@ const listDeliverables = async (serviceId) => {
     const id = toIdString(d._id);
     const rows = byDeliverable[id] ? [...byDeliverable[id]] : [];
     const freelancerCost = rows.reduce((sum, a) => sum + (Number(a.cost) || 0), 0);
+    const sellingPrice = Number(d.sellingPrice) || 0;
     return {
       ...d,
       expectedCompletion: d.dueDate,
       assignments: rows,
       freelancerCost,
-      profit: 0 - freelancerCost,
+      profit: sellingPrice - freelancerCost,
     };
   });
 };
@@ -155,6 +187,7 @@ const createDeliverablesBatch = async (serviceId, items, session) => {
   if (!service) throw new ApiError(404, "Service not found");
   const created = [];
   for (const item of items) {
+    validateDeliverableInput(item);
     const docs = await Deliverable.create(
       [
         {
@@ -162,6 +195,7 @@ const createDeliverablesBatch = async (serviceId, items, session) => {
           title: item.title,
           category: resolveDeliverableCategory(service, item),
           description: item.description,
+          sellingPrice: Number(item.sellingPrice) || 0,
           dueDate: item.dueDate || item.expectedCompletion || undefined,
           status: item.status || "Not Started",
         },
@@ -170,13 +204,14 @@ const createDeliverablesBatch = async (serviceId, items, session) => {
     );
     created.push(docs[0]);
   }
-  await syncServiceWorkStatusFromDeliverables(serviceId, session);
+  await syncServiceFromDeliverables(serviceId, session);
   return created;
 };
 
 module.exports = {
+  syncServiceFromDeliverables,
   syncServiceWorkStatusFromDeliverables,
-  syncProjectFromDeliverables: syncServiceWorkStatusFromDeliverables,
+  syncProjectFromDeliverables: syncServiceFromDeliverables,
   createDeliverable,
   updateDeliverable,
   softDeleteDeliverable,

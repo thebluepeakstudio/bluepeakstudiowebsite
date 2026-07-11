@@ -29,9 +29,15 @@ const averageDeliverableProgress = (deliverables) => {
 const assignmentCostTotal = (assignments) =>
   assignments.reduce((sum, a) => sum + (Number(a.cost) || 0), 0);
 
+const sumDeliverablePrices = (deliverables) =>
+  deliverables
+    .filter((d) => d.status !== "Cancelled")
+    .reduce((sum, d) => sum + (Number(d.sellingPrice) || 0), 0);
+
 const deliverableProfit = (deliverable, assignments = []) => {
+  const price = Number(deliverable.sellingPrice) || 0;
   const cost = assignmentCostTotal(assignments);
-  return 0 - cost;
+  return price - cost;
 };
 
 const getDeliverablesForService = async (serviceId, session = null) => {
@@ -117,7 +123,10 @@ const enrichServiceWithDeliverables = (service, deliverableList = []) => {
   const doc = withLegacyServiceFields(
     typeof service.toObject === "function" ? service.toObject() : { ...service }
   );
-  const totalAmount = roundMoney(doc.totalPrice ?? doc.totalAmount);
+  const totalAmount =
+    deliverableList.length > 0
+      ? roundMoney(sumDeliverablePrices(deliverableList))
+      : roundMoney(doc.totalPrice ?? doc.totalAmount);
 
   if (deliverableList.length) {
     const overallStatus = deriveOverallStatus(deliverableList);
@@ -157,7 +166,7 @@ const enrichServicesWithDeliverables = async (services) => {
           serviceId: { $in: oneTimeIds },
           ...activeDeliverableFilter,
         })
-          .select("serviceId title category status")
+          .select("serviceId title category status sellingPrice")
           .sort({ createdAt: 1 })
           .lean()
       : [],
@@ -214,6 +223,7 @@ module.exports = {
   deriveOverallStatus,
   averageDeliverableProgress,
   assignmentCostTotal,
+  sumDeliverablePrices,
   deliverableProfit,
   getDeliverablesForService,
   getDeliverablesForProject,

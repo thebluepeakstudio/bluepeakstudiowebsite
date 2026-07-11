@@ -20,6 +20,7 @@ const {
   buildServicesSummary,
   computeServiceProfit,
   deriveOverallStatus,
+  sumDeliverablePrices,
   enrichServicesWithDeliverables,
 } = require("../../services/serviceCalculations.service");
 const {
@@ -298,7 +299,9 @@ const buildServiceDetail = async (service, { withArrays = true } = {}) => {
   const assignmentsByDeliverable = Object.fromEntries(
     deliverables.map((d) => [d._id.toString(), d.assignments || []])
   );
-  const totalPrice = roundMoney(legacy.totalPrice ?? legacy.totalAmount);
+  const totalPrice = deliverables.length
+    ? roundMoney(sumDeliverablePrices(deliverables))
+    : roundMoney(legacy.totalPrice ?? legacy.totalAmount);
   const serviceProfit = deliverables.length
     ? await computeServiceProfit(service._id, deliverables, assignmentsByDeliverable, totalPrice)
     : totalPrice - (Number(legacy.outsourcingCost) || 0);
