@@ -63,7 +63,7 @@ const getAssignmentsForDeliverables = async (deliverableIds, session = null) => 
 const getServiceExpensesTotal = async (serviceId) => {
   const id = typeof serviceId === "string" ? new mongoose.Types.ObjectId(serviceId) : serviceId;
   const rows = await Expense.aggregate([
-    { $match: { serviceId: id } },
+    { $match: { $or: [{ serviceId: id }, { projectId: id }] } },
     { $group: { _id: null, total: { $sum: "$amount" } } },
   ]);
   return rows[0]?.total || 0;

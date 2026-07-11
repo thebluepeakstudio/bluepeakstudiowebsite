@@ -1,55 +1,30 @@
 const Project = require("../../models/Project");
-const ProjectDeliverable = require("../../models/ProjectDeliverable");
-const ProjectPayment = require("../../models/ProjectPayment");
+const Service = require("../../models/Service");
+const Deliverable = require("../../models/Deliverable");
 const Expense = require("../../models/Expense");
 const Freelancer = require("../../models/Freelancer");
 const asyncHandler = require("../../utils/asyncHandler");
 const { get, set, invalidatePrefix } = require("../../utils/responseCache");
-const { sumRecognizedRevenue } = require("../../utils/revenue");
-const {
-  aggregateFreelancerCosts,
-  legacyFreelancerCostPipeline,
-} = require("../../utils/freelancerCosts");
 const {
   activeDeliverableFilter,
-  buildServicesSummary,
-  groupDeliverablesByProject,
-} = require("../../services/projectCalculations.service");
-const { aggregateClientOutstanding } = require("../../utils/clientOutstanding");
+  groupDeliverablesByService,
+  enrichServiceWithDeliverables,
+} = require("../../services/serviceCalculations.service");
+const {
+  getSharedFinancialMetrics,
+  aggregatePaymentsReceivedThisMonth,
+} = require("../../utils/financialMetrics");
 const { runDaily } = require("../../services/recurringBillingJob.service");
 const { toSafeRegex } = require("../../utils/escapeRegex");
+const { withLegacyServiceFields } = require("../../utils/serviceCompat");
 
 const FINANCIAL_CACHE_KEY = "analytics:financial";
 const FINANCIAL_CACHE_TTL = 120_000;
 
-/** Single source of truth for figures shown on Dashboard + P&L (avoids cache drift). */
-const getSharedFinancialMetrics = async () => {
+const loadCachedFinancialMetrics = async () => {
   const cached = get(FINANCIAL_CACHE_KEY);
   if (cached) return cached;
-
-  const [clientOutstanding, revenueAgg, expenseAgg, freelancerCostsNew, freelancerCostsLegacy] =
-    await Promise.all([
-      aggregateClientOutstanding(),
-      Project.aggregate([sumRecognizedRevenue]),
-      Expense.aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }]),
-      aggregateFreelancerCosts(),
-      Project.aggregate(legacyFreelancerCostPipeline),
-    ]);
-
-  const totalRevenue = revenueAgg[0]?.total || 0;
-  const totalExpenses = expenseAgg[0]?.total || 0;
-  const freelancerCosts = freelancerCostsNew || freelancerCostsLegacy[0]?.total || 0;
-
-  const metrics = {
-    clientOutstanding,
-    pendingPayments: clientOutstanding,
-    totalRevenue,
-    totalExpenses,
-    freelancerCosts,
-    grossProfit: totalRevenue - freelancerCosts,
-    netProfit: totalRevenue - totalExpenses - freelancerCosts,
-  };
-
+  const metrics = await getSharedFinancialMetrics();
   set(FINANCIAL_CACHE_KEY, metrics, FINANCIAL_CACHE_TTL);
   return metrics;
 };
@@ -89,30 +64,28 @@ const withFinancialMetrics = (payload, financials) => {
   };
 };
 
-const enrichLatestProjects = async (projects) => {
-  if (!projects.length) return [];
-  const ids = projects.map((p) => p._id);
-  const deliverables = await ProjectDeliverable.find({
-    projectId: { $in: ids },
+const enrichLatestServices = async (services) => {
+  if (!services.length) return [];
+  const ids = services.map((s) => s._id);
+  const deliverables = await Deliverable.find({
+    serviceId: { $in: ids },
     ...activeDeliverableFilter,
   })
-    .select("projectId title status category")
+    .select("serviceId title status category")
     .lean();
 
-  const byProject = groupDeliverablesByProject(deliverables);
+  const byService = groupDeliverablesByService(deliverables);
 
-  return projects.map((p) => {
-    const list = byProject[p._id.toString()] || [];
+  return services.map((s) => {
+    const legacy = withLegacyServiceFields(s);
+    const list = byService[s._id.toString()] || [];
     if (list.length) {
-      return {
-        ...p,
-        ...buildServicesSummary(list),
-      };
+      return enrichServiceWithDeliverables(legacy, list);
     }
     return {
-      ...p,
-      services: p.projectType ? [p.projectType] : [],
-      servicesCount: p.projectType ? 1 : 0,
+      ...legacy,
+      services: legacy.category ? [legacy.category] : [],
+      servicesCount: legacy.category ? 1 : 0,
     };
   });
 };
@@ -125,7 +98,7 @@ const getDashboard = asyncHandler(async (req, res) => {
   }
 
   const cacheKey = "analytics:dashboard";
-  const financials = await getSharedFinancialMetrics();
+  const financials = await loadCachedFinancialMetrics();
   const cached = get(cacheKey);
   if (cached) {
     return res.json(withFinancialMetrics(cached, financials));
@@ -134,26 +107,19 @@ const getDashboard = asyncHandler(async (req, res) => {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [activeProjects, latestProjects, paymentsThisMonth] = await Promise.all([
-    Project.countDocuments({ workStatus: { $nin: ["Completed", "Delivered"] } }),
-    Project.find()
+  const [activeProjects, latestServices, paymentsThisMonth] = await Promise.all([
+    Service.countDocuments({ workStatus: { $nin: ["Completed", "Delivered"] } }),
+    Service.find()
       .select(
-        "clientName businessName projectTitle projectType workStatus paymentStatus totalAmount remainingAmount createdAt"
+        "clientName businessName name category billingModel workStatus paymentStatus totalPrice remainingAmount createdAt"
       )
       .sort({ createdAt: -1 })
       .limit(5)
       .lean(),
-    ProjectPayment.aggregate([
-      { $match: { paymentDate: { $gte: monthStart } } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]),
+    aggregatePaymentsReceivedThisMonth(monthStart),
   ]);
 
-  const totalRevenue = financials.totalRevenue;
-  const totalExpenses = financials.totalExpenses;
-  const freelancerCosts = financials.freelancerCosts;
-
-  const enrichedLatestProjects = await enrichLatestProjects(latestProjects);
+  const enrichedLatestProjects = await enrichLatestServices(latestServices);
 
   const payload = {
     success: true,
@@ -162,22 +128,22 @@ const getDashboard = asyncHandler(async (req, res) => {
         activeProjects,
         clientOutstanding: financials.clientOutstanding,
         pendingPayments: financials.clientOutstanding,
-        totalRevenue,
-        totalExpenses,
+        totalRevenue: financials.totalRevenue,
+        totalExpenses: financials.totalExpenses,
         netProfit: financials.netProfit,
-        paymentsReceivedThisMonth: paymentsThisMonth[0]?.total || 0,
+        paymentsReceivedThisMonth: paymentsThisMonth,
       },
       latestProjects: enrichedLatestProjects,
     },
   };
 
   set(cacheKey, payload, 120_000);
-  res.json(payload);
+  res.json(withFinancialMetrics(payload, financials));
 });
 
 const getPL = asyncHandler(async (req, res) => {
   const cacheKey = "analytics:pl";
-  const financials = await getSharedFinancialMetrics();
+  const financials = await loadCachedFinancialMetrics();
   const cached = get(cacheKey);
   if (cached) {
     return res.json(withFinancialMetrics(cached, financials));
@@ -197,7 +163,7 @@ const getPL = asyncHandler(async (req, res) => {
   };
 
   set(cacheKey, payload, 120_000);
-  res.json(payload);
+  res.json(withFinancialMetrics(payload, financials));
 });
 
 const globalSearch = asyncHandler(async (req, res) => {
@@ -211,7 +177,13 @@ const globalSearch = asyncHandler(async (req, res) => {
     return res.json({ success: true, data: { projects: [], freelancers: [], expenses: [] } });
   }
 
-  const [projects, freelancers, expenses] = await Promise.all([
+  const [services, legacyProjects, freelancers, expenses] = await Promise.all([
+    Service.find({
+      $or: [{ clientName: pattern }, { name: pattern }, { businessName: pattern }],
+    })
+      .select("name clientName workStatus paymentStatus")
+      .limit(10)
+      .lean(),
     Project.find({
       $or: [{ clientName: pattern }, { projectTitle: pattern }, { businessName: pattern }],
     })
@@ -224,6 +196,14 @@ const globalSearch = asyncHandler(async (req, res) => {
       .lean(),
     Expense.find({ title: pattern }).select("title amount category expenseDate").limit(10).lean(),
   ]);
+
+  const projects = [
+    ...services.map((s) => ({
+      ...withLegacyServiceFields(s),
+      projectTitle: s.name,
+    })),
+    ...legacyProjects,
+  ].slice(0, 10);
 
   res.json({ success: true, data: { projects, freelancers, expenses } });
 });

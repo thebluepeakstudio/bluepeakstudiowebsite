@@ -1,4 +1,5 @@
 const Expense = require("../../models/Expense");
+const Service = require("../../models/Service");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
@@ -86,6 +87,10 @@ const getExpense = asyncHandler(async (req, res) => {
 
 const createExpense = asyncHandler(async (req, res) => {
   const body = { ...req.body };
+  if (body.projectId && !body.serviceId) {
+    const service = await Service.findById(body.projectId).select("_id").lean();
+    if (service) body.serviceId = service._id;
+  }
   if (req.file) {
     const result = await uploadToCloudinary(req.file.buffer, "bluepeak/receipts");
     body.receiptUrl = result.secure_url;

@@ -1,9 +1,9 @@
 const Project = require("../models/Project");
+const Service = require("../models/Service");
 const Expense = require("../models/Expense");
 const DeliverableAssignment = require("../models/DeliverableAssignment");
-const ProjectDeliverable = require("../models/ProjectDeliverable");
-const { recognizedRevenueExpr } = require("./revenue");
-const { activeAssignmentFilter } = require("../services/projectCalculations.service");
+const { activeAssignmentFilter } = require("../services/serviceCalculations.service");
+const { getMigratedLegacyProjectIds } = require("./financialMetrics");
 
 const last12MonthsRange = () => {
   const months = [];
@@ -30,15 +30,35 @@ const buildMonthlyTrends = async (months = last12MonthsRange()) => {
 
   const rangeStart = months[0].start;
   const rangeEnd = months[months.length - 1].end;
+  const migratedIds = await getMigratedLegacyProjectIds();
 
-  const [revenueRows, expenseRows, freelancerRowsFromAssignments, freelancerRowsLegacy] =
+  const [serviceRevenueRows, projectRevenueRows, expenseRows, freelancerRowsFromAssignments, freelancerRowsLegacy] =
     await Promise.all([
-      Project.aggregate([
-        { $match: { dateOfOnboarding: { $gte: rangeStart, $lte: rangeEnd } } },
+      Service.aggregate([
+        {
+          $match: {
+            billingModel: { $ne: "recurring" },
+            dateOfOnboarding: { $gte: rangeStart, $lte: rangeEnd },
+          },
+        },
         {
           $group: {
             _id: { y: { $year: "$dateOfOnboarding" }, m: { $month: "$dateOfOnboarding" } },
-            total: { $sum: recognizedRevenueExpr },
+            total: { $sum: { $ifNull: ["$totalPrice", 0] } },
+          },
+        },
+      ]),
+      Project.aggregate([
+        {
+          $match: {
+            ...(migratedIds.length ? { _id: { $nin: migratedIds } } : {}),
+            dateOfOnboarding: { $gte: rangeStart, $lte: rangeEnd },
+          },
+        },
+        {
+          $group: {
+            _id: { y: { $year: "$dateOfOnboarding" }, m: { $month: "$dateOfOnboarding" } },
+            total: { $sum: { $ifNull: ["$totalAmount", 0] } },
           },
         },
       ]),
@@ -61,7 +81,13 @@ const buildMonthlyTrends = async (months = last12MonthsRange()) => {
         },
       ]),
       Project.aggregate([
-        { $match: { isOutsourced: true, dateOfOnboarding: { $gte: rangeStart, $lte: rangeEnd } } },
+        {
+          $match: {
+            ...(migratedIds.length ? { _id: { $nin: migratedIds } } : {}),
+            isOutsourced: true,
+            dateOfOnboarding: { $gte: rangeStart, $lte: rangeEnd },
+          },
+        },
         {
           $group: {
             _id: { y: { $year: "$dateOfOnboarding" }, m: { $month: "$dateOfOnboarding" } },
@@ -71,7 +97,15 @@ const buildMonthlyTrends = async (months = last12MonthsRange()) => {
       ]),
     ]);
 
-  const revMap = rowsToMap(revenueRows);
+  const mergeRevenueMaps = (a, b) => {
+    const merged = { ...a };
+    for (const [key, value] of Object.entries(b)) {
+      merged[key] = (merged[key] || 0) + value;
+    }
+    return merged;
+  };
+
+  const revMap = mergeRevenueMaps(rowsToMap(serviceRevenueRows), rowsToMap(projectRevenueRows));
   const expMap = rowsToMap(expenseRows);
   const flAssignmentMap = rowsToMap(freelancerRowsFromAssignments);
   const flLegacyMap = rowsToMap(freelancerRowsLegacy);

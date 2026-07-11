@@ -463,7 +463,7 @@ export default function ProjectDetail() {
     try {
       const { data } = await createExpense({
         ...expenseForm,
-        projectId: id,
+        serviceId: id,
         amount: Number(expenseForm.amount),
       });
       toast.success("Expense added");

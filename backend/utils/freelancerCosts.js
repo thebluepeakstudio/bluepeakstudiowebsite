@@ -1,5 +1,5 @@
 const DeliverableAssignment = require("../models/DeliverableAssignment");
-const { activeAssignmentFilter } = require("../services/projectCalculations.service");
+const { activeAssignmentFilter } = require("../services/serviceCalculations.service");
 
 /** Sum committed freelancer cost from deliverable assignments. */
 const sumOutsourcingCost = {

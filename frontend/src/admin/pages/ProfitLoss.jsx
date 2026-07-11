@@ -39,8 +39,10 @@ export default function ProfitLoss() {
         />
       </div>
       <p className="text-sm text-admin-textMuted">
-        Outstanding is the total client balance still owed across all projects (sum of each project&apos;s remaining amount).
-        Net profit = revenue − expenses − freelancer costs.
+        Total revenue is the sum of booked project values (deliverable selling prices for one-time
+        projects, cash received to date for recurring). Outstanding is the total client balance still
+        owed across all projects. Gross profit = revenue − freelancer costs. Net profit = revenue −
+        expenses − freelancer costs.
       </p>
     </div>
   );

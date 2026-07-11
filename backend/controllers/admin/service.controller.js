@@ -14,6 +14,10 @@ const { syncClientToProject } = require("../../utils/syncClientToProject");
 const { normalizeServiceInput, withLegacyServiceFields } = require("../../utils/serviceCompat");
 const { invalidateAnalyticsCache } = require("./analytics.controller");
 const { aggregateClientOutstanding } = require("../../utils/clientOutstanding");
+
+const expenseFilterForOwner = (ownerId) => ({
+  $or: [{ serviceId: ownerId }, { projectId: ownerId }],
+});
 const { toSafeRegex } = require("../../utils/escapeRegex");
 const {
   activeDeliverableFilter,
@@ -297,7 +301,7 @@ const buildServiceDetail = async (service, { withArrays = true } = {}) => {
   const deliverables = await listDeliverables(service._id);
   const payments = withArrays ? await listPayments(service._id) : [];
   const expenses = withArrays
-    ? await Expense.find({ serviceId: service._id }).sort({ expenseDate: -1 }).lean()
+    ? await Expense.find(expenseFilterForOwner(service._id)).sort({ expenseDate: -1 }).lean()
     : [];
 
   const summary = deliverables.length
@@ -413,7 +417,7 @@ const getService = asyncHandler(async (req, res) => {
     data.payments = await listPayments(service._id);
   }
   if (includes.has("expenses")) {
-    data.expenses = await Expense.find({ serviceId: service._id })
+    data.expenses = await Expense.find(expenseFilterForOwner(service._id))
       .sort({ expenseDate: -1 })
       .lean();
   }
@@ -714,7 +718,7 @@ const getServiceInvoice = asyncHandler(async (req, res) => {
 const getServiceExpenses = asyncHandler(async (req, res) => {
   const service = await Service.findById(req.params.id);
   if (!service) throw new ApiError(404, "Service not found");
-  const expenses = await Expense.find({ serviceId: req.params.id })
+  const expenses = await Expense.find(expenseFilterForOwner(req.params.id))
     .sort({ expenseDate: -1 })
     .lean();
   res.json({ success: true, data: expenses });
