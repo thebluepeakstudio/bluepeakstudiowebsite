@@ -32,6 +32,7 @@ const {
   convertLead,
 } = require("../../controllers/admin/lead.controller");
 const { viewLeadAttachment } = require("../../controllers/admin/attachmentView.controller");
+const { auditAction } = require("../../middleware/auditAction.middleware");
 
 const router = express.Router();
 router.use(protect);
@@ -55,6 +56,6 @@ router.post("/:id/convert", mongoIdParam, convertLead);
 router.get("/:id/overview", mongoIdParam, getLeadOverview);
 router.get("/:id", mongoIdParam, getLead);
 router.put("/:id", updateLeadValidators, updateLead);
-router.delete("/:id", mongoIdParam, deleteLead);
+router.delete("/:id", mongoIdParam, auditAction("lead.delete", "lead"), deleteLead);
 
 module.exports = router;

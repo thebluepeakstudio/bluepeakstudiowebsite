@@ -1,4 +1,5 @@
 const express = require("express");
+const { adminApiRateLimit } = require("../../middleware/rateLimit.middleware");
 const authRoutes = require("./auth.routes");
 const projectRoutes = require("./projects.routes");
 const serviceRoutes = require("./services.routes");
@@ -17,6 +18,7 @@ const blogCategoryRoutes = require("./blogCategories.routes");
 
 const router = express.Router();
 
+router.use(adminApiRateLimit);
 router.use("/auth", authRoutes);
 router.use("/projects", projectRoutes);
 router.use("/services", serviceRoutes);

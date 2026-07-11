@@ -1,37 +1,30 @@
 const STORAGE_KEY = "bps_admin_session";
 
-function readStoredToken() {
+/** In-memory Bearer fallback for the current tab session (not persisted). */
+let memoryToken = null;
+
+function clearLegacyStorage() {
   try {
-    return localStorage.getItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminUser");
   } catch {
-    return null;
+    // ignore
   }
 }
 
-/** Hydrate from storage on load so refresh/new tab can auth before React mounts. */
-let memoryToken = readStoredToken();
+// One-time migration: remove tokens previously stored in localStorage
+clearLegacyStorage();
 
 export function getAuthToken() {
-  if (memoryToken) return memoryToken;
-  memoryToken = readStoredToken();
   return memoryToken;
 }
 
 export function setAuthToken(token) {
   memoryToken = token || null;
-  try {
-    if (token) localStorage.setItem(STORAGE_KEY, token);
-    else localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Storage blocked — memory-only until tab closes
-  }
 }
 
 export function clearAuthToken() {
   memoryToken = null;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // ignore
-  }
+  clearLegacyStorage();
 }

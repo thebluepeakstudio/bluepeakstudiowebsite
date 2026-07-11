@@ -63,4 +63,15 @@ const loginRateLimit = createRateLimiter({
   keyPrefix: "auth-login",
 });
 
-module.exports = { createRateLimiter, publicFormRateLimit, loginRateLimit };
+const adminApiRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 300,
+  keyPrefix: "admin-api",
+});
+
+module.exports = {
+  createRateLimiter,
+  publicFormRateLimit,
+  loginRateLimit,
+  adminApiRateLimit,
+};

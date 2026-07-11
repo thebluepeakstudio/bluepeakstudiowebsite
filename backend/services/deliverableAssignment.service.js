@@ -3,6 +3,7 @@ const Deliverable = require("../models/Deliverable");
 const ProjectDeliverable = require("../models/ProjectDeliverable");
 const Freelancer = require("../models/Freelancer");
 const ApiError = require("../utils/ApiError");
+const { fetchDeliverablesByIds } = require("../utils/resolveDeliverableRecords");
 const { activeAssignmentFilter } = require("./serviceCalculations.service");
 
 const updateFreelancerCount = async (freelancerId, delta, session = null) => {
@@ -139,32 +140,31 @@ const listAssignmentsForFreelancer = async (freelancerId) => {
   const assignments = await DeliverableAssignment.find({
     freelancerId,
     ...activeAssignmentFilter,
-  })
-    .populate({
-      path: "deliverableId",
-      select: "title category status progress serviceId projectId sellingPrice dueDate expectedCompletion",
-      match: { deletedAt: null },
-    })
-    .lean();
+  }).lean();
+
+  if (!assignments.length) return [];
+
+  const deliverableMap = await fetchDeliverablesByIds(
+    assignments.map((a) => a.deliverableId)
+  );
 
   const Service = require("../models/Service");
   const Project = require("../models/Project");
-  const valid = assignments.filter((a) => a.deliverableId);
 
-  const serviceIds = [
+  const ownerIds = [
     ...new Set(
-      valid
-        .map((a) => a.deliverableId.serviceId || a.deliverableId.projectId)
+      assignments
+        .map((a) => deliverableMap[a.deliverableId?.toString()]?.ownerId)
         .filter(Boolean)
         .map((id) => id.toString())
     ),
   ];
 
   const [services, projects] = await Promise.all([
-    Service.find({ _id: { $in: serviceIds } })
+    Service.find({ _id: { $in: ownerIds } })
       .select("clientName businessName name workStatus paymentStatus")
       .lean(),
-    Project.find({ _id: { $in: serviceIds } })
+    Project.find({ _id: { $in: ownerIds } })
       .select("clientName businessName projectTitle workStatus paymentStatus")
       .lean(),
   ]);
@@ -174,35 +174,36 @@ const listAssignmentsForFreelancer = async (freelancerId) => {
     ...projects.map((p) => [p._id.toString(), p]),
   ]);
 
-  return valid
-    .filter((a) => {
-      const ownerId = (a.deliverableId.serviceId || a.deliverableId.projectId)?.toString();
-      return ownerId && ownerMap[ownerId];
-    })
+  return assignments
     .map((a) => {
-      const ownerId = (a.deliverableId.serviceId || a.deliverableId.projectId).toString();
+      const deliverable = deliverableMap[a.deliverableId?.toString()];
+      if (!deliverable?.ownerId) return null;
+
+      const ownerId = deliverable.ownerId.toString();
       const project = ownerMap[ownerId];
+      if (!project) return null;
+
       const cost = Number(a.cost) || 0;
       const paid = Number(a.amountPaid) || 0;
       return {
         _id: a._id,
         assignmentId: a._id,
-        projectId: a.deliverableId.serviceId || a.deliverableId.projectId,
-        deliverableId: a.deliverableId._id,
+        projectId: deliverable.ownerId,
+        deliverableId: deliverable._id,
         project,
         deliverable: {
-          ...a.deliverableId,
-          expectedCompletion: a.deliverableId.dueDate || a.deliverableId.expectedCompletion,
-          projectId: a.deliverableId.serviceId || a.deliverableId.projectId,
+          ...deliverable,
+          projectId: deliverable.ownerId,
         },
         role: a.role,
         cost,
         amountPaid: paid,
         paymentStatus: a.paymentStatus,
         due: Math.max(0, cost - paid),
-        status: a.deliverableId.status,
+        status: deliverable.status,
       };
-    });
+    })
+    .filter(Boolean);
 };
 
 module.exports = {

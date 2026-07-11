@@ -5,6 +5,7 @@ const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { setAuthCookie, clearAuthCookie } = require("../../utils/authCookie");
 const { JWT_ALGORITHMS, getJwtExpiresIn } = require("../../utils/jwtConfig");
+const { logAuditEventAsync } = require("../../services/auditLog.service");
 
 const signToken = (admin) => {
   if (!process.env.JWT_SECRET) {
@@ -35,11 +36,26 @@ const login = asyncHandler(async (req, res) => {
   const admin = await Admin.findOne({ email }).select("+password tokenVersion");
 
   if (!admin || !(await admin.comparePassword(password))) {
+    logAuditEventAsync(req, {
+      action: "auth.login.failed",
+      resource: "auth",
+      success: false,
+      meta: { attemptedEmail: email?.trim().toLowerCase() },
+    });
     throw new ApiError(401, "Invalid email or password");
   }
 
   const token = signToken(admin);
   setAuthCookie(res, token);
+
+  logAuditEventAsync(req, {
+    action: "auth.login.success",
+    resource: "auth",
+    resourceId: admin._id,
+    adminId: admin._id,
+    adminEmail: admin.email,
+    success: true,
+  });
 
   res.json({
     success: true,
@@ -50,6 +66,12 @@ const login = asyncHandler(async (req, res) => {
 });
 
 const logout = asyncHandler(async (req, res) => {
+  logAuditEventAsync(req, {
+    action: "auth.logout",
+    resource: "auth",
+    resourceId: req.admin._id,
+    success: true,
+  });
   await Admin.findByIdAndUpdate(req.admin._id, { $inc: { tokenVersion: 1 } });
   clearAuthCookie(res);
   res.json({ success: true, message: "Logged out" });

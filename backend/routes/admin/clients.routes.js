@@ -23,6 +23,7 @@ const {
   deleteClientAttachment,
 } = require("../../controllers/admin/client.controller");
 const { viewClientAttachment } = require("../../controllers/admin/attachmentView.controller");
+const { auditAction } = require("../../middleware/auditAction.middleware");
 
 const router = express.Router();
 router.use(protect);
@@ -40,6 +41,6 @@ router.post("/:id/attachments", mongoIdParam, upload.array("files", 10), uploadC
 router.delete("/:id/attachments/:attachmentId", mongoIdParam, deleteClientAttachment);
 router.get("/:id", mongoIdParam, getClient);
 router.put("/:id", updateClientValidators, updateClient);
-router.delete("/:id", mongoIdParam, deleteClient);
+router.delete("/:id", mongoIdParam, auditAction("client.delete", "client"), deleteClient);
 
 module.exports = router;

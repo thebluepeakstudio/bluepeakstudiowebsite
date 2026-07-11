@@ -9,6 +9,7 @@ const {
   createClientPaymentValidators,
   previewClientPaymentValidators,
 } = require("../../middleware/validators/recurring.validators");
+const { auditAction } = require("../../middleware/auditAction.middleware");
 const { param } = require("express-validator");
 const { validationResult } = require("express-validator");
 const ApiError = require("../../utils/ApiError");
@@ -24,7 +25,14 @@ const validate = (req, res, next) => {
 router.use(protect);
 
 router.post("/preview", previewClientPaymentValidators, postClientPaymentPreview);
-router.post("/", createClientPaymentValidators, postClientPayment);
+router.post(
+  "/",
+  createClientPaymentValidators,
+  auditAction("client_payment.create", "client_payment", {
+    getResourceId: (req) => req.body?.clientId,
+  }),
+  postClientPayment
+);
 router.get(
   "/client/:clientId",
   [param("clientId").isMongoId(), validate],

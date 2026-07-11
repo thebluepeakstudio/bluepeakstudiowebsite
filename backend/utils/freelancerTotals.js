@@ -1,49 +1,46 @@
 const mongoose = require("mongoose");
 const DeliverableAssignment = require("../models/DeliverableAssignment");
 const Project = require("../models/Project");
-const { activeAssignmentFilter } = require("../services/projectCalculations.service");
+const { activeAssignmentFilter } = require("../services/serviceCalculations.service");
+const { fetchDeliverablesByIds } = require("./resolveDeliverableRecords");
 const {
   findAssignmentForFreelancer,
 } = require("./projectFreelancerAssignments");
 
-const assignmentStatsPipeline = (freelancerMatch) => [
-  { $match: { ...activeAssignmentFilter } },
-  {
-    $lookup: {
-      from: "projectdeliverables",
-      localField: "deliverableId",
-      foreignField: "_id",
-      as: "deliverable",
-    },
-  },
-  { $unwind: "$deliverable" },
-  { $match: { "deliverable.deletedAt": null } },
-  {
-    $lookup: {
-      from: "projects",
-      localField: "deliverable.projectId",
-      foreignField: "_id",
-      as: "project",
-    },
-  },
-  { $unwind: "$project" },
-  {
-    $group: {
-      _id: "$freelancerId",
-      totalOwed: { $sum: { $ifNull: ["$cost", 0] } },
-      totalPaid: { $sum: { $ifNull: ["$amountPaid", 0] } },
-      assignmentCount: { $addToSet: "$_id" },
-    },
-  },
-  { $match: freelancerMatch },
-  {
-    $project: {
-      totalOwed: 1,
-      totalPaid: 1,
-      assignmentCount: { $size: "$assignmentCount" },
-    },
-  },
-];
+const aggregateAssignmentStats = async (freelancerIds) => {
+  const ids = freelancerIds.map((id) => new mongoose.Types.ObjectId(id));
+  const assignments = await DeliverableAssignment.find({
+    freelancerId: { $in: ids },
+    ...activeAssignmentFilter,
+  }).lean();
+
+  if (!assignments.length) return {};
+
+  const deliverableMap = await fetchDeliverablesByIds(
+    assignments.map((a) => a.deliverableId)
+  );
+
+  const statsMap = Object.fromEntries(
+    freelancerIds.map((id) => [
+      id.toString(),
+      { totalOwed: 0, totalPaid: 0, assignmentCount: 0 },
+    ])
+  );
+
+  for (const assignment of assignments) {
+    const deliverable = deliverableMap[assignment.deliverableId?.toString()];
+    if (!deliverable?.ownerId) continue;
+
+    const key = assignment.freelancerId.toString();
+    if (!statsMap[key]) continue;
+
+    statsMap[key].totalOwed += Number(assignment.cost) || 0;
+    statsMap[key].totalPaid += Number(assignment.amountPaid) || 0;
+    statsMap[key].assignmentCount += 1;
+  }
+
+  return statsMap;
+};
 
 const legacyStatsForFreelancer = async (freelancerId) => {
   const map = await legacyStatsForFreelancers([freelancerId]);
@@ -83,19 +80,17 @@ const legacyStatsForFreelancers = async (freelancerIds) => {
 };
 
 const getFinancialsForFreelancer = async (freelancerId) => {
-  const id = new mongoose.Types.ObjectId(freelancerId);
-  const rows = await DeliverableAssignment.aggregate(
-    assignmentStatsPipeline({ _id: id })
-  );
+  const statsMap = await aggregateAssignmentStats([freelancerId]);
+  const stats = statsMap[freelancerId.toString()];
 
-  if (rows.length) {
-    const totalOwed = rows[0]?.totalOwed || 0;
-    const totalPaid = rows[0]?.totalPaid || 0;
+  if (stats?.assignmentCount > 0) {
+    const totalOwed = stats.totalOwed || 0;
+    const totalPaid = stats.totalPaid || 0;
     return {
       totalOwed,
       totalPaid,
       amountDue: Math.max(0, totalOwed - totalPaid),
-      outsourcedProjects: rows[0]?.assignmentCount || 0,
+      outsourcedProjects: stats.assignmentCount || 0,
     };
   }
 
@@ -112,13 +107,11 @@ const attachFinancialsToList = async (freelancers) => {
   if (!freelancers.length) return [];
 
   const ids = freelancers.map((f) => f._id);
-  const rows = await DeliverableAssignment.aggregate(
-    assignmentStatsPipeline({ _id: { $in: ids } })
+  const statsMap = await aggregateAssignmentStats(ids);
+
+  const missingLegacy = freelancers.filter(
+    (f) => !(statsMap[f._id.toString()]?.assignmentCount > 0)
   );
-
-  const owedMap = Object.fromEntries(rows.map((r) => [r._id.toString(), r]));
-
-  const missingLegacy = freelancers.filter((f) => !owedMap[f._id.toString()]);
   const legacyMap =
     missingLegacy.length > 0
       ? await legacyStatsForFreelancers(missingLegacy.map((f) => f._id))
@@ -127,8 +120,8 @@ const attachFinancialsToList = async (freelancers) => {
   const result = [];
   for (const f of freelancers) {
     const doc = typeof f.toObject === "function" ? f.toObject() : { ...f };
-    let stats = owedMap[f._id.toString()];
-    if (!stats) {
+    let stats = statsMap[f._id.toString()];
+    if (!stats?.assignmentCount) {
       const legacy = legacyMap[f._id.toString()] || {
         totalOwed: 0,
         totalPaid: 0,

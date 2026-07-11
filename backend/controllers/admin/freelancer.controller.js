@@ -18,6 +18,10 @@ const {
   applyPaymentToAssignment,
   updateFreelancerCount,
 } = require("../../services/deliverableAssignment.service");
+const {
+  fetchDeliverableById,
+  fetchDeliverablesByIds,
+} = require("../../utils/resolveDeliverableRecords");
 const { toSafeRegex } = require("../../utils/escapeRegex");
 
 const BASIC_FIELDS = [
@@ -155,14 +159,42 @@ const getFreelancerPayments = asyncHandler(async (req, res) => {
   if (!freelancer) throw new ApiError(404, "Freelancer not found");
 
   const payments = await FreelancerPayment.find({ freelancerId: req.params.id })
-    .populate("projectId", "clientName businessName projectTitle")
-    .populate("deliverableId", "title category")
     .sort({ paymentDate: -1 })
     .limit(50)
     .lean();
+
+  const deliverableMap = await fetchDeliverablesByIds(
+    payments.map((p) => p.deliverableId).filter(Boolean)
+  );
+
+  const Service = require("../../models/Service");
+  const ownerIds = [
+    ...new Set(payments.map((p) => p.projectId?.toString()).filter(Boolean)),
+  ];
+  const [services, projects] = await Promise.all([
+    Service.find({ _id: { $in: ownerIds } })
+      .select("clientName businessName name")
+      .lean(),
+    Project.find({ _id: { $in: ownerIds } })
+      .select("clientName businessName projectTitle")
+      .lean(),
+  ]);
+  const ownerMap = Object.fromEntries([
+    ...services.map((s) => [s._id.toString(), s]),
+    ...projects.map((p) => [p._id.toString(), p]),
+  ]);
+
+  const enrichedPayments = payments.map((p) => ({
+    ...p,
+    projectId: ownerMap[p.projectId?.toString()] || p.projectId,
+    deliverableId: p.deliverableId
+      ? deliverableMap[p.deliverableId.toString()] || p.deliverableId
+      : p.deliverableId,
+  }));
+
   const financials = await getFinancialsForFreelancer(req.params.id);
 
-  res.json({ success: true, data: { payments, financials } });
+  res.json({ success: true, data: { payments: enrichedPayments, financials } });
 });
 
 const recordFreelancerPayment = asyncHandler(async (req, res) => {
@@ -178,12 +210,14 @@ const recordFreelancerPayment = asyncHandler(async (req, res) => {
       _id: assignmentId,
       freelancerId: req.params.id,
       deletedAt: null,
-    }).populate({
-      path: "deliverableId",
-      select: "projectId title",
     });
 
-    if (!assignment || !assignment.deliverableId) {
+    if (!assignment) {
+      throw new ApiError(400, "Invalid assignment for this freelancer");
+    }
+
+    const deliverable = await fetchDeliverableById(assignment.deliverableId);
+    if (!deliverable?.ownerId) {
       throw new ApiError(400, "Invalid assignment for this freelancer");
     }
 
@@ -199,8 +233,8 @@ const recordFreelancerPayment = asyncHandler(async (req, res) => {
 
     const payment = await FreelancerPayment.create({
       freelancerId: req.params.id,
-      projectId: assignment.deliverableId.projectId,
-      deliverableId: assignment.deliverableId._id,
+      projectId: deliverable.ownerId,
+      deliverableId: deliverable._id,
       assignmentId: assignment._id,
       amount,
       paymentDate: req.body.paymentDate || new Date(),
@@ -209,15 +243,23 @@ const recordFreelancerPayment = asyncHandler(async (req, res) => {
       recordedBy: req.admin.name,
     });
 
-    await payment.populate([
-      { path: "projectId", select: "clientName businessName projectTitle" },
-      { path: "deliverableId", select: "title category" },
-    ]);
+    const Service = require("../../models/Service");
+    const owner =
+      (await Service.findById(deliverable.ownerId)
+        .select("clientName businessName name")
+        .lean()) ||
+      (await Project.findById(deliverable.ownerId)
+        .select("clientName businessName projectTitle")
+        .lean());
+
+    const paymentObj = payment.toObject();
+    paymentObj.projectId = owner || deliverable.ownerId;
+    paymentObj.deliverableId = deliverable;
 
     const updatedFinancials = await getFinancialsForFreelancer(req.params.id);
     return res.status(201).json({
       success: true,
-      data: { payment, financials: updatedFinancials },
+      data: { payment: paymentObj, financials: updatedFinancials },
     });
   }
 

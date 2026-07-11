@@ -61,6 +61,7 @@ const {
   postPayFreelancerDue,
   getCycleInvoice,
 } = require("../../controllers/admin/recurring.controller");
+const { auditAction } = require("../../middleware/auditAction.middleware");
 
 const router = express.Router();
 router.use(protect);
@@ -88,7 +89,7 @@ router.get("/", getServices);
 router.post("/", createServiceRouteValidators, createService);
 router.get("/:id", serviceIdParam, getService);
 router.put("/:id", serviceIdParam, updateService);
-router.delete("/:id", serviceIdParam, deleteService);
+router.delete("/:id", serviceIdParam, auditAction("service.delete", "service"), deleteService);
 router.post("/:id/files", serviceIdParam, upload.array("files", 10), uploadServiceFiles);
 
 router.get("/:id/deliverables", serviceIdParam, getServiceDeliverables);
@@ -115,7 +116,14 @@ router.delete(
 router.get("/:id/invoice", serviceIdParam, getServiceInvoice);
 
 router.get("/:id/payments", serviceIdParam, getServicePayments);
-router.post("/:id/payments", createPaymentValidators, postServicePayment);
+router.post(
+  "/:id/payments",
+  createPaymentValidators,
+  auditAction("service_payment.create", "service_payment", {
+    getResourceId: (req) => req.params.id,
+  }),
+  postServicePayment
+);
 router.put("/:id/payments/:paymentId", updatePaymentValidators, putServicePayment);
 router.delete("/:id/payments/:paymentId", paymentIdParam, deleteServicePayment);
 
