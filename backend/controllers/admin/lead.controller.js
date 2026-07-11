@@ -5,9 +5,10 @@ const LeadStatusHistory = require("../../models/LeadStatusHistory");
 const LeadAttachment = require("../../models/LeadAttachment");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
-const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
+const { uploadToCloudinary, deleteFromCloudinary, sanitizeFileRecord } = require("../../utils/uploadToCloudinary");
 const { convertLeadToClient } = require("../../services/leadConversion.service");
 const { computeLeadMetrics } = require("../../utils/leadMetrics");
+const { toSafeRegex } = require("../../utils/escapeRegex");
 
 const LEAD_FIELDS = [
   "fullName",
@@ -61,12 +62,15 @@ const buildFilter = (query) => {
   if (query.assignedTo) filter.assignedTo = query.assignedTo;
   if (query.tag) filter.tags = query.tag;
   if (query.search) {
-    filter.$or = [
-      { fullName: { $regex: query.search, $options: "i" } },
-      { companyName: { $regex: query.search, $options: "i" } },
-      { email: { $regex: query.search, $options: "i" } },
-      { phone: { $regex: query.search, $options: "i" } },
-    ];
+    const pattern = toSafeRegex(query.search);
+    if (pattern) {
+      filter.$or = [
+        { fullName: pattern },
+        { companyName: pattern },
+        { email: pattern },
+        { phone: pattern },
+      ];
+    }
   }
   if (query.followUpFrom || query.followUpTo) {
     filter.nextFollowUpDate = {};
@@ -195,7 +199,12 @@ const getLeadOverview = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: { lead, activities, attachments, history },
+    data: {
+      lead,
+      activities,
+      attachments: attachments.map((a) => withAttachmentUrls(a, req.params.id)),
+      history,
+    },
   });
 });
 
@@ -349,11 +358,23 @@ const getLeadStatusHistory = asyncHandler(async (req, res) => {
   res.json({ success: true, data: history });
 });
 
+const withAttachmentUrls = (attachment, leadId) => {
+  const plain = sanitizeFileRecord(attachment);
+  return {
+    ...plain,
+    viewUrl: `/api/admin/leads/${leadId}/attachments/${plain._id}/view`,
+    downloadUrl: `/api/admin/leads/${leadId}/attachments/${plain._id}/view?attachment=1`,
+  };
+};
+
 const getLeadAttachments = asyncHandler(async (req, res) => {
   const lead = await Lead.findById(req.params.id);
   if (!lead) throw new ApiError(404, "Lead not found");
   const attachments = await LeadAttachment.find({ leadId: lead._id }).sort({ createdAt: -1 });
-  res.json({ success: true, data: attachments });
+  res.json({
+    success: true,
+    data: attachments.map((a) => withAttachmentUrls(a, req.params.id)),
+  });
 });
 
 const uploadLeadAttachments = asyncHandler(async (req, res) => {
@@ -369,12 +390,16 @@ const uploadLeadAttachments = asyncHandler(async (req, res) => {
         fileName: file.originalname,
         fileUrl: result.secure_url,
         publicId: result.public_id,
+        accessMode: result.accessMode,
         uploadedBy: req.admin.name,
       });
     })
   );
 
-  res.status(201).json({ success: true, data: docs });
+  res.status(201).json({
+    success: true,
+    data: docs.map((a) => withAttachmentUrls(a, lead._id)),
+  });
 });
 
 const deleteLeadAttachment = asyncHandler(async (req, res) => {

@@ -1,17 +1,19 @@
 const Client = require("../../models/Client");
 const ClientActivity = require("../../models/ClientActivity");
 const ClientAttachment = require("../../models/ClientAttachment");
+const TestimonialForm = require("../../models/testimonialForm");
 const Project = require("../../models/Project");
 const Service = require("../../models/Service");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
-const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
+const { uploadToCloudinary, deleteFromCloudinary, sanitizeFileRecord } = require("../../utils/uploadToCloudinary");
 const {
   enrichProjectsWithDeliverables: enrichLegacyProjects,
 } = require("../../services/projectCalculations.service");
 const {
   enrichServicesWithDeliverables,
 } = require("../../services/serviceCalculations.service");
+const { toSafeRegex } = require("../../utils/escapeRegex");
 
 const CLIENT_FIELDS = [
   "name",
@@ -37,12 +39,15 @@ const buildFilter = (query) => {
   const filter = {};
   if (query.status) filter.status = query.status;
   if (query.search) {
-    filter.$or = [
-      { name: { $regex: query.search, $options: "i" } },
-      { companyName: { $regex: query.search, $options: "i" } },
-      { email: { $regex: query.search, $options: "i" } },
-      { phone: { $regex: query.search, $options: "i" } },
-    ];
+    const pattern = toSafeRegex(query.search);
+    if (pattern) {
+      filter.$or = [
+        { name: pattern },
+        { companyName: pattern },
+        { email: pattern },
+        { phone: pattern },
+      ];
+    }
   }
   return filter;
 };
@@ -121,6 +126,15 @@ const getClientActivities = asyncHandler(async (req, res) => {
   res.json({ success: true, data: activities });
 });
 
+const withAttachmentUrls = (attachment, clientId) => {
+  const plain = sanitizeFileRecord(attachment);
+  return {
+    ...plain,
+    viewUrl: `/api/admin/clients/${clientId}/attachments/${plain._id}/view`,
+    downloadUrl: `/api/admin/clients/${clientId}/attachments/${plain._id}/view?attachment=1`,
+  };
+};
+
 const getClientAttachments = asyncHandler(async (req, res) => {
   const client = await Client.findById(req.params.id);
   if (!client) throw new ApiError(404, "Client not found");
@@ -128,7 +142,22 @@ const getClientAttachments = asyncHandler(async (req, res) => {
   const attachments = await ClientAttachment.find({ clientId: req.params.id }).sort({
     createdAt: -1,
   });
-  res.json({ success: true, data: attachments });
+  res.json({
+    success: true,
+    data: attachments.map((a) => withAttachmentUrls(a, req.params.id)),
+  });
+});
+
+const getClientTestimonials = asyncHandler(async (req, res) => {
+  const client = await Client.findById(req.params.id);
+  if (!client) throw new ApiError(404, "Client not found");
+
+  const testimonials = await TestimonialForm.find({ clientId: req.params.id })
+    .populate("brandId", "name")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  res.json({ success: true, data: testimonials });
 });
 
 const getClientOverview = asyncHandler(async (req, res) => {
@@ -143,7 +172,12 @@ const getClientOverview = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: { client, projects, activities, attachments },
+    data: {
+      client,
+      projects,
+      activities,
+      attachments: attachments.map((a) => withAttachmentUrls(a, req.params.id)),
+    },
   });
 });
 
@@ -215,12 +249,16 @@ const uploadClientAttachments = asyncHandler(async (req, res) => {
         fileName: file.originalname,
         fileUrl: result.secure_url,
         publicId: result.public_id,
+        accessMode: result.accessMode,
         uploadedBy: req.admin.name,
       });
     })
   );
 
-  res.status(201).json({ success: true, data: docs });
+  res.status(201).json({
+    success: true,
+    data: docs.map((a) => withAttachmentUrls(a, client._id)),
+  });
 });
 
 const deleteClientAttachment = asyncHandler(async (req, res) => {
@@ -242,6 +280,7 @@ module.exports = {
   getClientProjects,
   getClientActivities,
   getClientAttachments,
+  getClientTestimonials,
   createClient,
   updateClient,
   deleteClient,

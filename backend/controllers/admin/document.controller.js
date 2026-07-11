@@ -6,17 +6,17 @@ const asyncHandler = require("../../utils/asyncHandler");
 const {
   uploadToCloudinary,
   deleteFromCloudinary,
-  getDocumentDeliveryUrl,
-  fetchDocumentBuffer,
+  streamStoredFile,
+  sanitizeFileRecord,
 } = require("../../utils/uploadToCloudinary");
 const { buildProjectDocumentFolder } = require("../../utils/cloudinaryPaths");
 
 const withDocumentUrls = (doc) => {
-  const plain = doc.toObject ? doc.toObject() : { ...doc };
+  const plain = sanitizeFileRecord(doc);
   return {
     ...plain,
     viewUrl: `/api/admin/documents/${plain._id}/view`,
-    downloadUrl: getDocumentDeliveryUrl(plain),
+    downloadUrl: `/api/admin/documents/${plain._id}/view?attachment=1`,
     uploadedAt: plain.createdAt,
   };
 };
@@ -76,6 +76,7 @@ const uploadDocuments = asyncHandler(async (req, res) => {
         publicId: result.public_id,
         format: result.storedFormat || result.format,
         resourceType: result.resource_type || "image",
+        accessMode: result.accessMode,
         category,
         uploadedBy: req.admin.name,
       });
@@ -85,43 +86,18 @@ const uploadDocuments = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: docs.map(withDocumentUrls) });
 });
 
-const guessMimeType = (fileName) => {
-  const ext = fileName?.split(".").pop()?.toLowerCase();
-  const mimeTypes = {
-    pdf: "application/pdf",
-    png: "image/png",
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    webp: "image/webp",
-    gif: "image/gif",
-    doc: "application/msword",
-    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    xls: "application/vnd.ms-excel",
-    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  };
-  return mimeTypes[ext] || "application/octet-stream";
-};
-
 const viewDocument = asyncHandler(async (req, res) => {
   const doc = await Document.findById(req.params.id);
   if (!doc) throw new ApiError(404, "Document not found");
 
-  let buffer;
   try {
-    buffer = await fetchDocumentBuffer(doc);
+    await streamStoredFile(doc, res, { attachment: req.query.attachment === "1" });
   } catch (err) {
     if (err.message === "CLOUDINARY_PDF_DELIVERY_BLOCKED") {
       throw new ApiError(503, err.cloudinaryHint);
     }
-    throw new ApiError(502, err.message || "Failed to load document from storage");
+    throw new ApiError(502, "Failed to load document from storage");
   }
-
-  const contentType = guessMimeType(doc.fileName);
-
-  res.setHeader("Content-Type", contentType);
-  res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(doc.fileName)}"`);
-  res.setHeader("Cache-Control", "private, max-age=3600");
-  res.send(buffer);
 });
 
 const deleteDocument = asyncHandler(async (req, res) => {

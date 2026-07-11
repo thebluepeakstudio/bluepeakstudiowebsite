@@ -1,23 +1,29 @@
 const jwt = require("jsonwebtoken");
 const ApiError = require("../utils/ApiError");
 const Admin = require("../models/Admin");
+const { readAuthToken } = require("../utils/authCookie");
+const { JWT_ALGORITHMS } = require("../utils/jwtConfig");
 
 const protect = async (req, res, next) => {
   try {
-    let token;
-    if (req.headers.authorization?.startsWith("Bearer ")) {
-      token = req.headers.authorization.split(" ")[1];
-    }
+    const token = readAuthToken(req);
 
     if (!token) {
       throw new ApiError(401, "Not authorized — no token");
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      algorithms: JWT_ALGORITHMS,
+    });
     const admin = await Admin.findById(decoded.id).select("-password");
 
     if (!admin) {
       throw new ApiError(401, "Admin not found");
+    }
+
+    const tokenVersion = decoded.tv ?? 0;
+    if ((admin.tokenVersion || 0) !== tokenVersion) {
+      throw new ApiError(401, "Invalid or expired token");
     }
 
     req.admin = admin;

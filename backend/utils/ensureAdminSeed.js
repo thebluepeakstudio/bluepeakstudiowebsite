@@ -27,11 +27,11 @@ async function ensureAdminSeed() {
     if (reset) {
       existing.password = password;
       await existing.save();
-      console.log("[admin-seed] Admin password synced:", email);
-      return { updated: true, email };
+      console.log("[admin-seed] Admin password synced");
+      return { updated: true };
     }
-    console.log("[admin-seed] Admin already exists:", email);
-    return { exists: true, email };
+    console.log("[admin-seed] Admin already exists");
+    return { exists: true };
   }
 
   await Admin.create({
@@ -40,8 +40,8 @@ async function ensureAdminSeed() {
     password,
   });
 
-  console.log("[admin-seed] Admin created:", email);
-  return { created: true, email };
+  console.log("[admin-seed] Admin created");
+  return { created: true };
 }
 
 module.exports = ensureAdminSeed;

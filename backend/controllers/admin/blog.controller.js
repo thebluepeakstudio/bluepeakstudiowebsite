@@ -4,6 +4,7 @@ const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
 const { slugify, uniqueSlug } = require("../../utils/slugify");
 const { readingTime } = require("../../utils/readingTime");
+const { toSafeRegex } = require("../../utils/escapeRegex");
 
 const BLOG_FOLDER = "bluepeak/blog";
 const notDeleted = { deletedAt: null };
@@ -36,6 +37,7 @@ const parseTags = (value) => {
 };
 
 const BLOG_IMAGE_OPTS = {
+  accessMode: "public",
   transformation: [{ width: 1600, crop: "limit", quality: "auto", fetch_format: "auto" }],
 };
 
@@ -49,11 +51,10 @@ const buildFilter = (query) => {
   if (query.status) filter.status = query.status;
   if (query.categoryId) filter.categoryId = query.categoryId;
   if (query.search) {
-    filter.$or = [
-      { title: { $regex: query.search, $options: "i" } },
-      { excerpt: { $regex: query.search, $options: "i" } },
-      { slug: { $regex: query.search, $options: "i" } },
-    ];
+    const pattern = toSafeRegex(query.search);
+    if (pattern) {
+      filter.$or = [{ title: pattern }, { excerpt: pattern }, { slug: pattern }];
+    }
   }
   return filter;
 };

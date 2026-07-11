@@ -43,7 +43,7 @@ npm run dev
 | `PORT` | Server port (default `10000`) |
 | `MONGO_URL` | MongoDB connection string |
 | `JWT_SECRET` | Strong secret for JWT signing |
-| `JWT_EXPIRES_IN` | Token expiry (e.g. `7d`) |
+| `JWT_EXPIRES_IN` | Token expiry (default `24h`; e.g. `12h`, `1d`) |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
 | `CLOUDINARY_API_KEY` | Cloudinary API key |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret |
@@ -95,6 +95,10 @@ After deploying the Clients module, run once: `npm run migrate:clients` (from `b
 3. Set `VITE_BACKEND_URL` to your deployed API URL before `npm run build`.
 4. CORS already allows `https://bluepeakstudio.in` and your Render frontend URL.
 5. Ensure MongoDB and Cloudinary credentials are set in production.
+
+## Security
+
+Before deploying, read the [Security — rotate secrets in git history](./README.md#security--rotate-secrets-in-git-history) section in the root README. Rotate any credentials that were ever committed to git, even as placeholders.
 
 ## Notes
 

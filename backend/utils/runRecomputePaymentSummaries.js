@@ -14,7 +14,11 @@ const run = async () => {
     { id: MIGRATION_ID, appliedAt: new Date(), result },
     { upsert: true, new: true }
   );
-  console.log(result);
+  console.log(
+    `[payment-recompute] Done — ${result.updated}/${result.total} projects updated` +
+      (result.paymentsMigrated ? `, ${result.paymentsMigrated} legacy payments migrated` : "") +
+      (result.errors ? `, ${result.errors} errors` : "")
+  );
   process.exit(result.errors > 0 ? 1 : 0);
 };
 

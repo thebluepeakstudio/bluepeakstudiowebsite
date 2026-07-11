@@ -9,7 +9,7 @@ import {
   PAID_VIA,
   DELIVERABLE_AMOUNT_LABEL,
 } from "../../utils/constants";
-import { getClients } from "../../api/clients.api";
+import { getClients, getClientBrands } from "../../api/clients.api";
 import { formatCurrency } from "../../utils/formatCurrency";
 import toast from "react-hot-toast";
 
@@ -23,11 +23,11 @@ const emptyDeliverable = () => ({
 
 const emptyProject = {
   clientId: "",
+  brandId: "",
   clientName: "",
   businessName: "",
   contactNumber: "",
   email: "",
-  projectTitle: "",
   projectDescription: "",
   dateOfOnboarding: "",
   expectedCompletionDate: "",
@@ -50,6 +50,7 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
     notes: "",
   });
   const [clients, setClients] = useState([]);
+  const [brands, setBrands] = useState([]);
 
   useEffect(() => {
     getClients({ limit: 100 })
@@ -58,9 +59,26 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
   }, []);
 
   useEffect(() => {
+    if (!project.clientId) {
+      setBrands([]);
+      return;
+    }
+    getClientBrands(project.clientId)
+      .then(({ data }) => {
+        const list = data.data || [];
+        setBrands(list);
+        if (!project.brandId && list.length === 1) {
+          setProject((p) => ({ ...p, brandId: list[0]._id }));
+        }
+      })
+      .catch(() => setBrands([]));
+  }, [project.clientId]);
+
+  useEffect(() => {
     if (initial?.clientId) {
       const clientId = initial.clientId._id || initial.clientId;
-      setProject((p) => ({ ...p, clientId }));
+      const brandId = initial.brandId?._id || initial.brandId || "";
+      setProject((p) => ({ ...p, clientId, brandId: brandId || p.brandId }));
     }
   }, [initial]);
 
@@ -77,6 +95,7 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
       setProject((p) => ({
         ...p,
         clientId,
+        brandId: "",
         clientName: client.name,
         businessName: client.companyName || "",
         contactNumber: client.phone || "",
@@ -104,7 +123,8 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
   const validateStep = (stepIndex = step) => {
     if (stepIndex === 0) {
       if (!project.clientId) return "Select a client";
-      if (!project.projectTitle?.trim()) return "Project name is required";
+      if (!project.brandId) return "Select a brand";
+      if (!brands.length) return "This client has no brands — add one in the client profile first";
     }
     if (stepIndex === 1) {
       if (!deliverables.length) return "Add at least one deliverable";
@@ -146,10 +166,17 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
       });
     }
 
+    const selectedBrand = brands.find((b) => b._id === project.brandId);
+    const brandName = selectedBrand?.name?.trim() || "";
+
     onSubmit({
       project: {
         ...project,
         clientId: project.clientId || undefined,
+        brandId: project.brandId || undefined,
+        projectTitle: brandName,
+        name: brandName,
+        businessName: brandName,
       },
       deliverables: deliverables.map((d) => ({
         title: d.title,
@@ -183,7 +210,7 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
       </div>
 
       {step === 0 && (
-        <FormSection title="Project information" description="Link to a client and name this engagement.">
+        <FormSection title="Project information" description="Link to a client and select the brand for this engagement.">
           <FormGrid cols={2}>
             <Select
               label="Client"
@@ -194,16 +221,19 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
                 { value: "", label: "Select client…" },
                 ...clients.map((c) => ({
                   value: c._id,
-                  label: c.companyName ? `${c.name} — ${c.companyName}` : c.name,
+                  label: c.name,
                 })),
               ]}
             />
-            <Input
-              label="Project name"
+            <Select
+              label="Brand"
               required
-              value={project.projectTitle}
-              onChange={(e) => setProjectField("projectTitle", e.target.value)}
-              placeholder="e.g. Homely Vibes PG"
+              value={project.brandId}
+              onChange={(e) => setProjectField("brandId", e.target.value)}
+              options={[
+                { value: "", label: brands.length ? "Select brand…" : "No brands for this client" },
+                ...brands.map((b) => ({ value: b._id, label: b.name })),
+              ]}
             />
           </FormGrid>
           <Textarea

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import Button from "../../UI/Button";
 import FormFieldLabel from "../../UI/FormFieldLabel";
 import StarRating from "../../UI/StarRating";
@@ -6,6 +7,10 @@ import toast from "react-hot-toast";
 import { apiUrl } from "../../../utils/apiBase";
 
 export default function TestimonialSubmitForm() {
+  const [searchParams] = useSearchParams();
+  const clientId = searchParams.get("clientId") || "";
+  const brandId = searchParams.get("brandId") || "";
+
   const [formData, setFormData] = useState({
     companyName: "",
     testimonial: "",
@@ -43,6 +48,8 @@ export default function TestimonialSubmitForm() {
           name: formData.companyName.trim(),
           rating: formData.rating,
           message: formData.testimonial.trim(),
+          ...(clientId ? { clientId } : {}),
+          ...(brandId ? { brandId } : {}),
         }),
       });
 

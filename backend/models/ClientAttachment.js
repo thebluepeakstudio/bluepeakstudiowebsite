@@ -10,6 +10,7 @@ const clientAttachmentSchema = new mongoose.Schema(
     fileName: { type: String, required: true },
     fileUrl: { type: String, required: true },
     publicId: { type: String },
+    accessMode: { type: String, enum: ["authenticated", "public"], default: "authenticated" },
     uploadedBy: { type: String, required: true },
     sourceLeadAttachmentId: {
       type: mongoose.Schema.Types.ObjectId,

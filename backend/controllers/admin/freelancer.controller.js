@@ -18,6 +18,7 @@ const {
   applyPaymentToAssignment,
   updateFreelancerCount,
 } = require("../../services/deliverableAssignment.service");
+const { toSafeRegex } = require("../../utils/escapeRegex");
 
 const BASIC_FIELDS = [
   "name",
@@ -47,10 +48,10 @@ const getFreelancers = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
   const filter = {};
   if (req.query.search) {
-    filter.$or = [
-      { name: { $regex: req.query.search, $options: "i" } },
-      { email: { $regex: req.query.search, $options: "i" } },
-    ];
+    const pattern = toSafeRegex(req.query.search);
+    if (pattern) {
+      filter.$or = [{ name: pattern }, { email: pattern }];
+    }
   }
   if (req.query.availabilityStatus) filter.availabilityStatus = req.query.availabilityStatus;
   if (req.query.skill) filter.skills = req.query.skill;

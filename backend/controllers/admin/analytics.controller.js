@@ -17,6 +17,7 @@ const {
 } = require("../../services/projectCalculations.service");
 const { aggregateClientOutstanding } = require("../../utils/clientOutstanding");
 const { runDaily } = require("../../services/recurringBillingJob.service");
+const { toSafeRegex } = require("../../utils/escapeRegex");
 
 const FINANCIAL_CACHE_KEY = "analytics:financial";
 const FINANCIAL_CACHE_TTL = 120_000;
@@ -205,19 +206,23 @@ const globalSearch = asyncHandler(async (req, res) => {
     return res.json({ success: true, data: { projects: [], freelancers: [], expenses: [] } });
   }
 
-  const regex = { $regex: q, $options: "i" };
+  const pattern = toSafeRegex(q);
+  if (!pattern) {
+    return res.json({ success: true, data: { projects: [], freelancers: [], expenses: [] } });
+  }
+
   const [projects, freelancers, expenses] = await Promise.all([
     Project.find({
-      $or: [{ clientName: regex }, { projectTitle: regex }, { businessName: regex }],
+      $or: [{ clientName: pattern }, { projectTitle: pattern }, { businessName: pattern }],
     })
       .select("projectTitle clientName workStatus paymentStatus")
       .limit(10)
       .lean(),
-    Freelancer.find({ $or: [{ name: regex }, { email: regex }] })
+    Freelancer.find({ $or: [{ name: pattern }, { email: pattern }] })
       .select("name email availabilityStatus")
       .limit(10)
       .lean(),
-    Expense.find({ title: regex }).select("title amount category expenseDate").limit(10).lean(),
+    Expense.find({ title: pattern }).select("title amount category expenseDate").limit(10).lean(),
   ]);
 
   res.json({ success: true, data: { projects, freelancers, expenses } });

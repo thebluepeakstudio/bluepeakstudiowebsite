@@ -17,6 +17,12 @@ export function apiUrl(path) {
   return base ? `${base}${normalized}` : normalized;
 }
 
+/** Admin API resource URL (for cookie-authenticated file links). */
+export function adminApiUrl(path) {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return apiUrl(`/api/admin${normalized}`);
+}
+
 /** Ping backend on load to wake cold starts (e.g. Render free tier). */
 export function wakeBackend() {
   const url = apiUrl("/api/health");

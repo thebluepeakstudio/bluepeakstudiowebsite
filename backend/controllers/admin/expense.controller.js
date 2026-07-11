@@ -3,12 +3,16 @@ const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
 const { invalidateAnalyticsCache } = require("./analytics.controller");
+const { toSafeRegex } = require("../../utils/escapeRegex");
 
 const buildFilter = (query) => {
   const filter = {};
   if (query.category) filter.category = query.category;
   if (query.paidVia) filter.paidVia = query.paidVia;
-  if (query.search) filter.title = { $regex: query.search, $options: "i" };
+  if (query.search) {
+    const pattern = toSafeRegex(query.search);
+    if (pattern) filter.title = pattern;
+  }
   if (query.startDate || query.endDate) {
     filter.expenseDate = {};
     if (query.startDate) filter.expenseDate.$gte = new Date(query.startDate);

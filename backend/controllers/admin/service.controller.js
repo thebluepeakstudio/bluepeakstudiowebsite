@@ -14,6 +14,7 @@ const { syncClientToProject } = require("../../utils/syncClientToProject");
 const { normalizeServiceInput, withLegacyServiceFields } = require("../../utils/serviceCompat");
 const { invalidateAnalyticsCache } = require("./analytics.controller");
 const { aggregateClientOutstanding } = require("../../utils/clientOutstanding");
+const { toSafeRegex } = require("../../utils/escapeRegex");
 const {
   activeDeliverableFilter,
   buildServicesSummary,
@@ -154,12 +155,15 @@ const buildFilter = (query) => {
   if (query.clientId) filter.clientId = query.clientId;
   if (query.brandId) filter.brandId = query.brandId;
   if (query.search) {
-    filter.$or = [
-      { clientName: { $regex: query.search, $options: "i" } },
-      { name: { $regex: query.search, $options: "i" } },
-      { businessName: { $regex: query.search, $options: "i" } },
-      { email: { $regex: query.search, $options: "i" } },
-    ];
+    const pattern = toSafeRegex(query.search);
+    if (pattern) {
+      filter.$or = [
+        { clientName: pattern },
+        { name: pattern },
+        { businessName: pattern },
+        { email: pattern },
+      ];
+    }
   }
   return filter;
 };

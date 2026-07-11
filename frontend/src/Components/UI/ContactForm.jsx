@@ -55,8 +55,7 @@ const ContactForm = ({ variant = "page", onSuccess }) => {
       } else {
         toast.error(data.message || "Something went wrong!");
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error("Server error — please try again later");
     } finally {
       setLoading(false);

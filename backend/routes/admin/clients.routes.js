@@ -14,6 +14,7 @@ const {
   getClientProjects,
   getClientActivities,
   getClientAttachments,
+  getClientTestimonials,
   createClient,
   updateClient,
   deleteClient,
@@ -21,6 +22,7 @@ const {
   uploadClientAttachments,
   deleteClientAttachment,
 } = require("../../controllers/admin/client.controller");
+const { viewClientAttachment } = require("../../controllers/admin/attachmentView.controller");
 
 const router = express.Router();
 router.use(protect);
@@ -32,6 +34,8 @@ router.get("/:id/projects", mongoIdParam, getClientProjects);
 router.get("/:id/activities", mongoIdParam, getClientActivities);
 router.post("/:id/activities", activityValidators, logClientActivity);
 router.get("/:id/attachments", mongoIdParam, getClientAttachments);
+router.get("/:id/testimonials", mongoIdParam, getClientTestimonials);
+router.get("/:id/attachments/:attachmentId/view", mongoIdParam, viewClientAttachment);
 router.post("/:id/attachments", mongoIdParam, upload.array("files", 10), uploadClientAttachments);
 router.delete("/:id/attachments/:attachmentId", mongoIdParam, deleteClientAttachment);
 router.get("/:id", mongoIdParam, getClient);

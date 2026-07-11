@@ -172,12 +172,7 @@ export default function ProjectFilesPanel({ projectId }) {
   const handleOpenDocument = async (doc) => {
     setOpeningId(doc._id);
     previewDocRef.current = doc;
-    const mimeType = guessMimeType(doc.fileName);
     try {
-      if (doc.downloadUrl) {
-        setPreview({ url: doc.downloadUrl, fileName: doc.fileName, mimeType, direct: true });
-        return;
-      }
       await loadProxyPreview(doc);
     } catch {
       toast.error("Could not open document");
@@ -188,7 +183,7 @@ export default function ProjectFilesPanel({ projectId }) {
 
   const handlePreviewError = async () => {
     const doc = previewDocRef.current;
-    if (!doc || !preview?.direct) return;
+    if (!doc) return;
     try {
       await loadProxyPreview(doc);
     } catch {
@@ -197,15 +192,6 @@ export default function ProjectFilesPanel({ projectId }) {
   };
 
   const handleDownloadDocument = async (doc) => {
-    if (doc.downloadUrl) {
-      const link = document.createElement("a");
-      link.href = doc.downloadUrl;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.download = doc.fileName;
-      link.click();
-      return;
-    }
     try {
       const { data } = await getDocumentView(doc._id);
       const mimeType = guessMimeType(doc.fileName);

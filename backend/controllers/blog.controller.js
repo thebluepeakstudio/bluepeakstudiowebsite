@@ -3,6 +3,7 @@ const BlogCategory = require("../models/BlogCategory");
 const ApiError = require("../utils/ApiError");
 const asyncHandler = require("../utils/asyncHandler");
 const { publishedBlogFilter } = require("../utils/publishedBlogFilter");
+const { toSafeRegex } = require("../utils/escapeRegex");
 
 const publishedFilter = publishedBlogFilter();
 
@@ -13,10 +14,10 @@ const buildPublicFilter = (query) => {
   }
   if (query.categoryId) filter.categoryId = query.categoryId;
   if (query.search) {
-    filter.$or = [
-      { title: { $regex: query.search, $options: "i" } },
-      { excerpt: { $regex: query.search, $options: "i" } },
-    ];
+    const pattern = toSafeRegex(query.search);
+    if (pattern) {
+      filter.$or = [{ title: pattern }, { excerpt: pattern }];
+    }
   }
   if (query.featured === "true") filter.isFeatured = true;
   return filter;
@@ -35,10 +36,10 @@ const getPublishedBlogs = asyncHandler(async (req, res) => {
   }
   if (req.query.categoryId) filter.categoryId = req.query.categoryId;
   if (req.query.search) {
-    filter.$or = [
-      { title: { $regex: req.query.search, $options: "i" } },
-      { excerpt: { $regex: req.query.search, $options: "i" } },
-    ];
+    const pattern = toSafeRegex(req.query.search);
+    if (pattern) {
+      filter.$or = [{ title: pattern }, { excerpt: pattern }];
+    }
   }
 
   const [blogs, total] = await Promise.all([

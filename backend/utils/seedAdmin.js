@@ -20,8 +20,7 @@ const run = async () => {
     process.exit(1);
   }
   if (result.exists) {
-    console.log("Admin already exists:", result.email);
-    console.log("Set ADMIN_SEED_RESET=true or run: npm run seed:admin -- --reset");
+    console.log("Admin already exists — set ADMIN_SEED_RESET=true or run: npm run seed:admin -- --reset");
   }
 
   process.exit(0);

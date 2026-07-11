@@ -5,10 +5,8 @@ import { CLIENT_STATUSES } from "../../utils/constants";
 
 export const emptyClient = {
   name: "",
-  companyName: "",
   email: "",
   phone: "",
-  website: "",
   address: "",
   notes: "",
   status: "Active",
@@ -20,22 +18,17 @@ export default function ClientFormModal({ open, onClose, form, setForm, onSubmit
       open={open}
       onClose={onClose}
       title={editing ? "Edit Client" : "Add Client"}
-      description="Store client contact and business information."
+      description="Store client contact information."
       size="lg"
     >
       <Form onSubmit={onSubmit}>
-        <FormSection title="Contact details" description="Primary person and how to reach them.">
+        <FormSection title="Basic Details" description="Primary contact and account information.">
           <FormGrid cols={2}>
             <Input
               label="Name"
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-            <Input
-              label="Company"
-              value={form.companyName}
-              onChange={(e) => setForm({ ...form, companyName: e.target.value })}
             />
             <Input
               label="Email"
@@ -47,16 +40,6 @@ export default function ClientFormModal({ open, onClose, form, setForm, onSubmit
               label="Phone"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-          </FormGrid>
-        </FormSection>
-
-        <FormSection title="Business details">
-          <FormGrid cols={2}>
-            <Input
-              label="Website"
-              value={form.website}
-              onChange={(e) => setForm({ ...form, website: e.target.value })}
             />
             <Select
               label="Status"
@@ -71,9 +54,6 @@ export default function ClientFormModal({ open, onClose, form, setForm, onSubmit
             value={form.address}
             onChange={(e) => setForm({ ...form, address: e.target.value })}
           />
-        </FormSection>
-
-        <FormSection title="Notes">
           <Textarea
             label="Internal notes"
             value={form.notes}

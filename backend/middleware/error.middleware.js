@@ -13,6 +13,9 @@ function applyCorsHeaders(req, res) {
 const errorHandler = (err, req, res, next) => {
   applyCorsHeaders(req, res);
 
+  const isProd = process.env.NODE_ENV === "production";
+  const correlationId = req.correlationId || "unknown";
+
   let statusCode = err.statusCode || 500;
   let message = err.message || "Internal Server Error";
 
@@ -38,11 +41,44 @@ const errorHandler = (err, req, res, next) => {
     message = "Invalid ID format";
   }
 
-  res.status(statusCode).json({
+  if (err.code === "LIMIT_FILE_SIZE") {
+    statusCode = 400;
+    message = "File too large (max 10 MB)";
+  }
+
+  if (
+    err.message === "File type not allowed" ||
+    err.message === "Only JPG, JPEG, PNG, and WEBP images are allowed"
+  ) {
+    statusCode = 400;
+    message = err.message;
+  }
+
+  if (isProd && statusCode >= 500) {
+    message = "An unexpected error occurred. Please try again.";
+  }
+
+  console.error("[error]", {
+    correlationId,
+    statusCode,
+    name: err.name,
+    message: err.message,
+    path: req.path,
+    method: req.method,
+    ...(isProd ? {} : { stack: err.stack }),
+  });
+
+  const body = {
     success: false,
     message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
-  });
+    correlationId,
+  };
+
+  if (!isProd && err.stack) {
+    body.stack = err.stack;
+  }
+
+  res.status(statusCode).json(body);
 };
 
 module.exports = errorHandler;

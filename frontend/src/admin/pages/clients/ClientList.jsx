@@ -103,7 +103,6 @@ export default function ClientList() {
             onRowClick={(r) => navigate(adminPath("clients", r._id))}
             columns={[
               { key: "name", label: "Name" },
-              { key: "companyName", label: "Company" },
               { key: "email", label: "Email" },
               { key: "phone", label: "Phone" },
               {

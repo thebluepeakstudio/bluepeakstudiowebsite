@@ -23,6 +23,7 @@ const documentSchema = new mongoose.Schema(
     publicId: { type: String },
     format: { type: String },
     resourceType: { type: String, enum: ["image", "raw", "video", "auto"], default: "image" },
+    accessMode: { type: String, enum: ["authenticated", "public"], default: "authenticated" },
     category: { type: String, enum: DOCUMENT_CATEGORIES, required: true },
     uploadedBy: { type: String, required: true },
   },

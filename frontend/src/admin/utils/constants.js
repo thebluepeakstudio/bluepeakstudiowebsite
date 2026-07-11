@@ -128,6 +128,7 @@ export const ACTIVITY_TYPES = ["call", "meeting", "email", "note", "task"];
 /** Display label for a project (no title required). */
 export const getProjectLabel = (project) => {
   if (!project) return "—";
+  if (project.brandId?.name) return project.brandId.name;
   if (project.projectTitle?.trim()) return project.projectTitle;
   if (project.projectName?.trim()) return project.projectName;
   if (project.businessName) return `${project.clientName} — ${project.businessName}`;

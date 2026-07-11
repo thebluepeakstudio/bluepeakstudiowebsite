@@ -14,7 +14,16 @@ const testimonialSchema = new mongoose.Schema({
   message: {
     type: String,
     required: true,
-  }
+  },
+  clientId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Client",
+    index: true,
+  },
+  brandId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Brand",
+  },
 }, {
   timestamps: true
 });

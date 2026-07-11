@@ -20,7 +20,11 @@ const { DELIVERABLE_DUE_TRIGGER_STATUSES } = require("../constants/serviceCatego
 const { roundMoney } = require("./recurringDates");
 
 const run = async () => {
-  await mongoose.connect(process.env.MONGODB_URI);
+  const uri = process.env.MONGO_URL;
+  if (!uri) {
+    throw new Error("MONGO_URL is not set in .env");
+  }
+  await mongoose.connect(uri);
   console.log("Connected. Migrating freelancer dues...");
 
   let assignmentCount = 0;

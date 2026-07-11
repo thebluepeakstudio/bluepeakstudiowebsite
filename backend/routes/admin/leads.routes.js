@@ -31,6 +31,7 @@ const {
   updateFollowUp,
   convertLead,
 } = require("../../controllers/admin/lead.controller");
+const { viewLeadAttachment } = require("../../controllers/admin/attachmentView.controller");
 
 const router = express.Router();
 router.use(protect);
@@ -45,6 +46,7 @@ router.get("/:id/activities", mongoIdParam, getLeadActivities);
 router.post("/:id/activities", activityValidators, logLeadActivity);
 router.get("/:id/status-history", mongoIdParam, getLeadStatusHistory);
 router.get("/:id/attachments", mongoIdParam, getLeadAttachments);
+router.get("/:id/attachments/:attachmentId/view", mongoIdParam, viewLeadAttachment);
 router.post("/:id/attachments", mongoIdParam, upload.array("files", 10), uploadLeadAttachments);
 router.delete("/:id/attachments/:attachmentId", mongoIdParam, deleteLeadAttachment);
 router.patch("/:id/follow-up", followUpValidators, updateFollowUp);

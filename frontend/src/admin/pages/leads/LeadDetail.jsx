@@ -29,6 +29,7 @@ import { formatCurrency, formatDate } from "../../utils/formatCurrency";
 import { CardSkeleton } from "../../components/ui/Skeleton";
 import toast from "react-hot-toast";
 import { adminPath } from "../../utils/adminPaths";
+import { apiUrl } from "../../../utils/apiBase";
 
 export default function LeadDetail() {
   const { id } = useParams();
@@ -307,7 +308,7 @@ export default function LeadDetail() {
                 className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <a
-                  href={a.fileUrl}
+                  href={apiUrl(a.viewUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="break-all text-sm text-admin-primary hover:underline"

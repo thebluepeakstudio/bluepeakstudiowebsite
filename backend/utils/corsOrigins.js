@@ -5,6 +5,9 @@ const STATIC_ALLOWED_ORIGINS = [
   "https://bluepeakstudio.in",
   "https://www.bluepeakstudio.in",
   "https://crm.bluepeakstudio.in",
+];
+
+const DEV_ORIGINS = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://crm.localhost:5173",
@@ -55,11 +58,19 @@ function isRenderStaticOrigin(origin) {
 
 function isAllowedOrigin(origin) {
   if (!origin) return true;
+
+  const isProd = process.env.NODE_ENV === "production";
+
   if (STATIC_ALLOWED_ORIGINS.includes(origin)) return true;
   if (parseExtraOrigins().includes(origin)) return true;
   if (isBluePeakStudioOrigin(origin)) return true;
-  if (isLocalDevOrigin(origin)) return true;
-  if (isRenderStaticOrigin(origin)) return true;
+
+  if (!isProd) {
+    if (DEV_ORIGINS.includes(origin)) return true;
+    if (isLocalDevOrigin(origin)) return true;
+    if (isRenderStaticOrigin(origin)) return true;
+  }
+
   return false;
 }
 
