@@ -233,7 +233,7 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  placeholder="admin@bluepeakstudio.in"
+                  placeholder="Enter your email"
                   className="admin-login-input w-full rounded-xl border border-admin-border bg-white py-3 px-4 text-sm text-admin-text shadow-sm transition-all placeholder:text-slate-400 focus:border-admin-primary focus:outline-none focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>

@@ -44,6 +44,8 @@ const login = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     admin: { id: admin._id, name: admin.name, email: admin.email },
+    // Bearer fallback for cross-origin CRM (cookie may not persist across domains)
+    token,
   });
 });
 

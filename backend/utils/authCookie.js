@@ -1,13 +1,21 @@
 const AUTH_COOKIE_NAME = "bps_admin_token";
 const { parseJwtExpiryMs } = require("./jwtConfig");
 
+function isSecureDeployment() {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.RENDER === "true" ||
+    process.env.FORCE_SECURE_COOKIES === "true"
+  );
+}
+
 function getAuthCookieOptions() {
-  const isProd = process.env.NODE_ENV === "production";
+  const secure = isSecureDeployment();
   return {
     httpOnly: true,
-    secure: isProd,
-    // Cross-site CRM (crm.bluepeakstudio.in) → API on Render requires SameSite=None in prod.
-    sameSite: isProd ? "none" : "lax",
+    secure,
+    // Cross-site CRM (crm.bluepeakstudio.in) → API on Render requires SameSite=None when secure.
+    sameSite: secure ? "none" : "lax",
     maxAge: parseJwtExpiryMs(),
     path: "/",
   };
@@ -18,10 +26,11 @@ function setAuthCookie(res, token) {
 }
 
 function clearAuthCookie(res) {
+  const secure = isSecureDeployment();
   res.clearCookie(AUTH_COOKIE_NAME, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure,
+    sameSite: secure ? "none" : "lax",
     path: "/",
   });
 }
