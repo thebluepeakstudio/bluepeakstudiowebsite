@@ -10,9 +10,22 @@ const {
 } = require("./serviceCalculations.service");
 const { syncDueForDeliverableStatus } = require("./freelancerDue.service");
 
+function resolveSellingPrice(data = {}) {
+  const raw = data.sellingPrice ?? data.amount ?? data.price;
+  if (raw === undefined || raw === null || raw === "") return 0;
+  const price = Number(raw);
+  return Number.isNaN(price) || price < 0 ? 0 : price;
+}
+
 const validateDeliverableInput = (data) => {
-  if (data.sellingPrice === undefined) return;
-  const price = Number(data.sellingPrice);
+  if (
+    data.sellingPrice === undefined &&
+    data.amount === undefined &&
+    data.price === undefined
+  ) {
+    return;
+  }
+  const price = resolveSellingPrice(data);
   if (Number.isNaN(price) || price < 0) {
     throw new ApiError(400, "Invalid amount");
   }
@@ -65,7 +78,7 @@ const createDeliverable = async (serviceId, data, session = null) => {
         title: data.title,
         category: resolveDeliverableCategory(service, data),
         description: data.description,
-        sellingPrice: Number(data.sellingPrice) || 0,
+        sellingPrice: resolveSellingPrice(data),
         dueDate: data.dueDate || data.expectedCompletion || undefined,
         actualCompletion: data.actualCompletion || undefined,
         status: data.status || "Not Started",
@@ -101,12 +114,19 @@ const updateDeliverable = async (serviceId, deliverableId, data, session = null)
   fields.forEach((key) => {
     if (data[key] !== undefined) {
       if (key === "sellingPrice") {
-        deliverable[key] = Number(data[key]) || 0;
+        deliverable[key] = resolveSellingPrice(data);
       } else {
         deliverable[key] = data[key];
       }
     }
   });
+  if (
+    data.amount !== undefined ||
+    data.price !== undefined ||
+    data.sellingPrice !== undefined
+  ) {
+    deliverable.sellingPrice = resolveSellingPrice(data);
+  }
   if (data.expectedCompletion !== undefined && data.dueDate === undefined) {
     deliverable.dueDate = data.expectedCompletion;
   }
@@ -195,7 +215,7 @@ const createDeliverablesBatch = async (serviceId, items, session) => {
           title: item.title,
           category: resolveDeliverableCategory(service, item),
           description: item.description,
-          sellingPrice: Number(item.sellingPrice) || 0,
+          sellingPrice: resolveSellingPrice(item),
           dueDate: item.dueDate || item.expectedCompletion || undefined,
           status: item.status || "Not Started",
         },
@@ -212,6 +232,7 @@ module.exports = {
   syncServiceFromDeliverables,
   syncServiceWorkStatusFromDeliverables,
   syncProjectFromDeliverables: syncServiceFromDeliverables,
+  resolveSellingPrice,
   createDeliverable,
   updateDeliverable,
   softDeleteDeliverable,

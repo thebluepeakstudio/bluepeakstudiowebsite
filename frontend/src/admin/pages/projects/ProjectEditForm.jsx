@@ -77,6 +77,16 @@ export default function ProjectEditForm({
     if (!payload.clientId) delete payload.clientId;
     delete payload.totalAmount;
     delete payload.totalAmountOverride;
+    delete payload.totalPrice;
+    delete payload.advanceReceived;
+    delete payload.remainingAmount;
+    delete payload.paymentStatus;
+    delete payload.totalReceived;
+    delete payload.projectProfit;
+    delete payload.serviceProfit;
+    delete payload.deliverables;
+    delete payload.payments;
+    delete payload.expenses;
     onSubmit(payload);
   };
 

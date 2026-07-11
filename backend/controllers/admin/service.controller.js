@@ -29,7 +29,7 @@ const {
   softDeleteDeliverable,
   listDeliverables,
   createDeliverablesBatch,
-  syncServiceWorkStatusFromDeliverables,
+  syncServiceFromDeliverables,
 } = require("../../services/deliverable.service");
 const {
   createAssignment,
@@ -108,8 +108,20 @@ const METADATA_ONLY_UPDATE_FIELDS = new Set([
   "businessName",
   "contactNumber",
   "email",
-  "totalPrice",
 ]);
+
+const stripDerivedServiceFields = (body, billingModel) => {
+  if (billingModel === "recurring") return body;
+  const next = { ...body };
+  delete next.totalPrice;
+  delete next.totalAmount;
+  delete next.advanceReceived;
+  delete next.remainingAmount;
+  delete next.paymentStatus;
+  delete next.advancePaymentDate;
+  delete next.fullPaymentDate;
+  return next;
+};
 
 const normalizeFieldValue = (value) => {
   if (value == null || value === "") return "";
@@ -376,6 +388,16 @@ const getService = asyncHandler(async (req, res) => {
 
   const includeParam = resolveServiceIncludeParam(req.query);
 
+  const deliverablesForSync = await listDeliverables(service._id);
+  const computedTotal = sumDeliverablePrices(deliverablesForSync);
+  if (
+    computedTotal > 0 &&
+    roundMoney(service.totalPrice ?? 0) !== roundMoney(computedTotal)
+  ) {
+    await syncServiceFromDeliverables(service._id);
+    service.totalPrice = computedTotal;
+  }
+
   if (includeParam === "all") {
     const data = await buildServiceDetail(service, { withArrays: true });
     return res.json({ success: true, data });
@@ -482,7 +504,7 @@ const updateService = asyncHandler(async (req, res) => {
   const existing = await Service.findById(req.params.id);
   if (!existing) throw new ApiError(404, "Service not found");
 
-  let body = pickContainerFields(req.body);
+  let body = stripDerivedServiceFields(pickContainerFields(req.body), existing.billingModel);
   if (body.clientId) body = await syncClientToProject(body);
 
   const service = await Service.findByIdAndUpdate(req.params.id, body, {
@@ -499,20 +521,15 @@ const updateService = asyncHandler(async (req, res) => {
     return res.json({ success: true, data });
   }
 
-  if (await shouldSyncServiceWorkStatus(service._id, body, existing)) {
-    await syncServiceWorkStatusFromDeliverables(service._id);
-    const refreshed = await Service.findById(service._id)
-      .populate("clientId", "name companyName email phone")
-      .populate("brandId", "name logoUrl")
-      .lean();
-    const data = await buildServiceDetail(refreshed, { withArrays: false });
-    invalidateAnalyticsCache();
-    return res.json({ success: true, data });
-  }
+  await syncServiceFromDeliverables(service._id);
 
-  const data = await buildServiceDetail(service, { withArrays: false });
+  const refreshed = await Service.findById(service._id)
+    .populate("clientId", "name companyName email phone")
+    .populate("brandId", "name logoUrl")
+    .lean();
+  const data = await buildServiceDetail(refreshed, { withArrays: false });
   invalidateAnalyticsCache();
-  res.json({ success: true, data });
+  return res.json({ success: true, data });
 });
 
 const deleteService = asyncHandler(async (req, res) => {
@@ -600,14 +617,21 @@ const getServiceDeliverables = asyncHandler(async (req, res) => {
 
 const postServiceDeliverable = asyncHandler(async (req, res) => {
   const deliverable = await createDeliverable(req.params.id, req.body);
+  const rows = await listDeliverables(req.params.id);
+  const data =
+    rows.find((row) => String(row._id) === String(deliverable._id)) ||
+    (typeof deliverable.toObject === "function" ? deliverable.toObject() : deliverable);
   invalidateAnalyticsCache();
-  res.status(201).json({ success: true, data: deliverable });
+  res.status(201).json({ success: true, data });
 });
 
 const putServiceDeliverable = asyncHandler(async (req, res) => {
-  const deliverable = await updateDeliverable(req.params.id, req.params.deliverableId, req.body);
+  await updateDeliverable(req.params.id, req.params.deliverableId, req.body);
+  const rows = await listDeliverables(req.params.id);
+  const data = rows.find((row) => String(row._id) === String(req.params.deliverableId));
+  if (!data) throw new ApiError(404, "Deliverable not found");
   invalidateAnalyticsCache();
-  res.json({ success: true, data: deliverable });
+  res.json({ success: true, data });
 });
 
 const deleteServiceDeliverable = asyncHandler(async (req, res) => {

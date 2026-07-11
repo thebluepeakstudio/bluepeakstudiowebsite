@@ -177,6 +177,7 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
         projectTitle: brandName,
         name: brandName,
         businessName: brandName,
+        totalPrice: calculatedTotal,
       },
       deliverables: deliverables.map((d) => ({
         title: d.title,

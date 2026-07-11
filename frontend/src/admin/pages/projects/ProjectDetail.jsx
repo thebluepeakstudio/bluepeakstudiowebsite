@@ -141,8 +141,13 @@ const sortPayments = (payments) =>
     (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
   );
 
+const sumDeliverableAmounts = (deliverables = []) =>
+  deliverables.reduce((sum, d) => sum + (Number(d.sellingPrice) || 0), 0);
+
 const applyPaymentTotals = (project, payments) => {
-  const totalAmount = Number(project.totalAmount) || 0;
+  const deliverableTotal = sumDeliverableAmounts(project.deliverables);
+  const totalAmount =
+    deliverableTotal > 0 ? deliverableTotal : Number(project.totalAmount) || 0;
   const totalReceived = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   const remainingAmount = Math.max(0, totalAmount - totalReceived);
   return {
@@ -504,7 +509,9 @@ export default function ProjectDetail() {
   }
 
   const totalReceived = Number(project.totalReceived ?? project.advanceReceived) || 0;
-  const projectValue = Number(project.totalAmount) || 0;
+  const deliverableTotal = sumDeliverableAmounts(project.deliverables);
+  const projectValue =
+    deliverableTotal > 0 ? deliverableTotal : Number(project.totalAmount) || 0;
   const remaining = Math.max(0, projectValue - totalReceived);
   const paymentStatus = normalizePaymentStatus(project.paymentStatus);
 

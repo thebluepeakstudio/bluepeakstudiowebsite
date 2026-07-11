@@ -25,7 +25,7 @@ const deliverableBody = [
   body("title").trim().notEmpty().withMessage("Title is required"),
   body("category").isIn(SERVICE_CATEGORIES).withMessage("Invalid category"),
   body("description").optional().trim(),
-  body("sellingPrice").optional().isFloat({ min: 0 }).withMessage("Invalid amount"),
+  body("sellingPrice").optional({ values: "null" }).isFloat({ min: 0 }).withMessage("Invalid amount").toFloat(),
   body("status").optional().isIn(DELIVERABLE_STATUSES).withMessage("Invalid status"),
 ];
 
@@ -35,7 +35,7 @@ const updateDeliverableValidators = [
   body("title").optional().trim().notEmpty().withMessage("Title cannot be empty"),
   body("category").optional().isIn(SERVICE_CATEGORIES).withMessage("Invalid category"),
   body("description").optional().trim(),
-  body("sellingPrice").optional().isFloat({ min: 0 }).withMessage("Invalid amount"),
+  body("sellingPrice").optional({ values: "null" }).isFloat({ min: 0 }).withMessage("Invalid amount").toFloat(),
   body("status").optional().isIn(DELIVERABLE_STATUSES).withMessage("Invalid status"),
   validate,
 ];
@@ -93,7 +93,7 @@ const createProjectValidators = [
   body("deliverables").isArray({ min: 1 }).withMessage("At least one deliverable is required"),
   body("deliverables.*.title").trim().notEmpty().withMessage("Deliverable title is required"),
   body("deliverables.*.category").isIn(SERVICE_CATEGORIES).withMessage("Invalid deliverable category"),
-  body("deliverables.*.sellingPrice").optional().isFloat({ min: 0 }),
+  body("deliverables.*.sellingPrice").optional({ values: "null" }).isFloat({ min: 0 }).toFloat(),
   validate,
 ];
 
@@ -115,7 +115,7 @@ const createServiceValidators = [
   body("deliverables").isArray({ min: 1 }).withMessage("At least one deliverable is required"),
   body("deliverables.*.title").trim().notEmpty().withMessage("Deliverable title is required"),
   body("deliverables.*.category").isIn(SERVICE_CATEGORIES).withMessage("Invalid deliverable category"),
-  body("deliverables.*.sellingPrice").optional().isFloat({ min: 0 }),
+  body("deliverables.*.sellingPrice").optional({ values: "null" }).isFloat({ min: 0 }).toFloat(),
   validate,
 ];
 
