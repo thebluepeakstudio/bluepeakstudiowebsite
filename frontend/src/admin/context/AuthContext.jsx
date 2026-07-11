@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { login as loginApi, logout as logoutApi, getMe } from "../api/auth.api";
-import { clearAuthToken, setAuthToken } from "../api/authToken";
+import { clearAuthToken, getAuthToken, setAuthToken } from "../api/authToken";
 
 const AuthContext = createContext(null);
 
@@ -26,9 +26,16 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    // Clear legacy localStorage auth from before session migration
+    // Clear legacy localStorage keys from older auth shapes (not the session token)
     localStorage.removeItem("adminToken");
     localStorage.removeItem("adminUser");
+
+    const token = getAuthToken();
+    if (!token) {
+      setAdmin(null);
+      setLoading(false);
+      return;
+    }
 
     getMe()
       .then(({ data }) => {
