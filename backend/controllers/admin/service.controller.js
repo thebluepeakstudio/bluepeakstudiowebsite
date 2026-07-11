@@ -315,7 +315,7 @@ const buildServiceDetail = async (service, { withArrays = true } = {}) => {
     ? roundMoney(sumDeliverablePrices(deliverables))
     : roundMoney(legacy.totalPrice ?? legacy.totalAmount);
   const serviceProfit = deliverables.length
-    ? await computeServiceProfit(service._id, deliverables, assignmentsByDeliverable, totalPrice)
+    ? await computeServiceProfit(service._id, deliverables, assignmentsByDeliverable)
     : totalPrice - (Number(legacy.outsourcingCost) || 0);
 
   const totalFreelancerCost = deliverables.reduce(

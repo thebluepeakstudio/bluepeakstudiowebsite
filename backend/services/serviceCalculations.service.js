@@ -71,15 +71,14 @@ const getServiceExpensesTotal = async (serviceId) => {
 
 const getProjectExpensesTotal = getServiceExpensesTotal;
 
-const computeServiceProfit = async (serviceId, deliverables, assignmentsByDeliverable, totalPrice) => {
+const computeServiceProfit = async (serviceId, deliverables, assignmentsByDeliverable) => {
   let deliverableProfitTotal = 0;
   for (const d of deliverables) {
     const assignments = assignmentsByDeliverable[d._id.toString()] || [];
     deliverableProfitTotal += deliverableProfit(d, assignments);
   }
   const expenseTotal = await getServiceExpensesTotal(serviceId);
-  const revenue = Number(totalPrice) || 0;
-  return revenue + deliverableProfitTotal - expenseTotal;
+  return deliverableProfitTotal - expenseTotal;
 };
 
 const computeProjectProfit = computeServiceProfit;

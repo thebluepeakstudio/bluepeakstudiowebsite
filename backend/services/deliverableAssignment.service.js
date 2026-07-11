@@ -1,8 +1,9 @@
 const DeliverableAssignment = require("../models/DeliverableAssignment");
+const Deliverable = require("../models/Deliverable");
 const ProjectDeliverable = require("../models/ProjectDeliverable");
 const Freelancer = require("../models/Freelancer");
 const ApiError = require("../utils/ApiError");
-const { activeAssignmentFilter } = require("./projectCalculations.service");
+const { activeAssignmentFilter } = require("./serviceCalculations.service");
 
 const updateFreelancerCount = async (freelancerId, delta, session = null) => {
   if (!freelancerId) return;
@@ -13,18 +14,27 @@ const updateFreelancerCount = async (freelancerId, delta, session = null) => {
   );
 };
 
-const getDeliverableOrFail = async (projectId, deliverableId, session = null) => {
-  const deliverable = await ProjectDeliverable.findOne({
+const getDeliverableOrFail = async (ownerId, deliverableId, session = null) => {
+  let deliverable = await Deliverable.findOne({
     _id: deliverableId,
-    projectId,
+    serviceId: ownerId,
     deletedAt: null,
   }).session(session || null);
+
+  if (!deliverable) {
+    deliverable = await ProjectDeliverable.findOne({
+      _id: deliverableId,
+      projectId: ownerId,
+      deletedAt: null,
+    }).session(session || null);
+  }
+
   if (!deliverable) throw new ApiError(404, "Deliverable not found");
   return deliverable;
 };
 
-const createAssignment = async (projectId, deliverableId, data, session = null) => {
-  await getDeliverableOrFail(projectId, deliverableId, session);
+const createAssignment = async (ownerId, deliverableId, data, session = null) => {
+  await getDeliverableOrFail(ownerId, deliverableId, session);
 
   const freelancer = await Freelancer.findById(data.freelancerId).session(session || null);
   if (!freelancer) throw new ApiError(404, "Freelancer not found");
@@ -58,8 +68,8 @@ const createAssignment = async (projectId, deliverableId, data, session = null) 
   return query;
 };
 
-const updateAssignment = async (projectId, deliverableId, assignmentId, data, session = null) => {
-  await getDeliverableOrFail(projectId, deliverableId, session);
+const updateAssignment = async (ownerId, deliverableId, assignmentId, data, session = null) => {
+  await getDeliverableOrFail(ownerId, deliverableId, session);
 
   const assignment = await DeliverableAssignment.findOne({
     _id: assignmentId,
@@ -78,8 +88,8 @@ const updateAssignment = async (projectId, deliverableId, assignmentId, data, se
     .lean();
 };
 
-const softDeleteAssignment = async (projectId, deliverableId, assignmentId, session = null) => {
-  await getDeliverableOrFail(projectId, deliverableId, session);
+const softDeleteAssignment = async (ownerId, deliverableId, assignmentId, session = null) => {
+  await getDeliverableOrFail(ownerId, deliverableId, session);
 
   const assignment = await DeliverableAssignment.findOne({
     _id: assignmentId,
@@ -132,41 +142,67 @@ const listAssignmentsForFreelancer = async (freelancerId) => {
   })
     .populate({
       path: "deliverableId",
-      select: "title category status progress projectId sellingPrice expectedCompletion",
+      select: "title category status progress serviceId projectId sellingPrice dueDate expectedCompletion",
       match: { deletedAt: null },
     })
     .lean();
 
+  const Service = require("../models/Service");
   const Project = require("../models/Project");
   const valid = assignments.filter((a) => a.deliverableId);
 
-  const projectIds = [...new Set(valid.map((a) => a.deliverableId.projectId.toString()))];
-  const projects = await Project.find({ _id: { $in: projectIds } })
-    .select("clientName businessName projectTitle workStatus paymentStatus")
-    .lean();
-  const projectMap = Object.fromEntries(projects.map((p) => [p._id.toString(), p]));
+  const serviceIds = [
+    ...new Set(
+      valid
+        .map((a) => a.deliverableId.serviceId || a.deliverableId.projectId)
+        .filter(Boolean)
+        .map((id) => id.toString())
+    ),
+  ];
+
+  const [services, projects] = await Promise.all([
+    Service.find({ _id: { $in: serviceIds } })
+      .select("clientName businessName name workStatus paymentStatus")
+      .lean(),
+    Project.find({ _id: { $in: serviceIds } })
+      .select("clientName businessName projectTitle workStatus paymentStatus")
+      .lean(),
+  ]);
+
+  const ownerMap = Object.fromEntries([
+    ...services.map((s) => [s._id.toString(), s]),
+    ...projects.map((p) => [p._id.toString(), p]),
+  ]);
 
   return valid
-    .filter((a) => projectMap[a.deliverableId.projectId.toString()])
+    .filter((a) => {
+      const ownerId = (a.deliverableId.serviceId || a.deliverableId.projectId)?.toString();
+      return ownerId && ownerMap[ownerId];
+    })
     .map((a) => {
-    const project = projectMap[a.deliverableId.projectId.toString()];
-    const cost = Number(a.cost) || 0;
-    const paid = Number(a.amountPaid) || 0;
-    return {
-      _id: a._id,
-      assignmentId: a._id,
-      projectId: a.deliverableId.projectId,
-      deliverableId: a.deliverableId._id,
-      project,
-      deliverable: a.deliverableId,
-      role: a.role,
-      cost,
-      amountPaid: paid,
-      paymentStatus: a.paymentStatus,
-      due: Math.max(0, cost - paid),
-      status: a.deliverableId.status,
-    };
-  });
+      const ownerId = (a.deliverableId.serviceId || a.deliverableId.projectId).toString();
+      const project = ownerMap[ownerId];
+      const cost = Number(a.cost) || 0;
+      const paid = Number(a.amountPaid) || 0;
+      return {
+        _id: a._id,
+        assignmentId: a._id,
+        projectId: a.deliverableId.serviceId || a.deliverableId.projectId,
+        deliverableId: a.deliverableId._id,
+        project,
+        deliverable: {
+          ...a.deliverableId,
+          expectedCompletion: a.deliverableId.dueDate || a.deliverableId.expectedCompletion,
+          projectId: a.deliverableId.serviceId || a.deliverableId.projectId,
+        },
+        role: a.role,
+        cost,
+        amountPaid: paid,
+        paymentStatus: a.paymentStatus,
+        due: Math.max(0, cost - paid),
+        status: a.deliverableId.status,
+      };
+    });
 };
 
 module.exports = {
