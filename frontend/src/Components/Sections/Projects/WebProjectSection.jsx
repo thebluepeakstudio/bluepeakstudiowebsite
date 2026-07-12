@@ -3,6 +3,26 @@ import "./Project.css"
 
 const projects = [
   {
+    title: 'Client Management System',
+    category: 'Custom Software',
+    desc: 'A centralized workspace designed to track clients, projects, deliverables, payment statuses, and freelancers in one unified dashboard.',
+    tags: ['React', 'Node.js', 'PostgreSQL', 'Express.js'],
+    color: '#EF9F27',
+    img: 'https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/crm%20blue%20peak%20studio?updatedAt=1783882218230',
+    link: '',
+    size: 'large'
+  },
+  {
+    title: 'Foxnut Manufacturing ERP',
+    category: 'Custom Software',
+    desc: 'An end-to-end manufacturing system that tracks raw foxnut procurement, final inventory production, sales, invoices, and automated financial balance sheets.',
+    tags: ['React', 'Node.js', 'PostgreSQL', 'Express.js', 'Docker', 'Redis'],
+    color: '#5DCAA5',
+    img: 'https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/Screenshot%202026-07-01%20153132.png?updatedAt=1782900128997',
+    link: '',
+    size: 'large'
+  },
+  {
     title: 'Chikoo Constructions',
     category: 'Real Estate',
     desc: 'A high-performance corporate portal for a premier construction firm, featuring interactive project galleries and optimized lead generation flows.',
