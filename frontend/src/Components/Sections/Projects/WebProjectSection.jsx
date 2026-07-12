@@ -44,7 +44,7 @@ const projects = [
   },
   {
     title: 'Tvastih Studio',
-    category: 'Custom Software',
+    category: 'E-Commerce',
     desc: 'Enterprise-grade project management dashboard featuring high-performance Kanban systems.',
     tags: ['Wix'],
     color: '#5DCAA5',
