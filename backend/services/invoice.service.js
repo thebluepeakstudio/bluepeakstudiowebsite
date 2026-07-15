@@ -1,8 +1,10 @@
 const path = require("path");
 const PDFDocument = require("pdfkit");
 const Project = require("../models/Project");
+const Service = require("../models/Service");
 const Client = require("../models/Client");
-const { listDeliverables } = require("./projectDeliverable.service");
+const { listDeliverables: listProjectDeliverables } = require("./projectDeliverable.service");
+const { listDeliverables: listServiceDeliverables } = require("./deliverable.service");
 const invoiceSettings = require("../constants/invoiceSettings");
 const ApiError = require("../utils/ApiError");
 
@@ -23,7 +25,7 @@ const formatInvoiceDate = (date = new Date()) =>
 
 const fetchImageBuffer = async (url) => {
   const response = await fetch(url);
-  if (!response.ok) throw new Error("Failed to load logo");
+  if (!response.ok) throw new Error("Failed to load image");
   return Buffer.from(await response.arrayBuffer());
 };
 
@@ -48,43 +50,41 @@ const getSignatureBuffer = async (signatureUrl) => {
   return cachedSignatureBuffer;
 };
 
-/** Stable invoice number derived from project ID (same project → same number). */
-const getProjectInvoiceNumber = (projectId) => {
-  const hex = String(projectId).replace(/[^a-f0-9]/gi, "");
+/** Stable invoice number derived from owner ID (same id → same number). */
+const getProjectInvoiceNumber = (ownerId) => {
+  const hex = String(ownerId).replace(/[^a-f0-9]/gi, "");
   const suffix = hex.slice(-5) || "1";
   const num = parseInt(suffix, 16) % 100000;
   return String(num || 1).padStart(5, "0");
 };
 
-const buildIssuedToLines = (project, client) => {
+const buildIssuedToLines = (owner, client) => {
   const lines = [];
-  const company = project.businessName || client?.companyName;
-  const contact = project.clientName || client?.name;
+  const company = owner.businessName || client?.companyName;
+  const contact = owner.clientName || client?.name;
 
   if (company) lines.push(company);
   if (client?.address) {
     lines.push(...client.address.split(/\n|,/).map((s) => s.trim()).filter(Boolean));
   }
-  if (project.contactNumber || client?.phone) {
+  if (owner.contactNumber || client?.phone) {
     const label = contact && contact !== company ? `${contact}: ` : "";
-    lines.push(`${label}${project.contactNumber || client?.phone}`);
+    lines.push(`${label}${owner.contactNumber || client?.phone}`);
   }
-  if (project.email || client?.email) lines.push(project.email || client?.email);
-  if (!lines.length) lines.push(project.clientName || "Client");
+  if (owner.email || client?.email) lines.push(owner.email || client?.email);
+  if (!lines.length) lines.push(owner.clientName || "Client");
   return lines;
 };
 
-const generateProjectInvoicePdf = async (projectId) => {
-  const project = await Project.findById(projectId).lean();
-  if (!project) throw new ApiError(404, "Project not found");
-
-  const client = project.clientId ? await Client.findById(project.clientId).lean() : null;
-  const deliverables = (await listDeliverables(projectId)).filter((d) => d.status !== "Cancelled");
-  if (!deliverables.length) throw new ApiError(400, "No deliverables to invoice");
-
-  const invoiceNumber = getProjectInvoiceNumber(projectId);
+const renderInvoicePdf = async ({
+  owner,
+  client,
+  deliverables,
+  invoiceNumber,
+  fileLabel,
+}) => {
   const issuedDate = formatInvoiceDate();
-  const issuedToLines = buildIssuedToLines(project, client);
+  const issuedToLines = buildIssuedToLines(owner, client);
   const subtotal = deliverables.reduce((sum, d) => sum + (Number(d.sellingPrice) || 0), 0);
   const { paymentDetails, logoUrl, signatureUrl, companyName } = invoiceSettings;
 
@@ -96,7 +96,7 @@ const generateProjectInvoicePdf = async (projectId) => {
       doc.on("end", () =>
         resolve({
           buffer: Buffer.concat(chunks),
-          fileName: `Invoice-${invoiceNumber}-${project.projectTitle || project.clientName || "project"}.pdf`
+          fileName: `Invoice-${invoiceNumber}-${fileLabel}.pdf`
             .replace(/[^a-zA-Z0-9._-]+/g, "-")
             .replace(/-+/g, "-"),
           invoiceNumber,
@@ -218,8 +218,45 @@ const generateProjectInvoicePdf = async (projectId) => {
   });
 };
 
+const generateProjectInvoicePdf = async (projectId) => {
+  const project = await Project.findById(projectId).lean();
+  if (!project) throw new ApiError(404, "Project not found");
+
+  const client = project.clientId ? await Client.findById(project.clientId).lean() : null;
+  const deliverables = (await listProjectDeliverables(projectId)).filter(
+    (d) => d.status !== "Cancelled"
+  );
+  if (!deliverables.length) throw new ApiError(400, "No deliverables to invoice");
+
+  return renderInvoicePdf({
+    owner: project,
+    client,
+    deliverables,
+    invoiceNumber: project.invoiceNumber || getProjectInvoiceNumber(projectId),
+    fileLabel: project.projectTitle || project.clientName || "project",
+  });
+};
+
+const generateServiceInvoicePdf = async (serviceId) => {
+  const service = await Service.findById(serviceId).lean();
+  if (!service) throw new ApiError(404, "Service not found");
+
+  const client = service.clientId ? await Client.findById(service.clientId).lean() : null;
+  const deliverables = (await listServiceDeliverables(serviceId)).filter(
+    (d) => d.status !== "Cancelled"
+  );
+  if (!deliverables.length) throw new ApiError(400, "No deliverables to invoice");
+
+  return renderInvoicePdf({
+    owner: service,
+    client,
+    deliverables,
+    invoiceNumber: service.invoiceNumber || getProjectInvoiceNumber(serviceId),
+    fileLabel: service.name || service.clientName || "service",
+  });
+};
+
 const getServiceInvoiceNumber = getProjectInvoiceNumber;
-const generateServiceInvoicePdf = generateProjectInvoicePdf;
 
 module.exports = {
   generateProjectInvoicePdf,
