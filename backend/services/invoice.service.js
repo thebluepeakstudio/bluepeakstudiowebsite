@@ -76,6 +76,23 @@ const buildIssuedToLines = (owner, client) => {
   return lines;
 };
 
+const COLORS = {
+  foreground: "#171717",
+  muted: "#737373",
+  border: "#E5E5E5",
+  surface: "#FAFAFA",
+  white: "#FFFFFF",
+};
+
+const drawHairline = (doc, x, y, width) => {
+  doc
+    .moveTo(x, y)
+    .lineTo(x + width, y)
+    .strokeColor(COLORS.border)
+    .lineWidth(0.75)
+    .stroke();
+};
+
 const renderInvoicePdf = async ({
   owner,
   client,
@@ -90,7 +107,7 @@ const renderInvoicePdf = async ({
 
   return new Promise(async (resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: "A4", margin: 50 });
+      const doc = new PDFDocument({ size: "A4", margin: 56 });
       const chunks = [];
       doc.on("data", (chunk) => chunks.push(chunk));
       doc.on("end", () =>
@@ -109,107 +126,159 @@ const renderInvoicePdf = async ({
 
       const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
       const left = doc.page.margins.left;
+      const right = left + pageWidth;
 
+      // Header
+      let y = 48;
       try {
         const logoBuffer = await getLogoBuffer(logoUrl);
-        doc.image(logoBuffer, left, 40, { width: 72 });
+        doc.image(logoBuffer, left, y, { width: 56 });
       } catch {
-        doc.font("Roboto").fontSize(10).fillColor("#64748b").text(companyName, left, 45);
+        doc
+          .font("Roboto-Bold")
+          .fontSize(13)
+          .fillColor(COLORS.foreground)
+          .text(companyName, left, y + 8);
       }
 
       doc
         .font("Roboto-Bold")
-        .fontSize(34)
-        .fillColor("#111827")
-        .text("INVOICE", left, 55, { align: "right", width: pageWidth });
+        .fontSize(28)
+        .fillColor(COLORS.foreground)
+        .text("Invoice", left, y + 4, { align: "right", width: pageWidth });
 
-      const metaY = 130;
+      y = 120;
+      drawHairline(doc, left, y, pageWidth);
+      y += 24;
+
+      // Meta row
+      doc.font("Roboto").fontSize(10).fillColor(COLORS.muted).text("Invoice number", left, y);
       doc
         .font("Roboto-Bold")
         .fontSize(10)
-        .fillColor("#111827")
-        .text(`INVOICE NO. ${invoiceNumber}`, left, metaY);
+        .fillColor(COLORS.foreground)
+        .text(String(invoiceNumber), left, y + 14);
 
+      doc.font("Roboto").fontSize(10).fillColor(COLORS.muted).text("Issued", right - 160, y, {
+        width: 160,
+        align: "right",
+      });
       doc
-        .font("Roboto")
+        .font("Roboto-Bold")
         .fontSize(10)
-        .text(`Issued Date : ${issuedDate}`, left, metaY, { align: "right", width: pageWidth });
-
-      const infoY = metaY + 28;
-      doc.font("Roboto-Bold").fontSize(10).text("ISSUED TO :", left, infoY);
-      doc.font("Roboto").fontSize(10);
-      issuedToLines.forEach((line, i) => {
-        doc.text(line, left, infoY + 14 + i * 14, { width: pageWidth * 0.55 });
-      });
-
-      const tableTop = infoY + Math.max(issuedToLines.length * 14 + 30, 70);
-      const colDesc = left;
-      const colQty = left + pageWidth * 0.52;
-      const colPrice = left + pageWidth * 0.66;
-      const colTotal = left + pageWidth * 0.8;
-      const rowHeight = 24;
-
-      doc.rect(left, tableTop, pageWidth, rowHeight).fillAndStroke("#f8fafc", "#cbd5e1");
-      doc.fillColor("#334155").font("Roboto-Bold").fontSize(9);
-      doc.text("DESCRIPTION", colDesc + 8, tableTop + 8, { width: pageWidth * 0.45 });
-      doc.text("QTY", colQty, tableTop + 8, { width: 40, align: "center" });
-      doc.text("PRICE", colPrice, tableTop + 8, { width: 80, align: "right" });
-      doc.text("TOTAL", colTotal, tableTop + 8, { width: 80, align: "right" });
-
-      let y = tableTop + rowHeight;
-      doc.font("Roboto").fontSize(9).fillColor("#111827");
-
-      deliverables.forEach((item) => {
-        const price = Number(item.sellingPrice) || 0;
-        doc.rect(left, y, pageWidth, rowHeight).stroke("#e2e8f0");
-        doc.text(item.title, colDesc + 8, y + 8, { width: pageWidth * 0.45 });
-        doc.text("1", colQty, y + 8, { width: 40, align: "center" });
-        doc.text(formatInr(price), colPrice, y + 8, { width: 80, align: "right" });
-        doc.text(formatInr(price), colTotal, y + 8, { width: 80, align: "right" });
-        y += rowHeight;
-      });
-
-      y += 10;
-      doc.font("Roboto-Bold").fontSize(10);
-      doc.text("Subtotal", colPrice - 20, y, { width: 90, align: "right" });
-      doc.text(formatInr(subtotal), colTotal, y, { width: 80, align: "right" });
-      y += 18;
-      doc.text("Total", colPrice - 20, y, { width: 90, align: "right" });
-      doc.text(formatInr(subtotal), colTotal, y, { width: 80, align: "right" });
+        .fillColor(COLORS.foreground)
+        .text(issuedDate, right - 160, y + 14, { width: 160, align: "right" });
 
       y += 48;
-      doc.font("Roboto-Bold").fontSize(10).fillColor("#111827").text("PAYMENT TO :", left, y);
+
+      // Issued to
+      doc.font("Roboto").fontSize(10).fillColor(COLORS.muted).text("Bill to", left, y);
+      y += 16;
+      issuedToLines.forEach((line, i) => {
+        doc
+          .font(i === 0 ? "Roboto-Bold" : "Roboto")
+          .fontSize(11)
+          .fillColor(COLORS.foreground)
+          .text(line, left, y, { width: pageWidth * 0.55 });
+        y += 15;
+      });
+
+      y += 28;
+      drawHairline(doc, left, y, pageWidth);
+      y += 16;
+
+      // Table header
+      const colDesc = left;
+      const colQty = left + pageWidth * 0.55;
+      const colPrice = left + pageWidth * 0.68;
+      const colTotal = left + pageWidth * 0.82;
+      const rowPad = 12;
+
+      doc.font("Roboto").fontSize(9).fillColor(COLORS.muted);
+      doc.text("Description", colDesc, y, { width: pageWidth * 0.5 });
+      doc.text("Qty", colQty, y, { width: 36, align: "center" });
+      doc.text("Price", colPrice, y, { width: 70, align: "right" });
+      doc.text("Amount", colTotal, y, { width: 70, align: "right" });
+      y += 14;
+      drawHairline(doc, left, y, pageWidth);
+      y += rowPad;
+
+      // Line items
+      deliverables.forEach((item, index) => {
+        const price = Number(item.sellingPrice) || 0;
+        if (index > 0) {
+          drawHairline(doc, left, y - 6, pageWidth);
+        }
+        doc.font("Roboto").fontSize(10).fillColor(COLORS.foreground);
+        doc.text(item.title, colDesc, y, { width: pageWidth * 0.5 });
+        doc.text("1", colQty, y, { width: 36, align: "center" });
+        doc.text(formatInr(price), colPrice, y, { width: 70, align: "right" });
+        doc.text(formatInr(price), colTotal, y, { width: 70, align: "right" });
+        y += 28;
+      });
+
+      drawHairline(doc, left, y, pageWidth);
+      y += 20;
+
+      // Totals
+      const totalsLabelX = colPrice - 24;
+      const totalsValueX = colTotal;
+      doc.font("Roboto").fontSize(10).fillColor(COLORS.muted);
+      doc.text("Subtotal", totalsLabelX, y, { width: 90, align: "right" });
+      doc.font("Roboto").fontSize(10).fillColor(COLORS.foreground);
+      doc.text(formatInr(subtotal), totalsValueX, y, { width: 70, align: "right" });
+      y += 22;
+
+      doc.rect(totalsLabelX - 8, y - 6, right - (totalsLabelX - 8), 28).fill(COLORS.surface);
+      doc.font("Roboto-Bold").fontSize(11).fillColor(COLORS.foreground);
+      doc.text("Total", totalsLabelX, y, { width: 90, align: "right" });
+      doc.text(formatInr(subtotal), totalsValueX, y, { width: 70, align: "right" });
+      y += 48;
+
+      // Payment
+      drawHairline(doc, left, y, pageWidth);
+      y += 20;
+      doc.font("Roboto").fontSize(10).fillColor(COLORS.muted).text("Payment details", left, y);
       y += 18;
 
       const paymentRows = [
         ["Bank", paymentDetails.bank],
-        ["IFSC Code", paymentDetails.ifsc],
-        ["Account No.", paymentDetails.accountNo],
-        ["Account Name", paymentDetails.accountName],
+        ["IFSC", paymentDetails.ifsc],
+        ["Account number", paymentDetails.accountNo],
+        ["Account name", paymentDetails.accountName],
       ];
 
-      doc.font("Roboto").fontSize(10);
       paymentRows.forEach(([label, value]) => {
-        doc.font("Roboto-Bold").text(label, left, y, { width: 110 });
-        doc.font("Roboto").text(`: ${value}`, left + 110, y, { width: pageWidth - 110 });
+        doc.font("Roboto").fontSize(10).fillColor(COLORS.muted).text(label, left, y, { width: 120 });
+        doc
+          .font("Roboto")
+          .fontSize(10)
+          .fillColor(COLORS.foreground)
+          .text(value, left + 130, y, { width: pageWidth - 130 });
         y += 16;
       });
 
-      y += 24;
-      const signatureWidth = 140;
+      // Signature (with extra breathing room above thank you)
+      y += 36;
+      const signatureWidth = 120;
       try {
         const signatureBuffer = await getSignatureBuffer(signatureUrl);
         const signatureX = left + (pageWidth - signatureWidth) / 2;
         doc.image(signatureBuffer, signatureX, y, { width: signatureWidth });
-        y += 70;
+        y += 64;
       } catch {
         // Skip signature if image fails to load
       }
 
-      doc.font("Roboto-Bold").fontSize(14).fillColor("#111827").text("THANK YOU", left, y, {
-        align: "center",
-        width: pageWidth,
-      });
+      y += 28;
+      doc
+        .font("Roboto")
+        .fontSize(11)
+        .fillColor(COLORS.muted)
+        .text("Thank you", left, y, {
+          align: "center",
+          width: pageWidth,
+        });
 
       doc.end();
     } catch (err) {
