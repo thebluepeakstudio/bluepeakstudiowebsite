@@ -222,6 +222,7 @@ export default function DeliverableDrawer({
                               <input
                                 type="number"
                                 min="0"
+                                step="any"
                                 className="w-28 rounded border border-admin-border px-2 py-1 text-sm"
                                 value={a.cost ?? 0}
                                 onChange={(e) => handleUpdateAssignmentCost(a._id, e.target.value)}

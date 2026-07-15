@@ -540,9 +540,9 @@ export default function Freelancers() {
                       <Input
                         label={`Amount (max ${formatCurrency(selectedDue)})`}
                         type="number"
-                        min="1"
+                        min="0"
                         max={selectedDue}
-                        step="1"
+                        step="any"
                         value={paymentForm.amount}
                         onChange={(e) =>
                           setPaymentForm({ ...paymentForm, amount: e.target.value })

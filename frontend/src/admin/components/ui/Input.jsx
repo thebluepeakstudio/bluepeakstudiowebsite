@@ -31,10 +31,12 @@ function FieldWrapper({ label, hint, error, required, className = "", children }
   );
 }
 
-export function Input({ label, hint, error, required, className = "", ...props }) {
+export function Input({ label, hint, error, required, className = "", type, step, ...props }) {
+  // HTML number inputs default to step=1 (integers only). Allow decimals unless overridden.
+  const resolvedStep = type === "number" ? (step ?? "any") : step;
   return (
     <FieldWrapper label={label} hint={hint} error={error} required={required} className={className}>
-      <input className={fieldClass} required={required} {...props} />
+      <input className={fieldClass} required={required} type={type} step={resolvedStep} {...props} />
     </FieldWrapper>
   );
 }

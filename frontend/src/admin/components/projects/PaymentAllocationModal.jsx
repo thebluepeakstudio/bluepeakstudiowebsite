@@ -293,7 +293,7 @@ export default function PaymentAllocationModal({
             label="Amount (₹)"
             type="number"
             min={0}
-            step="0.01"
+            step="any"
             value={totalAmount}
             onChange={(e) => setTotalAmount(e.target.value)}
             required
@@ -342,6 +342,7 @@ export default function PaymentAllocationModal({
                   label="Amount (₹)"
                   type="number"
                   min={0}
+                  step="any"
                   value={row.amount}
                   onChange={(e) => updateSplit(index, "amount", e.target.value)}
                 />

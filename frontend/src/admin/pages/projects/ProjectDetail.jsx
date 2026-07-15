@@ -840,7 +840,8 @@ export default function ProjectDetail() {
               <Input
                 label="Amount (₹)"
                 type="number"
-                min="1"
+                min="0"
+                step="any"
                 value={paymentForm.amount}
                 onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))}
                 required
