@@ -3,6 +3,8 @@ module.exports = {
   companyName: "BluePeak Studio",
   logoUrl:
     "https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/BPS.png?updatedAt=1773667763921",
+  signatureUrl:
+    "https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/Signature.png",
   paymentDetails: {
     bank: "Kotak Mahindra Bank",
     ifsc: "KKBK0006742",

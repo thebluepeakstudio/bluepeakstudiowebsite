@@ -29,12 +29,23 @@ const fetchImageBuffer = async (url) => {
 
 let cachedLogoBuffer = null;
 let cachedLogoUrl = null;
+let cachedSignatureBuffer = null;
+let cachedSignatureUrl = null;
 
 const getLogoBuffer = async (logoUrl) => {
   if (cachedLogoBuffer && cachedLogoUrl === logoUrl) return cachedLogoBuffer;
   cachedLogoBuffer = await fetchImageBuffer(logoUrl);
   cachedLogoUrl = logoUrl;
   return cachedLogoBuffer;
+};
+
+const getSignatureBuffer = async (signatureUrl) => {
+  if (cachedSignatureBuffer && cachedSignatureUrl === signatureUrl) {
+    return cachedSignatureBuffer;
+  }
+  cachedSignatureBuffer = await fetchImageBuffer(signatureUrl);
+  cachedSignatureUrl = signatureUrl;
+  return cachedSignatureBuffer;
 };
 
 /** Stable invoice number derived from project ID (same project → same number). */
@@ -75,7 +86,7 @@ const generateProjectInvoicePdf = async (projectId) => {
   const issuedDate = formatInvoiceDate();
   const issuedToLines = buildIssuedToLines(project, client);
   const subtotal = deliverables.reduce((sum, d) => sum + (Number(d.sellingPrice) || 0), 0);
-  const { paymentDetails, logoUrl, companyName } = invoiceSettings;
+  const { paymentDetails, logoUrl, signatureUrl, companyName } = invoiceSettings;
 
   return new Promise(async (resolve, reject) => {
     try {
@@ -185,7 +196,17 @@ const generateProjectInvoicePdf = async (projectId) => {
       });
 
       y += 24;
-      doc.font("Roboto-Bold").fontSize(14).text("THANK YOU", left, y, {
+      const signatureWidth = 140;
+      try {
+        const signatureBuffer = await getSignatureBuffer(signatureUrl);
+        const signatureX = left + (pageWidth - signatureWidth) / 2;
+        doc.image(signatureBuffer, signatureX, y, { width: signatureWidth });
+        y += 70;
+      } catch {
+        // Skip signature if image fails to load
+      }
+
+      doc.font("Roboto-Bold").fontSize(14).fillColor("#111827").text("THANK YOU", left, y, {
         align: "center",
         width: pageWidth,
       });
