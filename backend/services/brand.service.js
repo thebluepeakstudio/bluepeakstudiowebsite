@@ -26,7 +26,7 @@ const createBrand = async (data) => {
     logoUrl: data.logoUrl || "",
     logoPublicId: data.logoPublicId || "",
     industry: data.industry || "",
-    website: data.website || "",
+    address: data.address || "",
     description: data.description || "",
     status: data.status || "Active",
     notes: data.notes || "",
@@ -36,21 +36,35 @@ const createBrand = async (data) => {
   return brand.toObject();
 };
 
+const syncLinkedServiceNames = async (brandId, brandName) => {
+  await Service.updateMany(
+    { brandId },
+    {
+      $set: {
+        name: brandName,
+        businessName: brandName,
+      },
+    }
+  );
+};
+
 const updateBrand = async (brandId, updates) => {
   const brand = await Brand.findById(brandId);
   if (!brand) throw new ApiError(404, "Brand not found");
 
+  const previousName = brand.name;
   const fields = [
     "name",
     "logoUrl",
     "logoPublicId",
     "industry",
-    "website",
+    "address",
     "description",
     "status",
     "notes",
     "isDefault",
   ];
+
   fields.forEach((key) => {
     if (updates[key] === undefined) return;
     if (key === "name") {
@@ -59,14 +73,26 @@ const updateBrand = async (brandId, updates) => {
       brand.name = name;
       return;
     }
+    if (key === "address") {
+      brand.address = String(updates.address || "").trim();
+      return;
+    }
     brand[key] = updates[key];
   });
 
   if (updates.isDefault) {
-    await Brand.updateMany({ clientId: brand.clientId, _id: { $ne: brand._id } }, { isDefault: false });
+    await Brand.updateMany(
+      { clientId: brand.clientId, _id: { $ne: brand._id } },
+      { isDefault: false }
+    );
   }
 
   await brand.save();
+
+  if (brand.name !== previousName) {
+    await syncLinkedServiceNames(brand._id, brand.name);
+  }
+
   return brand.toObject();
 };
 
@@ -89,4 +115,5 @@ module.exports = {
   createBrand,
   updateBrand,
   deleteBrand,
+  syncLinkedServiceNames,
 };

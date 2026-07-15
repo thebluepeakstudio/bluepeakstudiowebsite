@@ -103,8 +103,9 @@ const requireServiceContainer = body().custom((_, { req }) => {
   if (!mongoose.Types.ObjectId.isValid(String(container.clientId))) {
     throw new Error("Client is required");
   }
-  const name = container?.name || container?.projectTitle || container?.category;
-  if (!name?.trim()) throw new Error("Service name is required");
+  if (!container?.brandId || !mongoose.Types.ObjectId.isValid(String(container.brandId))) {
+    throw new Error("Brand is required");
+  }
   return true;
 });
 
@@ -112,6 +113,8 @@ const createServiceValidators = [
   requireServiceContainer,
   body("service.clientId").optional().isMongoId(),
   body("project.clientId").optional().isMongoId(),
+  body("service.brandId").optional().isMongoId(),
+  body("project.brandId").optional().isMongoId(),
   body("deliverables").isArray({ min: 1 }).withMessage("At least one deliverable is required"),
   body("deliverables.*.title").trim().notEmpty().withMessage("Deliverable title is required"),
   body("deliverables.*.category").isIn(SERVICE_CATEGORIES).withMessage("Invalid deliverable category"),

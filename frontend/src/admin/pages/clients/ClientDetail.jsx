@@ -33,7 +33,7 @@ import { apiUrl } from "../../../utils/apiBase";
 const EMPTY_BRAND_FORM = {
   name: "",
   industry: "",
-  website: "",
+  address: "",
   description: "",
   status: "Active",
   isDefault: false,
@@ -162,7 +162,7 @@ export default function ClientDetail() {
     const payload = {
       name: brandForm.name.trim(),
       industry: brandForm.industry.trim(),
-      website: brandForm.website.trim(),
+      address: brandForm.address.trim(),
       description: brandForm.description.trim(),
       status: brandForm.status,
       isDefault: brandForm.isDefault,
@@ -215,7 +215,7 @@ export default function ClientDetail() {
     setBrandForm({
       name: brand.name || "",
       industry: brand.industry || "",
-      website: brand.website || "",
+      address: brand.address || "",
       description: brand.description || "",
       status: brand.status || "Active",
       isDefault: Boolean(brand.isDefault),
@@ -285,6 +285,11 @@ export default function ClientDetail() {
             columns={[
               { key: "name", label: "Brand" },
               { key: "industry", label: "Industry", render: (r) => r.industry || "—" },
+              {
+                key: "address",
+                label: "Address",
+                render: (r) => r.address || "—",
+              },
               {
                 key: "status",
                 label: "Status",
@@ -494,10 +499,11 @@ export default function ClientDetail() {
               value={brandForm.industry}
               onChange={(e) => setBrandForm({ ...brandForm, industry: e.target.value })}
             />
-            <Input
-              label="Website"
-              value={brandForm.website}
-              onChange={(e) => setBrandForm({ ...brandForm, website: e.target.value })}
+            <Textarea
+              label="Address"
+              value={brandForm.address}
+              onChange={(e) => setBrandForm({ ...brandForm, address: e.target.value })}
+              rows={2}
             />
             <Textarea
               label="Description"

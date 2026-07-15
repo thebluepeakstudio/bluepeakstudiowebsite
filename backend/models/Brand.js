@@ -13,6 +13,7 @@ const brandSchema = new mongoose.Schema(
     logoUrl: { type: String, trim: true, default: "" },
     logoPublicId: { type: String, trim: true, default: "" },
     industry: { type: String, trim: true, default: "" },
+    address: { type: String, trim: true, default: "" },
     website: { type: String, trim: true, default: "" },
     description: { type: String, trim: true, default: "" },
     status: { type: String, enum: BRAND_STATUSES, default: "Active", index: true },

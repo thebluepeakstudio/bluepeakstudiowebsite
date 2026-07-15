@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Form, FormSection, FormGrid, FormFooter } from "../../components/ui/Form";
 import { Input, Textarea, Select } from "../../components/ui/Input";
 import { WORK_STATUSES } from "../../utils/constants";
-import { getClients } from "../../api/clients.api";
+import { getClients, getClientBrands } from "../../api/clients.api";
 
 const dateFields = [
   "dateOfOnboarding",
@@ -12,11 +12,11 @@ const dateFields = [
 
 const empty = {
   clientId: "",
+  brandId: "",
   clientName: "",
   businessName: "",
   contactNumber: "",
   email: "",
-  projectTitle: "",
   projectDescription: "",
   dateOfOnboarding: "",
   expectedCompletionDate: "",
@@ -35,6 +35,7 @@ export default function ProjectEditForm({
 }) {
   const [form, setForm] = useState({ ...empty, ...initial });
   const [clients, setClients] = useState([]);
+  const [brands, setBrands] = useState([]);
 
   useEffect(() => {
     if (initial) {
@@ -43,6 +44,7 @@ export default function ProjectEditForm({
         if (mapped[k]) mapped[k] = mapped[k].slice(0, 10);
       });
       if (mapped.clientId?._id) mapped.clientId = mapped.clientId._id;
+      if (mapped.brandId?._id) mapped.brandId = mapped.brandId._id;
       setForm(mapped);
     }
   }, [initial]);
@@ -53,6 +55,16 @@ export default function ProjectEditForm({
       .catch(() => setClients([]));
   }, []);
 
+  useEffect(() => {
+    if (!form.clientId) {
+      setBrands([]);
+      return;
+    }
+    getClientBrands(form.clientId)
+      .then(({ data }) => setBrands(data.data || []))
+      .catch(() => setBrands([]));
+  }, [form.clientId]);
+
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const onClientChange = (clientId) => {
@@ -61,6 +73,7 @@ export default function ProjectEditForm({
       setForm((f) => ({
         ...f,
         clientId,
+        brandId: "",
         clientName: client.name,
         businessName: client.companyName || "",
         contactNumber: client.phone || "",
@@ -73,7 +86,15 @@ export default function ProjectEditForm({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const payload = { ...form };
+    const selectedBrand = brands.find((b) => b._id === form.brandId);
+    const brandName = selectedBrand?.name?.trim() || "";
+    const payload = {
+      ...form,
+      brandId: form.brandId || undefined,
+      projectTitle: brandName,
+      name: brandName,
+      businessName: brandName || form.businessName,
+    };
     if (!payload.clientId) delete payload.clientId;
     delete payload.totalAmount;
     delete payload.totalAmountOverride;
@@ -106,16 +127,20 @@ export default function ProjectEditForm({
               })),
             ]}
           />
-          <Input
-            label="Project name"
+          <Select
+            label="Brand"
             required
-            value={form.projectTitle}
-            onChange={(e) => set("projectTitle", e.target.value)}
+            value={form.brandId}
+            onChange={(e) => set("brandId", e.target.value)}
+            options={[
+              { value: "", label: brands.length ? "Select brand…" : "No brands for this client" },
+              ...brands.map((b) => ({ value: b._id, label: b.name })),
+            ]}
           />
         </FormGrid>
         <Textarea
           label="Description"
-          value={form.projectDescription}
+          value={form.projectDescription || form.description || ""}
           onChange={(e) => set("projectDescription", e.target.value)}
         />
       </FormSection>

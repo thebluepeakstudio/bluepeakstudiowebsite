@@ -10,7 +10,10 @@ const FreelancerPayment = require("../../models/FreelancerPayment");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
-const { syncClientToProject } = require("../../utils/syncClientToProject");
+const {
+  syncClientToProject,
+  applyBrandToServiceBody,
+} = require("../../utils/syncClientToProject");
 const { normalizeServiceInput, withLegacyServiceFields } = require("../../utils/serviceCompat");
 const { invalidateAnalyticsCache } = require("./analytics.controller");
 const { aggregateClientOutstanding } = require("../../utils/clientOutstanding");
@@ -376,7 +379,7 @@ const getService = asyncHandler(async (req, res) => {
   const service = await Service.findById(req.params.id)
     .select("-attachments")
     .populate("clientId", "name companyName email phone website")
-    .populate("brandId", "name logoUrl industry")
+      .populate("brandId", "name logoUrl industry address")
     .lean();
   if (!service) throw new ApiError(404, "Service not found");
 
@@ -455,6 +458,8 @@ const createService = asyncHandler(async (req, res) => {
   try {
     let body = pickContainerFields(serviceData);
     if (body.clientId) body = await syncClientToProject(body);
+    body = await applyBrandToServiceBody(body);
+    if (!body.brandId) throw new ApiError(400, "Brand is required");
     if (body.totalPrice == null) body.totalPrice = 0;
 
     const service = new Service(body);
@@ -510,6 +515,13 @@ const updateService = asyncHandler(async (req, res) => {
 
   let body = stripDerivedServiceFields(pickContainerFields(req.body), existing.billingModel);
   if (body.clientId) body = await syncClientToProject(body);
+  if (body.brandId !== undefined) {
+    body = await applyBrandToServiceBody({
+      ...body,
+      clientId: body.clientId || existing.clientId,
+      brandId: body.brandId || existing.brandId,
+    });
+  }
 
   const service = await Service.findByIdAndUpdate(req.params.id, body, {
     new: true,

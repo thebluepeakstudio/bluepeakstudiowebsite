@@ -3,6 +3,7 @@ const PDFDocument = require("pdfkit");
 const Project = require("../models/Project");
 const Service = require("../models/Service");
 const Client = require("../models/Client");
+const Brand = require("../models/Brand");
 const { listDeliverables: listProjectDeliverables } = require("./projectDeliverable.service");
 const { listDeliverables: listServiceDeliverables } = require("./deliverable.service");
 const invoiceSettings = require("../constants/invoiceSettings");
@@ -58,21 +59,23 @@ const getProjectInvoiceNumber = (ownerId) => {
   return String(num || 1).padStart(5, "0");
 };
 
-const buildIssuedToLines = (owner, client) => {
+const buildIssuedToLines = (owner, client, brand = null) => {
   const lines = [];
-  const company = owner.businessName || client?.companyName;
+  const brandName = brand?.name?.trim();
+  const company = brandName || owner.businessName || client?.companyName;
   const contact = owner.clientName || client?.name;
+  const addressSource = brand?.address?.trim() || client?.address?.trim() || "";
 
   if (company) lines.push(company);
-  if (client?.address) {
-    lines.push(...client.address.split(/\n|,/).map((s) => s.trim()).filter(Boolean));
+  if (addressSource) {
+    lines.push(...addressSource.split(/\n|,/).map((s) => s.trim()).filter(Boolean));
   }
   if (owner.contactNumber || client?.phone) {
     const label = contact && contact !== company ? `${contact}: ` : "";
     lines.push(`${label}${owner.contactNumber || client?.phone}`);
   }
   if (owner.email || client?.email) lines.push(owner.email || client?.email);
-  if (!lines.length) lines.push(owner.clientName || "Client");
+  if (!lines.length) lines.push(owner.clientName || brandName || "Client");
   return lines;
 };
 
@@ -96,12 +99,13 @@ const drawHairline = (doc, x, y, width) => {
 const renderInvoicePdf = async ({
   owner,
   client,
+  brand,
   deliverables,
   invoiceNumber,
   fileLabel,
 }) => {
   const issuedDate = formatInvoiceDate();
-  const issuedToLines = buildIssuedToLines(owner, client);
+  const issuedToLines = buildIssuedToLines(owner, client, brand);
   const subtotal = deliverables.reduce((sum, d) => sum + (Number(d.sellingPrice) || 0), 0);
   const { paymentDetails, logoUrl, signatureUrl, companyName } = invoiceSettings;
 
@@ -292,6 +296,7 @@ const generateProjectInvoicePdf = async (projectId) => {
   if (!project) throw new ApiError(404, "Project not found");
 
   const client = project.clientId ? await Client.findById(project.clientId).lean() : null;
+  const brand = project.brandId ? await Brand.findById(project.brandId).lean() : null;
   const deliverables = (await listProjectDeliverables(projectId)).filter(
     (d) => d.status !== "Cancelled"
   );
@@ -300,9 +305,10 @@ const generateProjectInvoicePdf = async (projectId) => {
   return renderInvoicePdf({
     owner: project,
     client,
+    brand,
     deliverables,
     invoiceNumber: project.invoiceNumber || getProjectInvoiceNumber(projectId),
-    fileLabel: project.projectTitle || project.clientName || "project",
+    fileLabel: brand?.name || project.projectTitle || project.clientName || "project",
   });
 };
 
@@ -311,6 +317,7 @@ const generateServiceInvoicePdf = async (serviceId) => {
   if (!service) throw new ApiError(404, "Service not found");
 
   const client = service.clientId ? await Client.findById(service.clientId).lean() : null;
+  const brand = service.brandId ? await Brand.findById(service.brandId).lean() : null;
   const deliverables = (await listServiceDeliverables(serviceId)).filter(
     (d) => d.status !== "Cancelled"
   );
@@ -319,9 +326,10 @@ const generateServiceInvoicePdf = async (serviceId) => {
   return renderInvoicePdf({
     owner: service,
     client,
+    brand,
     deliverables,
     invoiceNumber: service.invoiceNumber || getProjectInvoiceNumber(serviceId),
-    fileLabel: service.name || service.clientName || "service",
+    fileLabel: brand?.name || service.name || service.clientName || "service",
   });
 };
 

@@ -67,9 +67,11 @@ export default function ProjectWizard({ initial, onSubmit, loading, onCancel, su
       .then(({ data }) => {
         const list = data.data || [];
         setBrands(list);
-        if (!project.brandId && list.length === 1) {
-          setProject((p) => ({ ...p, brandId: list[0]._id }));
-        }
+        setProject((p) => {
+          if (p.brandId) return p;
+          const preferred = list.find((b) => b.isDefault) || (list.length === 1 ? list[0] : null);
+          return preferred ? { ...p, brandId: preferred._id } : p;
+        });
       })
       .catch(() => setBrands([]));
   }, [project.clientId]);

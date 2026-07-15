@@ -187,11 +187,29 @@ const createClient = asyncHandler(async (req, res) => {
 });
 
 const updateClient = asyncHandler(async (req, res) => {
+  const previous = await Client.findById(req.params.id);
+  if (!previous) throw new ApiError(404, "Client not found");
+
   const client = await Client.findByIdAndUpdate(req.params.id, pickClientFields(req.body), {
     new: true,
     runValidators: true,
   });
   if (!client) throw new ApiError(404, "Client not found");
+
+  const nameChanged = previous.name !== client.name;
+  const phoneChanged = previous.phone !== client.phone;
+  const emailChanged = previous.email !== client.email;
+  if (nameChanged || phoneChanged || emailChanged) {
+    const setFields = {};
+    if (nameChanged) setFields.clientName = client.name;
+    if (phoneChanged) setFields.contactNumber = client.phone || "";
+    if (emailChanged) setFields.email = client.email || "";
+    await Promise.all([
+      Service.updateMany({ clientId: client._id }, { $set: setFields }),
+      Project.updateMany({ clientId: client._id }, { $set: setFields }),
+    ]);
+  }
+
   res.json({ success: true, data: client });
 });
 

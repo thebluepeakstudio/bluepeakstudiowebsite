@@ -5,6 +5,7 @@ const Client = require("../models/Client");
 const BillingCycle = require("../models/BillingCycle");
 const BillingCycleInvoice = require("../models/BillingCycleInvoice");
 const BillingCycleDeliverable = require("../models/BillingCycleDeliverable");
+const Brand = require("../models/Brand");
 const invoiceSettings = require("../constants/invoiceSettings");
 const ApiError = require("../utils/ApiError");
 const { formatPeriodLabel } = require("../utils/recurringDates");
@@ -26,15 +27,16 @@ const formatInvoiceDate = (date = new Date()) =>
     year: "numeric",
   });
 
-const buildIssuedToLines = (service, client) => {
+const buildIssuedToLines = (service, client, brand = null) => {
   const lines = [];
-  const company = client?.companyName || service.businessName;
+  const brandName = brand?.name?.trim();
+  const company = brandName || service.businessName || client?.companyName;
   const contact = client?.name || service.clientName;
+  const addressSource = brand?.address?.trim() || client?.address?.trim() || "";
   if (company) lines.push(company);
   if (contact && contact !== company) lines.push(contact);
-  const address = client?.address?.trim();
-  if (address) {
-    lines.push(...address.split(/\n|,/).map((s) => s.trim()).filter(Boolean));
+  if (addressSource) {
+    lines.push(...addressSource.split(/\n|,/).map((s) => s.trim()).filter(Boolean));
   }
   if (client?.phone || service.contactNumber) {
     lines.push(client?.phone || service.contactNumber);
@@ -64,10 +66,12 @@ const generateBillingCycleInvoicePdf = async (serviceId, cycleId) => {
 
   const clientId = serviceDoc.clientId?._id || serviceDoc.clientId;
   const client = clientId ? await Client.findById(clientId).lean() : null;
+  const brandId = serviceDoc.brandId?._id || serviceDoc.brandId;
+  const brand = brandId ? await Brand.findById(brandId).lean() : null;
   const periodLabel = formatPeriodLabel(new Date(cycle.periodMonth));
   const invoiceNumber = `${getServiceInvoiceNumber(serviceId)}-${periodLabel.replace(/\s/g, "")}`;
   const issuedDate = formatInvoiceDate(invoice.dueDate || cycle.billingDate);
-  const issuedToLines = buildIssuedToLines(service, client);
+  const issuedToLines = buildIssuedToLines(service, client, brand);
   const subtotal = Number(invoice.amountDue) || 0;
   const creditApplied = Number(invoice.creditApplied) || 0;
   const amountPaid = Number(invoice.amountPaid) || 0;

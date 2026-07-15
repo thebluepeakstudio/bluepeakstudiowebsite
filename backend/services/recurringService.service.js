@@ -14,7 +14,7 @@ const {
   payFreelancerDueRecord,
 } = require("./freelancerDue.service");
 const ApiError = require("../utils/ApiError");
-const { syncClientToProject } = require("../utils/syncClientToProject");
+const { syncClientToProject, applyBrandToServiceBody } = require("../utils/syncClientToProject");
 const { normalizeServiceInput } = require("../utils/serviceCompat");
 const { getOrCreateWallet } = require("./recurringWallet.service");
 const {
@@ -92,6 +92,7 @@ const createRecurringService = async (payload, adminName) => {
   try {
     let body = pickContainerFields(serviceData);
     if (body.clientId) body = await syncClientToProject(body);
+    body = await applyBrandToServiceBody(body);
     body.billingModel = "recurring";
     body.category = body.category || serviceData.category || serviceData.name;
     body.totalPrice = roundMoney(config.monthlyClientAmount);
