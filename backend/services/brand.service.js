@@ -52,7 +52,14 @@ const updateBrand = async (brandId, updates) => {
     "isDefault",
   ];
   fields.forEach((key) => {
-    if (updates[key] !== undefined) brand[key] = updates[key];
+    if (updates[key] === undefined) return;
+    if (key === "name") {
+      const name = String(updates.name).trim();
+      if (!name) throw new ApiError(400, "Brand name is required");
+      brand.name = name;
+      return;
+    }
+    brand[key] = updates[key];
   });
 
   if (updates.isDefault) {

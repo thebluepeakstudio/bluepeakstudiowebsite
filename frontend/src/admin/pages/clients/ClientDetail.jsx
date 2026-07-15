@@ -12,7 +12,7 @@ import {
   deleteClientAttachment,
   updateClient,
 } from "../../api/clients.api";
-import { createBrand, deleteBrand } from "../../api/brands.api";
+import { createBrand, updateBrand, deleteBrand } from "../../api/brands.api";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -29,6 +29,15 @@ import { CardSkeleton } from "../../components/ui/Skeleton";
 import toast from "react-hot-toast";
 import { adminPath } from "../../utils/adminPaths";
 import { apiUrl } from "../../../utils/apiBase";
+
+const EMPTY_BRAND_FORM = {
+  name: "",
+  industry: "",
+  website: "",
+  description: "",
+  status: "Active",
+  isDefault: false,
+};
 
 const CLIENT_TABS = [
   { id: "overview", label: "Overview" },
@@ -48,14 +57,8 @@ export default function ClientDetail() {
   const [loading, setLoading] = useState(true);
   const [activityModal, setActivityModal] = useState(false);
   const [brandModal, setBrandModal] = useState(false);
-  const [brandForm, setBrandForm] = useState({
-    name: "",
-    industry: "",
-    website: "",
-    description: "",
-    status: "Active",
-    isDefault: false,
-  });
+  const [editingBrandId, setEditingBrandId] = useState(null);
+  const [brandForm, setBrandForm] = useState(EMPTY_BRAND_FORM);
   const [activityForm, setActivityForm] = useState({ type: "note", title: "", body: "" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -138,37 +141,50 @@ export default function ClientDetail() {
     }
   };
 
-  const handleCreateBrand = async (e) => {
+  const refreshBrands = async () => {
+    const brandsRes = await getClientBrands(id);
+    setBrands(brandsRes.data.data || []);
+  };
+
+  const closeBrandModal = () => {
+    setBrandModal(false);
+    setEditingBrandId(null);
+    setBrandForm(EMPTY_BRAND_FORM);
+  };
+
+  const handleSaveBrand = async (e) => {
     e.preventDefault();
     if (!brandForm.name.trim()) {
       toast.error("Brand name is required");
       return;
     }
     setSubmitting(true);
+    const payload = {
+      name: brandForm.name.trim(),
+      industry: brandForm.industry.trim(),
+      website: brandForm.website.trim(),
+      description: brandForm.description.trim(),
+      status: brandForm.status,
+      isDefault: brandForm.isDefault,
+    };
     try {
-      await createBrand({
-        clientId: id,
-        name: brandForm.name.trim(),
-        industry: brandForm.industry.trim(),
-        website: brandForm.website.trim(),
-        description: brandForm.description.trim(),
-        status: brandForm.status,
-        isDefault: brandForm.isDefault,
-      });
-      toast.success("Brand added");
-      setBrandModal(false);
-      setBrandForm({
-        name: "",
-        industry: "",
-        website: "",
-        description: "",
-        status: "Active",
-        isDefault: false,
-      });
-      const brandsRes = await getClientBrands(id);
-      setBrands(brandsRes.data.data || []);
+      if (editingBrandId) {
+        await updateBrand(editingBrandId, payload);
+        toast.success("Brand updated");
+      } else {
+        await createBrand({
+          clientId: id,
+          ...payload,
+        });
+        toast.success("Brand added");
+      }
+      closeBrandModal();
+      await refreshBrands();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to add brand");
+      toast.error(
+        err.response?.data?.message ||
+          (editingBrandId ? "Failed to update brand" : "Failed to add brand")
+      );
     } finally {
       setSubmitting(false);
     }
@@ -186,13 +202,23 @@ export default function ClientDetail() {
   };
 
   const openBrandModal = () => {
+    setEditingBrandId(null);
     setBrandForm({
-      name: "",
-      industry: "",
-      website: "",
-      description: "",
-      status: "Active",
+      ...EMPTY_BRAND_FORM,
       isDefault: brands.length === 0,
+    });
+    setBrandModal(true);
+  };
+
+  const openEditBrandModal = (brand) => {
+    setEditingBrandId(brand._id);
+    setBrandForm({
+      name: brand.name || "",
+      industry: brand.industry || "",
+      website: brand.website || "",
+      description: brand.description || "",
+      status: brand.status || "Active",
+      isDefault: Boolean(brand.isDefault),
     });
     setBrandModal(true);
   };
@@ -273,13 +299,22 @@ export default function ClientDetail() {
                 key: "actions",
                 label: "",
                 render: (r) => (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteBrand(r._id)}
-                    className="text-xs text-red-600 hover:underline"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openEditBrandModal(r)}
+                      className="text-xs text-admin-primary hover:underline"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBrand(r._id)}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 ),
               },
             ]}
@@ -442,11 +477,11 @@ export default function ClientDetail() {
 
       <Modal
         open={brandModal}
-        onClose={() => setBrandModal(false)}
-        title="Add brand"
+        onClose={closeBrandModal}
+        title={editingBrandId ? "Edit brand" : "Add brand"}
         description="Brands group services under this client (e.g. separate companies or product lines)."
       >
-        <Form onSubmit={handleCreateBrand}>
+        <Form onSubmit={handleSaveBrand}>
           <FormSection>
             <Input
               label="Brand name"
@@ -486,8 +521,8 @@ export default function ClientDetail() {
             </label>
           </FormSection>
           <FormFooter
-            onCancel={() => setBrandModal(false)}
-            submitLabel="Add brand"
+            onCancel={closeBrandModal}
+            submitLabel={editingBrandId ? "Save changes" : "Add brand"}
             loading={submitting}
           />
         </Form>
