@@ -34,8 +34,6 @@ const empty = {
   skills: [],
   contactNumber: "",
   email: "",
-  address: "",
-  pricing: "",
   availabilityStatus: "Available",
   notes: "",
 };
@@ -86,8 +84,6 @@ export default function Freelancers() {
     skills: Array.isArray(form.skills) ? form.skills : [],
     contactNumber: form.contactNumber,
     email: form.email,
-    address: form.address,
-    pricing: form.pricing,
     availabilityStatus: form.availabilityStatus,
     notes: form.notes,
   });
@@ -327,7 +323,7 @@ export default function Freelancers() {
             />
           </FormSection>
 
-          <FormSection title="Contact & pricing">
+          <FormSection title="Contact">
             <FormGrid cols={2}>
               <Input
                 label="Contact number"
@@ -339,16 +335,6 @@ export default function Freelancers() {
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-              <Input
-                label="Address"
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-              />
-              <Input
-                label="Pricing / rate"
-                value={form.pricing}
-                onChange={(e) => setForm({ ...form, pricing: e.target.value })}
               />
             </FormGrid>
           </FormSection>

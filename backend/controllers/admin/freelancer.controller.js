@@ -29,8 +29,6 @@ const BASIC_FIELDS = [
   "skills",
   "contactNumber",
   "email",
-  "address",
-  "pricing",
   "availabilityStatus",
   "notes",
 ];

@@ -21,7 +21,6 @@ const CLIENT_FIELDS = [
   "email",
   "phone",
   "website",
-  "address",
   "notes",
   "status",
   "tags",

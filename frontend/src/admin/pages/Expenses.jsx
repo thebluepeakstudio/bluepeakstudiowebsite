@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import {
@@ -20,13 +20,11 @@ import Modal from "../components/ui/Modal";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { Input, Textarea, Select } from "../components/ui/Input";
 import { Form, FormSection, FormGrid, FormFooter, FormFileInput } from "../components/ui/Form";
-import Card, { StatCard } from "../components/ui/Card";
+import { StatCard } from "../components/ui/Card";
 import { EXPENSE_CATEGORIES, PAID_VIA } from "../utils/constants";
 import { formatCurrency, formatDate } from "../utils/formatCurrency";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import toast from "react-hot-toast";
-
-const ExpenseCategoryPie = lazy(() => import("../components/charts/ExpenseCategoryPie"));
 
 const emptyExpense = {
   title: "",
@@ -128,28 +126,9 @@ export default function Expenses() {
     }
   };
 
-  const pieData = (summary?.byCategory || []).map((c) => ({
-    name: c._id,
-    value: c.total,
-  }));
-
   return (
     <div className="space-y-6">
       <StatCard title="This Month's Expenses" value={formatCurrency(summary?.total || 0)} />
-
-      {pieData.length > 0 && (
-        <Card title="Category Breakdown">
-          <Suspense
-            fallback={
-              <div className="flex h-[200px] items-center justify-center sm:h-[220px]">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
-              </div>
-            }
-          >
-            <ExpenseCategoryPie data={pieData} />
-          </Suspense>
-        </Card>
-      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="min-w-0 flex-1 sm:min-w-[200px]">

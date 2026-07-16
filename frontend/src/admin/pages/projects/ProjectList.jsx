@@ -22,6 +22,7 @@ import RecurringProjectWizard from "./RecurringProjectWizard";
 import ProjectEditForm from "./ProjectEditForm";
 import { TableSkeleton } from "../../components/ui/Skeleton";
 import { WORK_STATUSES, PAYMENT_STATUSES, SERVICE_CATEGORIES, getProjectLabel, normalizePaymentStatus } from "../../utils/constants";
+import { formatCurrency } from "../../utils/formatCurrency";
 import toast from "react-hot-toast";
 
 export default function ProjectList() {
@@ -175,6 +176,7 @@ export default function ProjectList() {
               {
                 key: "billingModel",
                 label: "Billing",
+                minWidth: 110,
                 render: (r) => (
                   <Badge status={r.billingModel === "recurring" ? "Recurring" : "One-Time"} />
                 ),
@@ -187,13 +189,21 @@ export default function ProjectList() {
                 ),
               },
               {
+                key: "totalValue",
+                label: "Total",
+                minWidth: 100,
+                render: (r) => formatCurrency(r.totalPrice ?? r.totalAmount ?? 0),
+              },
+              {
                 key: "paymentStatus",
                 label: "Payment",
+                minWidth: 100,
                 render: (r) => <Badge status={normalizePaymentStatus(r.paymentStatus)} />,
               },
               {
                 key: "workStatus",
                 label: "Status",
+                minWidth: 120,
                 render: (r) => <Badge status={r.overallStatus || r.workStatus} />,
               },
               {

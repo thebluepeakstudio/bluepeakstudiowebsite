@@ -7,6 +7,7 @@ const cookieParser = require("cookie-parser");
 const connectDB = require("./config/db");
 const ensureAdminSeed = require("./utils/ensureAdminSeed");
 const ensurePaymentSummariesRecalculated = require("./utils/ensurePaymentSummaries");
+const ensureDeprecatedFieldsDropped = require("./utils/ensureDeprecatedFieldsDropped");
 const validateEnv = require("./utils/validateEnv");
 const correlationIdMiddleware = require("./middleware/correlationId.middleware");
 const errorHandler = require("./middleware/error.middleware");
@@ -100,6 +101,12 @@ const startServer = async () => {
     await ensurePaymentSummariesRecalculated();
   } catch (err) {
     console.error("[payment-recompute] Failed:", err.message);
+  }
+
+  try {
+    await ensureDeprecatedFieldsDropped();
+  } catch (err) {
+    console.error("[schema-cleanup] Failed:", err.message);
   }
 
   app.listen(PORT, () => {

@@ -9,7 +9,6 @@ const clientSchema = new mongoose.Schema(
     email: { type: String, trim: true, lowercase: true },
     phone: { type: String, trim: true },
     website: { type: String, trim: true },
-    address: { type: String, trim: true },
     notes: { type: String, trim: true },
     status: { type: String, enum: CLIENT_STATUSES, default: "Active" },
     tags: [{ type: String, trim: true }],

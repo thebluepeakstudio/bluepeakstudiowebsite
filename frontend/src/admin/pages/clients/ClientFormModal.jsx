@@ -7,7 +7,6 @@ export const emptyClient = {
   name: "",
   email: "",
   phone: "",
-  address: "",
   notes: "",
   status: "Active",
 };
@@ -48,12 +47,6 @@ export default function ClientFormModal({ open, onClose, form, setForm, onSubmit
               options={CLIENT_STATUSES}
             />
           </FormGrid>
-          <Textarea
-            label="Address"
-            rows={2}
-            value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-          />
           <Textarea
             label="Internal notes"
             value={form.notes}

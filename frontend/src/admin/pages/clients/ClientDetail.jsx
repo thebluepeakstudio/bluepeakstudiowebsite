@@ -6,7 +6,6 @@ import {
   getClientActivities,
   getClientAttachments,
   getClientBrands,
-  getClientTestimonials,
   logClientActivity,
   uploadClientAttachments,
   deleteClientAttachment,
@@ -18,7 +17,6 @@ import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Modal from "../../components/ui/Modal";
 import Table from "../../components/ui/Table";
-import Tabs from "../../components/ui/Tabs";
 import { Input, Textarea, Select } from "../../components/ui/Input";
 import { Form, FormSection, FormFooter } from "../../components/ui/Form";
 import ActivityTimeline from "../../components/leads/ActivityTimeline";
@@ -39,11 +37,6 @@ const EMPTY_BRAND_FORM = {
   isDefault: false,
 };
 
-const CLIENT_TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "testimonials", label: "Testimonials" },
-];
-
 export default function ClientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -52,8 +45,6 @@ export default function ClientDetail() {
   const [activities, setActivities] = useState([]);
   const [attachments, setAttachments] = useState([]);
   const [brands, setBrands] = useState([]);
-  const [testimonials, setTestimonials] = useState([]);
-  const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [activityModal, setActivityModal] = useState(false);
   const [brandModal, setBrandModal] = useState(false);
@@ -71,12 +62,8 @@ export default function ClientDetail() {
       setProjects(overview.projects);
       setActivities(overview.activities);
       setAttachments(overview.attachments);
-      const [brandsRes, testimonialsRes] = await Promise.all([
-        getClientBrands(id),
-        getClientTestimonials(id),
-      ]);
+      const brandsRes = await getClientBrands(id);
       setBrands(brandsRes.data.data || []);
-      setTestimonials(testimonialsRes.data.data || []);
     } catch {
       toast.error("Client not found");
       navigate(adminPath("clients"));
@@ -243,17 +230,13 @@ export default function ClientDetail() {
         </Link>
       </div>
 
-      <Tabs tabs={CLIENT_TABS} active={tab} onChange={setTab} />
-
-      {tab === "overview" && (
       <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="Contact Information">
           <dl className="grid gap-3 sm:grid-cols-2">
             <div><dt className="text-xs text-admin-textMuted">Email</dt><dd className="text-sm">{client.email || "—"}</dd></div>
             <div><dt className="text-xs text-admin-textMuted">Phone</dt><dd className="text-sm">{client.phone || "—"}</dd></div>
-            <div><dt className="text-xs text-admin-textMuted">Created</dt><dd className="text-sm">{formatDate(client.createdAt)}</dd></div>
-            <div className="sm:col-span-2"><dt className="text-xs text-admin-textMuted">Address</dt><dd className="text-sm">{client.address || "—"}</dd></div>
+            <div className="sm:col-span-2"><dt className="text-xs text-admin-textMuted">Created</dt><dd className="text-sm">{formatDate(client.createdAt)}</dd></div>
           </dl>
         </Card>
 
@@ -397,55 +380,6 @@ export default function ClientDetail() {
         />
       </Card>
       </div>
-      )}
-
-      {tab === "testimonials" && (
-        <Card
-          title="Testimonials"
-          subtitle="Reviews submitted by this client via the public testimonial form"
-        >
-          {testimonials.length === 0 ? (
-            <p className="text-sm text-admin-textMuted">
-              No testimonials yet. Share the testimonial link with this client:{" "}
-              <code className="rounded bg-admin-muted px-1.5 py-0.5 text-xs">
-                /testimonial?clientId={id}
-              </code>
-            </p>
-          ) : (
-            <Table
-              columns={[
-                { key: "name", label: "Submitted as" },
-                {
-                  key: "brand",
-                  label: "Brand",
-                  render: (r) => r.brandId?.name || "—",
-                },
-                {
-                  key: "rating",
-                  label: "Rating",
-                  render: (r) => `${r.rating} / 5`,
-                },
-                {
-                  key: "message",
-                  label: "Testimonial",
-                  render: (r) => (
-                    <p className="max-w-md truncate text-sm" title={r.message}>
-                      {r.message}
-                    </p>
-                  ),
-                },
-                {
-                  key: "createdAt",
-                  label: "Submitted",
-                  render: (r) => formatDate(r.createdAt),
-                },
-              ]}
-              data={testimonials}
-              emptyMessage="No testimonials yet"
-            />
-          )}
-        </Card>
-      )}
 
       <Modal
         open={activityModal}

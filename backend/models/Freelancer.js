@@ -9,8 +9,6 @@ const freelancerSchema = new mongoose.Schema(
     skills: [{ type: String, enum: SERVICE_CATEGORIES }],
     contactNumber: { type: String, trim: true },
     email: { type: String, trim: true, lowercase: true },
-    address: { type: String, trim: true },
-    pricing: { type: String, trim: true },
     availabilityStatus: { type: String, enum: AVAILABILITY, default: "Available" },
     totalProjectsAssigned: { type: Number, default: 0, min: 0 },
     notes: { type: String, trim: true },

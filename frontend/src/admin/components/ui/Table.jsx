@@ -97,7 +97,8 @@ export default function Table({
                   key={col.key}
                   className={`whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-admin-textMuted ${
                     isActionColumn(col) && actionsAlign === "end" ? "text-right" : ""
-                  }`}
+                  } ${col.className || ""}`}
+                  style={col.width || col.minWidth ? { width: col.width, minWidth: col.minWidth } : undefined}
                 >
                   {col.label}
                 </th>
@@ -118,7 +119,8 @@ export default function Table({
                     key={col.key}
                     className={`px-4 py-3.5 text-admin-text ${
                       isActionColumn(col) && actionsAlign === "end" ? "text-right" : ""
-                    }`}
+                    } ${col.className || ""}`}
+                    style={col.width || col.minWidth ? { width: col.width, minWidth: col.minWidth } : undefined}
                   >
                     {cellContent(col, row)}
                   </td>
