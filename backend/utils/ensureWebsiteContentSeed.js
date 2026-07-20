@@ -42,16 +42,22 @@ async function ensureWebsiteContentSeed() {
       { name: { $in: SEEDED_TESTIMONIAL_NAMES }, deletedAt: null, source: { $ne: "form" } },
       { $set: { deletedAt: now, status: "Draft" } }
     ),
-    WebsiteProject.updateMany(
-      { slug: { $in: SEEDED_PROJECT_SLUGS }, deletedAt: null },
-      { $set: { deletedAt: now, status: "Draft" } }
-    ),
+    WebsiteProject.find({ slug: { $in: SEEDED_PROJECT_SLUGS }, deletedAt: null }).select("_id slug"),
   ]);
 
-  const removed = (testimonials.modifiedCount || 0) + (projects.modifiedCount || 0);
+  let projectsCleared = 0;
+  for (const doc of projects) {
+    doc.deletedAt = now;
+    doc.status = "Draft";
+    doc.slug = `${doc.slug}-deleted-${now.getTime()}-${projectsCleared}`;
+    await doc.save();
+    projectsCleared += 1;
+  }
+
+  const removed = (testimonials.modifiedCount || 0) + projectsCleared;
   if (removed > 0) {
     console.log(
-      `[website-seed] Cleared auto-seeded content (${testimonials.modifiedCount} testimonials, ${projects.modifiedCount} projects)`
+      `[website-seed] Cleared auto-seeded content (${testimonials.modifiedCount} testimonials, ${projectsCleared} projects)`
     );
   }
 
@@ -63,15 +69,21 @@ async function ensureWebsiteContentSeed() {
   const categoriesSeeded = await seedDefaultCategories();
   if (categoriesSeeded > 0) {
     console.log(`[website-seed] Seeded ${categoriesSeeded} portfolio categor(y/ies)`);
-  } else if (removed === 0 && synced === 0) {
+  }
+
+  const freed = await freeSoftDeletedProjectSlugs();
+  if (freed > 0) {
+    console.log(`[website-seed] Freed ${freed} soft-deleted project slug(s)`);
+  } else if (removed === 0 && synced === 0 && categoriesSeeded === 0) {
     console.log("[website-seed] Website content up to date");
   }
 
   return {
     testimonialsCleared: testimonials.modifiedCount || 0,
-    projectsCleared: projects.modifiedCount || 0,
+    projectsCleared,
     formSynced: synced,
     categoriesSeeded,
+    slugsFreed: freed,
   };
 }
 
@@ -88,6 +100,22 @@ async function seedDefaultCategories() {
     created += 1;
   }
   return created;
+}
+
+/** Soft-deleted seed projects still hold unique slugs — rename them so new projects can reuse titles. */
+async function freeSoftDeletedProjectSlugs() {
+  const deleted = await WebsiteProject.find({
+    deletedAt: { $ne: null },
+    slug: { $not: /-deleted-\d+$/ },
+  }).select("_id slug");
+
+  let freed = 0;
+  for (const doc of deleted) {
+    doc.slug = `${doc.slug}-deleted-${doc.deletedAt?.getTime?.() || Date.now()}-${freed}`;
+    await doc.save();
+    freed += 1;
+  }
+  return freed;
 }
 
 async function syncFormTestimonialsToCrm() {

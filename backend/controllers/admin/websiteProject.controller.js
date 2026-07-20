@@ -99,23 +99,32 @@ const createProject = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Category, description, and image URL are required");
   }
 
-  const slug = await uniqueSlug(WebsiteProject, req.body.slug?.trim() || title);
-
-  const item = await WebsiteProject.create({
-    slug,
-    title,
-    category,
-    desc,
-    tags: parseTags(req.body.tags),
-    color: req.body.color?.trim() || "#378ADD",
-    img,
-    link: req.body.link?.trim() || "",
-    caseStudy: parseCaseStudy(req.body.caseStudy),
-    sortOrder: parseInt(req.body.sortOrder, 10) || 0,
-    status: req.body.status || "Draft",
+  const slug = await uniqueSlug(WebsiteProject, req.body.slug?.trim() || title, null, {
+    softDelete: false,
   });
 
-  res.status(201).json({ success: true, data: item });
+  try {
+    const item = await WebsiteProject.create({
+      slug,
+      title,
+      category,
+      desc,
+      tags: parseTags(req.body.tags),
+      color: req.body.color?.trim() || "#378ADD",
+      img,
+      link: req.body.link?.trim() || "",
+      caseStudy: parseCaseStudy(req.body.caseStudy),
+      sortOrder: parseInt(req.body.sortOrder, 10) || 0,
+      status: req.body.status || "Draft",
+    });
+
+    res.status(201).json({ success: true, data: item });
+  } catch (err) {
+    if (err.code === 11000) {
+      throw new ApiError(400, "A project with this slug already exists. Change the slug and try again.");
+    }
+    throw err;
+  }
 });
 
 const updateProject = asyncHandler(async (req, res) => {
@@ -135,16 +144,25 @@ const updateProject = asyncHandler(async (req, res) => {
 
   if (req.body.slug !== undefined || req.body.title !== undefined) {
     const base = req.body.slug?.trim() || item.title;
-    item.slug = await uniqueSlug(WebsiteProject, base, item._id);
+    item.slug = await uniqueSlug(WebsiteProject, base, item._id, { softDelete: false });
   }
 
-  await item.save();
+  try {
+    await item.save();
+  } catch (err) {
+    if (err.code === 11000) {
+      throw new ApiError(400, "A project with this slug already exists. Change the slug and try again.");
+    }
+    throw err;
+  }
   res.json({ success: true, data: item });
 });
 
 const deleteProject = asyncHandler(async (req, res) => {
   const item = await WebsiteProject.findOne({ _id: req.params.id, ...notDeleted });
   if (!item) throw new ApiError(404, "Website project not found");
+  // Free the slug so a new project can reuse the same title/slug
+  item.slug = `${item.slug}-deleted-${Date.now()}`;
   item.deletedAt = new Date();
   await item.save();
   res.json({ success: true, message: "Website project deleted" });
