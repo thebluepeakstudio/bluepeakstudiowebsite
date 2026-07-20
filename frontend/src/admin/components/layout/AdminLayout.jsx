@@ -13,6 +13,8 @@ const segmentTitles = {
   freelancers: "Freelancers",
   pl: "Profit & Loss",
   blog: "Blog",
+  testimonials: "Testimonials",
+  portfolio: "Portfolio",
   documents: "Documents",
 };
 
@@ -32,6 +34,11 @@ function resolveTitle(pathname) {
       if (child === "categories") return "Blog Categories";
       if (segments[2] === "edit") return "Edit Blog";
       return "Blog";
+    }
+    if (parent === "portfolio") {
+      if (child === "new") return "New Portfolio Project";
+      if (segments[2] === "edit") return "Edit Portfolio Project";
+      return "Portfolio";
     }
   }
 

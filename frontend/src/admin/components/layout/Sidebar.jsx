@@ -11,6 +11,8 @@ import {
   X,
   Newspaper,
   ExternalLink,
+  MessageSquareQuote,
+  PanelsTopLeft,
 } from "lucide-react";
 import { adminPath, adminHome, PUBLIC_SITE_URL } from "../../utils/adminPaths";
 
@@ -38,7 +40,11 @@ const navGroups = [
   },
   {
     title: "Content",
-    items: [{ to: adminPath("blog"), icon: Newspaper, label: "Blog" }],
+    items: [
+      { to: adminPath("blog"), icon: Newspaper, label: "Blog" },
+      { to: adminPath("testimonials"), icon: MessageSquareQuote, label: "Testimonials" },
+      { to: adminPath("portfolio"), icon: PanelsTopLeft, label: "Portfolio" },
+    ],
   },
   {
     title: "Finance",

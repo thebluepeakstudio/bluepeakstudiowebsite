@@ -43,6 +43,8 @@ const colorMap = {
   active: "bg-emerald-100 text-emerald-800",
   paused: "bg-amber-100 text-amber-800",
   cancelled: "bg-slate-100 text-slate-600",
+  Draft: "bg-slate-100 text-slate-700",
+  Published: "bg-emerald-100 text-emerald-800",
 };
 
 export const getStatusColor = (status) =>

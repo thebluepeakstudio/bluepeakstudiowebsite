@@ -128,7 +128,10 @@ export default function Expenses() {
 
   return (
     <div className="space-y-6">
-      <StatCard title="This Month's Expenses" value={formatCurrency(summary?.total || 0)} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <StatCard title="Total Expenses" value={formatCurrency(summary?.allTimeTotal || 0)} />
+        <StatCard title="This Month's Expenses" value={formatCurrency(summary?.total || 0)} />
+      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="min-w-0 flex-1 sm:min-w-[200px]">

@@ -1,22 +1,62 @@
+import { useEffect, useState } from "react";
 import { Link, useParams, Navigate } from "react-router-dom";
 import { ArrowLeft, ExternalLink, Play } from "lucide-react";
 import PageMeta from "../Components/SEO/PageMeta";
 import PageContent from "../Components/Layout/PageContent";
 import { buildBreadcrumbs } from "../config/seo";
-import { getCaseStudyBySlug, getEmbedUrl } from "../data/projects";
+import { getPublishedProjectBySlug, getEmbedUrl } from "../api/website.api";
+import { hasCaseStudyContent } from "../types/website";
 import "../Components/CaseStudy/case-study.css";
 
 export default function CaseStudy() {
   const { slug } = useParams();
-  const project = getCaseStudyBySlug(slug);
+  const [project, setProject] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
-  if (!project) {
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setNotFound(false);
+    getPublishedProjectBySlug(slug)
+      .then((res) => {
+        if (cancelled) return;
+        const item = res.data;
+        if (!item || !hasCaseStudyContent(item.caseStudy)) {
+          setNotFound(true);
+          return;
+        }
+        setProject(item);
+      })
+      .catch(() => {
+        if (!cancelled) setNotFound(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <PageContent className="case-study-page page-top">
+        <div className="h-8 w-40 animate-pulse rounded bg-white/10" />
+        <div className="mt-8 h-10 w-2/3 max-w-lg animate-pulse rounded bg-white/10" />
+        <div className="mt-6 aspect-video animate-pulse rounded-2xl bg-white/5" />
+      </PageContent>
+    );
+  }
+
+  if (notFound || !project) {
     return <Navigate to="/projects" replace />;
   }
 
   const { caseStudy } = project;
   const embedUrl = getEmbedUrl(project.link);
   const hasDemo = project.link && project.link !== "#";
+  const tags = project.tags || [];
   const breadcrumbs = buildBreadcrumbs([
     { name: "Home", path: "/" },
     { name: "Projects", path: "/projects" },
@@ -27,10 +67,10 @@ export default function CaseStudy() {
     <>
       <PageMeta
         title={`${project.title} — Case Study`}
-        description={caseStudy.overview}
+        description={caseStudy.overview || project.desc}
         path={`/projects/case-study/${project.slug}`}
         image={project.img}
-        keywords={`${project.title}, custom software case study, BluePeak Studio, ${project.tags.join(", ")}`}
+        keywords={`${project.title}, custom software case study, BluePeak Studio, ${tags.join(", ")}`}
         breadcrumbs={breadcrumbs}
       />
 
@@ -47,7 +87,7 @@ export default function CaseStudy() {
           </div>
           <h1 className="case-study-title">{project.title}</h1>
           <div className="case-study-tags">
-            {project.tags.map((tag) => (
+            {tags.map((tag) => (
               <span key={tag} className="case-study-tag">
                 {tag}
               </span>
@@ -61,20 +101,26 @@ export default function CaseStudy() {
 
         <div className="case-study-grid">
           <div className="case-study-main">
-            <section className="case-study-section">
-              <h2 className="case-study-section-title">Overview</h2>
-              <p className="case-study-section-body">{caseStudy.overview}</p>
-            </section>
+            {caseStudy.overview && (
+              <section className="case-study-section">
+                <h2 className="case-study-section-title">Overview</h2>
+                <p className="case-study-section-body">{caseStudy.overview}</p>
+              </section>
+            )}
 
-            <section className="case-study-section">
-              <h2 className="case-study-section-title">The Problem</h2>
-              <p className="case-study-section-body">{caseStudy.problem}</p>
-            </section>
+            {caseStudy.problem && (
+              <section className="case-study-section">
+                <h2 className="case-study-section-title">The Problem</h2>
+                <p className="case-study-section-body">{caseStudy.problem}</p>
+              </section>
+            )}
 
-            <section className="case-study-section">
-              <h2 className="case-study-section-title">How We Solved It</h2>
-              <p className="case-study-section-body">{caseStudy.solution}</p>
-            </section>
+            {caseStudy.solution && (
+              <section className="case-study-section">
+                <h2 className="case-study-section-title">How We Solved It</h2>
+                <p className="case-study-section-body">{caseStudy.solution}</p>
+              </section>
+            )}
 
             {caseStudy.highlights?.length > 0 && (
               <section className="case-study-section">
@@ -123,7 +169,7 @@ export default function CaseStudy() {
               <div className="case-study-widget">
                 <p className="case-study-widget-title">Tech Stack</p>
                 <div className="case-study-tags">
-                  {project.tags.map((tag) => (
+                  {tags.map((tag) => (
                     <span key={tag} className="case-study-tag">
                       {tag}
                     </span>
