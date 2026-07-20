@@ -1,47 +1,48 @@
-import React from 'react'
+import React from "react";
 
-const TestimonialCard = ({t}) => {
+const TestimonialCard = ({ t }) => {
+  const stars = "★".repeat(Math.min(5, Math.max(1, t.rating || 5)));
+  const imgSrc = t.img
+    ? t.img.includes("?")
+      ? t.img
+      : `${t.img}?tr=w-80,h-80`
+    : null;
+
   return (
     <div
-      className="min-w-[320px] max-w-[320px] p-6 rounded-2xl
-      bg-[#0d1224] 
-      border border-white/5
-      hover:border-purple-500/50
-      transition-all duration-300 cursor-grab
-      /* FLEXBOX ADDITION */
-      flex flex-col min-h-[220px]" 
-      style={{ 
-        transform: 'translateZ(0)', 
-        backfaceVisibility: 'hidden' 
+      className="flex min-h-[220px] min-w-[320px] max-w-[320px] cursor-grab flex-col rounded-2xl border border-white/5 bg-[#0d1224] p-6 transition-all duration-300 hover:border-purple-500/50"
+      style={{
+        transform: "translateZ(0)",
+        backfaceVisibility: "hidden",
       }}
     >
-      <div className="text-yellow-500 text-sm mb-3">
-        ★★★★★
+      <div className="mb-3 text-sm text-yellow-500" aria-hidden>
+        {stars}
       </div>
 
-      {/* Wrapping text in a div with mt-auto on the next sibling pushes this up */}
       <div className="flex-grow">
-        <p className="text-gray-400 text-sm leading-relaxed dm-sans">
-          "{t.text}"
-        </p>
+        <p className="dm-sans text-sm leading-relaxed text-gray-400">&ldquo;{t.text}&rdquo;</p>
       </div>
 
-      {/* mt-auto pushes the footer to the very bottom of the card */}
-      <div className="flex items-center gap-3 mt-6 pt-4 border-t border-white/5">
-        <img
-          src={`${t.img}?tr=w-80,h-80`}
-          className="w-10 h-10 rounded-full object-cover shrink-0"
-          alt={t.name}
-          loading="lazy"
-        />
+      <div className="mt-6 flex items-center gap-3 border-t border-white/5 pt-4">
+        {imgSrc ? (
+          <img
+            src={imgSrc}
+            className="h-10 w-10 shrink-0 rounded-full object-cover"
+            alt={t.name}
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white">
+            {(t.name || "?").charAt(0).toUpperCase()}
+          </div>
+        )}
         <div className="overflow-hidden">
-          <p className="font-semibold text-white text-sm truncate">
-            {t.name}
-          </p>
+          <p className="truncate text-sm font-semibold text-white">{t.name}</p>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default TestimonialCard
+export default TestimonialCard;

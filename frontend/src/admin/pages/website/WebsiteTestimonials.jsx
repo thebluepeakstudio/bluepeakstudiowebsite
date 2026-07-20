@@ -74,6 +74,10 @@ export default function WebsiteTestimonials() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (form.status === "Published" && !form.img?.trim()) {
+      toast.error("Add an image URL before publishing");
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {
@@ -113,7 +117,9 @@ export default function WebsiteTestimonials() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-admin-text">Testimonials</h1>
-          <p className="text-sm text-admin-textMuted">Manage homepage testimonial cards</p>
+          <p className="text-sm text-admin-textMuted">
+            Homepage shows Published items only. Form submissions arrive as Draft — add an image, then publish.
+          </p>
         </div>
         <Button onClick={openCreate}>
           <Plus size={18} /> Add testimonial
@@ -147,14 +153,25 @@ export default function WebsiteTestimonials() {
                 label: "Client",
                 render: (r) => (
                   <div className="flex items-center gap-3">
-                    <img
-                      src={r.img}
-                      alt=""
-                      className="h-9 w-9 rounded-full object-cover"
-                    />
+                    {r.img ? (
+                      <img
+                        src={r.img}
+                        alt=""
+                        className="h-9 w-9 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-admin-muted text-xs font-semibold text-admin-textMuted">
+                        {(r.name || "?").charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <div>
                       <p className="font-medium text-admin-text">{r.name}</p>
                       <p className="line-clamp-1 max-w-md text-xs text-admin-textMuted">{r.text}</p>
+                      {r.source === "form" && (
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-amber-600">
+                          From form · add image to publish
+                        </p>
+                      )}
                     </div>
                   </div>
                 ),
@@ -214,7 +231,7 @@ export default function WebsiteTestimonials() {
                 value={form.img}
                 onChange={(e) => setForm((f) => ({ ...f, img: e.target.value }))}
                 placeholder="https://ik.imagekit.io/..."
-                required
+                hint="Required before publishing to the homepage"
               />
               <Select
                 label="Rating"

@@ -17,7 +17,7 @@ export const emptyTestimonial = {
   img: "",
   rating: 5,
   sortOrder: 0,
-  status: "Published",
+  status: "Draft",
 };
 
 export const emptyWebsiteProject = {

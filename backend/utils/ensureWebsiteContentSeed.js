@@ -9,6 +9,7 @@ const DEFAULT_TESTIMONIALS = [
     rating: 5,
     sortOrder: 0,
     status: "Published",
+    source: "crm",
   },
   {
     name: "Tvastih Studio",
@@ -17,6 +18,7 @@ const DEFAULT_TESTIMONIALS = [
     rating: 5,
     sortOrder: 1,
     status: "Published",
+    source: "crm",
   },
   {
     name: "Zolo Media",
@@ -25,6 +27,7 @@ const DEFAULT_TESTIMONIALS = [
     rating: 5,
     sortOrder: 2,
     status: "Published",
+    source: "crm",
   },
   {
     name: "Mr Lazy Tech",
@@ -33,6 +36,7 @@ const DEFAULT_TESTIMONIALS = [
     rating: 5,
     sortOrder: 3,
     status: "Published",
+    source: "crm",
   },
 ];
 

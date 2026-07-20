@@ -42,17 +42,23 @@ const getTestimonial = asyncHandler(async (req, res) => {
 });
 
 const createTestimonial = asyncHandler(async (req, res) => {
+  const status = req.body.status || "Draft";
+  const img = req.body.img?.trim() || "";
   const payload = {
     name: req.body.name?.trim(),
     text: req.body.text?.trim(),
-    img: req.body.img?.trim(),
+    img,
     rating: Math.min(5, Math.max(1, parseInt(req.body.rating, 10) || 5)),
     sortOrder: parseInt(req.body.sortOrder, 10) || 0,
-    status: req.body.status || "Draft",
+    status,
+    source: "crm",
   };
 
-  if (!payload.name || !payload.text || !payload.img) {
-    throw new ApiError(400, "Name, text, and image URL are required");
+  if (!payload.name || !payload.text) {
+    throw new ApiError(400, "Name and text are required");
+  }
+  if (status === "Published" && !img) {
+    throw new ApiError(400, "Image URL is required before publishing");
   }
 
   const item = await WebsiteTestimonial.create(payload);
@@ -71,6 +77,10 @@ const updateTestimonial = asyncHandler(async (req, res) => {
   }
   if (req.body.sortOrder !== undefined) item.sortOrder = parseInt(req.body.sortOrder, 10) || 0;
   if (req.body.status !== undefined) item.status = req.body.status;
+
+  if (item.status === "Published" && !item.img) {
+    throw new ApiError(400, "Image URL is required before publishing");
+  }
 
   await item.save();
   res.json({ success: true, data: item });

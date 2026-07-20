@@ -5,7 +5,10 @@ const asyncHandler = require("../utils/asyncHandler");
 const { publishedWebsiteFilter } = require("../utils/publishedWebsiteFilter");
 
 const getPublishedTestimonials = asyncHandler(async (req, res) => {
-  const items = await WebsiteTestimonial.find(publishedWebsiteFilter())
+  const items = await WebsiteTestimonial.find({
+    ...publishedWebsiteFilter(),
+    img: { $nin: [null, ""] },
+  })
     .select("name text img rating sortOrder")
     .sort({ sortOrder: 1, createdAt: -1 })
     .lean();

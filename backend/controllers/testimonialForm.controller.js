@@ -1,4 +1,5 @@
 const TestimonialForm = require("../models/testimonialForm");
+const WebsiteTestimonial = require("../models/WebsiteTestimonial");
 const Client = require("../models/Client");
 const Brand = require("../models/Brand");
 
@@ -44,6 +45,22 @@ module.exports.createTestimonial = async (req, res) => {
       message,
       clientId: resolvedClientId,
       brandId: resolvedBrandId,
+    });
+
+    // Also land in CRM Content → Testimonials as Draft (image added by admin later)
+    const maxOrder = await WebsiteTestimonial.findOne({ deletedAt: null })
+      .sort({ sortOrder: -1 })
+      .select("sortOrder")
+      .lean();
+
+    await WebsiteTestimonial.create({
+      name: String(name).trim(),
+      text: String(message).trim(),
+      img: "",
+      rating: Math.min(5, Math.max(1, Number(rating) || 5)),
+      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+      status: "Draft",
+      source: "form",
     });
 
     res.status(200).json({
