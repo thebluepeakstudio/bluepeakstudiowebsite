@@ -1,5 +1,6 @@
 const WebsiteTestimonial = require("../models/WebsiteTestimonial");
 const WebsiteProject = require("../models/WebsiteProject");
+const TestimonialForm = require("../models/testimonialForm");
 
 /** Names/slugs that were auto-inserted by the old seed — remove so CRM is the only source. */
 const SEEDED_TESTIMONIAL_NAMES = [
@@ -20,15 +21,15 @@ const SEEDED_PROJECT_SLUGS = [
 ];
 
 /**
- * Soft-delete auto-seeded website content once. Does not insert anything.
- * After this, homepage / projects only show what you add in CRM.
+ * Soft-delete demo seed content, then sync all TestimonialForm submissions
+ * into CRM WebsiteTestimonial (Draft until admin adds image + publishes).
  */
 async function ensureWebsiteContentSeed() {
   const now = new Date();
 
   const [testimonials, projects] = await Promise.all([
     WebsiteTestimonial.updateMany(
-      { name: { $in: SEEDED_TESTIMONIAL_NAMES }, deletedAt: null },
+      { name: { $in: SEEDED_TESTIMONIAL_NAMES }, deletedAt: null, source: { $ne: "form" } },
       { $set: { deletedAt: now, status: "Draft" } }
     ),
     WebsiteProject.updateMany(
@@ -42,14 +43,68 @@ async function ensureWebsiteContentSeed() {
     console.log(
       `[website-seed] Cleared auto-seeded content (${testimonials.modifiedCount} testimonials, ${projects.modifiedCount} projects)`
     );
-  } else {
-    console.log("[website-seed] No auto-seeded content to clear");
+  }
+
+  const synced = await syncFormTestimonialsToCrm();
+  if (synced > 0) {
+    console.log(`[website-seed] Synced ${synced} form testimonial(s) into CRM`);
+  } else if (removed === 0) {
+    console.log("[website-seed] Website content up to date");
   }
 
   return {
     testimonialsCleared: testimonials.modifiedCount || 0,
     projectsCleared: projects.modifiedCount || 0,
+    formSynced: synced,
   };
 }
 
+async function syncFormTestimonialsToCrm() {
+  const forms = await TestimonialForm.find({}).sort({ createdAt: 1 }).lean();
+  if (!forms.length) return 0;
+
+  let created = 0;
+  let sortOrder =
+    (
+      await WebsiteTestimonial.findOne({ deletedAt: null })
+        .sort({ sortOrder: -1 })
+        .select("sortOrder")
+        .lean()
+    )?.sortOrder ?? -1;
+
+  for (const form of forms) {
+    const name = String(form.name || "").trim();
+    const text = String(form.message || "").trim();
+    if (!name || !text) continue;
+
+    const existing = await WebsiteTestimonial.findOne({
+      deletedAt: null,
+      $or: [
+        { formSubmissionId: form._id },
+        { source: "form", name, text },
+      ],
+    })
+      .select("_id")
+      .lean();
+
+    if (existing) continue;
+
+    sortOrder += 1;
+    await WebsiteTestimonial.create({
+      name,
+      text,
+      img: "",
+      rating: Math.min(5, Math.max(1, Number(form.rating) || 5)),
+      sortOrder,
+      status: "Draft",
+      source: "form",
+      formSubmissionId: form._id,
+    });
+    created += 1;
+  }
+
+  return created;
+}
+
 module.exports = ensureWebsiteContentSeed;
+module.exports.syncFormTestimonialsToCrm = syncFormTestimonialsToCrm;

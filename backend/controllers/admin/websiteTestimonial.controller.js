@@ -24,7 +24,7 @@ const getTestimonials = asyncHandler(async (req, res) => {
   const filter = buildFilter(req.query);
 
   const [items, total] = await Promise.all([
-    WebsiteTestimonial.find(filter).sort({ sortOrder: 1, createdAt: -1 }).skip(skip).limit(limit).lean(),
+    WebsiteTestimonial.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     WebsiteTestimonial.countDocuments(filter),
   ]);
 

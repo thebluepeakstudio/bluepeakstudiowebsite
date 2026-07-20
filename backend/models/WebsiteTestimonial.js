@@ -11,6 +11,12 @@ const websiteTestimonialSchema = new mongoose.Schema(
     sortOrder: { type: Number, default: 0 },
     status: { type: String, enum: WEBSITE_STATUSES, default: "Draft" },
     source: { type: String, enum: ["crm", "form"], default: "crm" },
+    formSubmissionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TestimonialForm",
+      default: null,
+      index: true,
+    },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true }

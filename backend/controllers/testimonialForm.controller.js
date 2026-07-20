@@ -39,7 +39,7 @@ module.exports.createTestimonial = async (req, res) => {
       }
     }
 
-    await TestimonialForm.create({
+    const formDoc = await TestimonialForm.create({
       name,
       rating,
       message,
@@ -47,21 +47,37 @@ module.exports.createTestimonial = async (req, res) => {
       brandId: resolvedBrandId,
     });
 
-    // Also land in CRM Content → Testimonials as Draft (image added by admin later)
-    const maxOrder = await WebsiteTestimonial.findOne({ deletedAt: null })
-      .sort({ sortOrder: -1 })
-      .select("sortOrder")
+    const trimmedName = String(name).trim();
+    const trimmedText = String(message).trim();
+
+    // Avoid duplicates if sync already imported this submission
+    const alreadyInCrm = await WebsiteTestimonial.findOne({
+      deletedAt: null,
+      $or: [
+        { formSubmissionId: formDoc._id },
+        { source: "form", name: trimmedName, text: trimmedText },
+      ],
+    })
+      .select("_id")
       .lean();
 
-    await WebsiteTestimonial.create({
-      name: String(name).trim(),
-      text: String(message).trim(),
-      img: "",
-      rating: Math.min(5, Math.max(1, Number(rating) || 5)),
-      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
-      status: "Draft",
-      source: "form",
-    });
+    if (!alreadyInCrm) {
+      const maxOrder = await WebsiteTestimonial.findOne({ deletedAt: null })
+        .sort({ sortOrder: -1 })
+        .select("sortOrder")
+        .lean();
+
+      await WebsiteTestimonial.create({
+        name: trimmedName,
+        text: trimmedText,
+        img: "",
+        rating: Math.min(5, Math.max(1, Number(rating) || 5)),
+        sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+        status: "Draft",
+        source: "form",
+        formSubmissionId: formDoc._id,
+      });
+    }
 
     res.status(200).json({
       success: true,
