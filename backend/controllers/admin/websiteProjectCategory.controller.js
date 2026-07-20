@@ -12,15 +12,17 @@ const createCategory = asyncHandler(async (req, res) => {
   const name = req.body.name?.trim();
   if (!name) throw new ApiError(400, "Category name is required");
 
+  const slug = slugify(req.body.slug || name) || "category";
+
   const existing = await WebsiteProjectCategory.findOne({
-    name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+    $or: [
+      { slug },
+      { name: { $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } },
+    ],
   }).lean();
   if (existing) throw new ApiError(400, "Category already exists");
 
-  const category = await WebsiteProjectCategory.create({
-    name,
-    slug: slugify(req.body.slug || name),
-  });
+  const category = await WebsiteProjectCategory.create({ name, slug });
 
   res.status(201).json({ success: true, data: category });
 });
@@ -33,7 +35,7 @@ const updateCategory = asyncHandler(async (req, res) => {
     const name = req.body.name.trim();
     if (!name) throw new ApiError(400, "Category name is required");
     category.name = name;
-    category.slug = slugify(req.body.slug || name);
+    category.slug = slugify(req.body.slug || name) || category.slug;
   }
 
   await category.save();

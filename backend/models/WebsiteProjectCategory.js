@@ -9,11 +9,10 @@ const websiteProjectCategorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-websiteProjectCategorySchema.pre("validate", function setSlug(next) {
+websiteProjectCategorySchema.pre("validate", function setSlug() {
   if (this.isModified("name") || !this.slug) {
-    this.slug = slugify(this.name);
+    this.slug = slugify(this.name) || "category";
   }
-  next();
 });
 
 module.exports = mongoose.model("WebsiteProjectCategory", websiteProjectCategorySchema);

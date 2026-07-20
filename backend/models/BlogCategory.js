@@ -10,11 +10,10 @@ const blogCategorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-blogCategorySchema.pre("validate", function setSlug(next) {
+blogCategorySchema.pre("validate", function setSlug() {
   if (this.isModified("name") || !this.slug) {
-    this.slug = slugify(this.name);
+    this.slug = slugify(this.name) || "category";
   }
-  next();
 });
 
 blogCategorySchema.index({ name: "text" });
