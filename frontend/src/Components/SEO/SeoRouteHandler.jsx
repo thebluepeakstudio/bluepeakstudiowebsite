@@ -7,7 +7,11 @@ const SKIP_PATHS = ["/blogs"];
 export default function SeoRouteHandler() {
   const { pathname } = useLocation();
 
-  if (pathname.startsWith("/blogs/") || SKIP_PATHS.includes(pathname)) {
+  if (
+    pathname.startsWith("/blogs/") ||
+    pathname.startsWith("/projects/case-study/") ||
+    SKIP_PATHS.includes(pathname)
+  ) {
     return null;
   }
 

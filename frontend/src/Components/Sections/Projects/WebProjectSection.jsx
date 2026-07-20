@@ -1,148 +1,128 @@
-import { useState, useEffect, useRef } from 'react'
-import "./Project.css"
-
-const projects = [
-  {
-    title: 'Client Management System',
-    category: 'Custom Software',
-    desc: 'A centralized workspace designed to track clients, projects, deliverables, payment statuses, and freelancers in one unified dashboard.',
-    tags: ['React', 'Node.js', 'PostgreSQL', 'Express.js'],
-    color: '#EF9F27',
-    img: 'https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/crm%20blue%20peak%20studio?updatedAt=1783882218230',
-    link: '',
-    size: 'large'
-  },
-  {
-    title: 'Foxnut Manufacturing ERP',
-    category: 'Custom Software',
-    desc: 'An end-to-end manufacturing system that tracks raw foxnut procurement, final inventory production, sales, invoices, and automated financial balance sheets.',
-    tags: ['React', 'Node.js', 'PostgreSQL', 'Express.js', 'Docker', 'Redis'],
-    color: '#5DCAA5',
-    img: 'https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/Screenshot%202026-07-01%20153132.png?updatedAt=1782900128997',
-    link: '',
-    size: 'large'
-  },
-  {
-    title: 'Chikoo Constructions',
-    category: 'Real Estate',
-    desc: 'A high-performance corporate portal for a premier construction firm, featuring interactive project galleries and optimized lead generation flows.',
-    tags: ['React', 'Node.js', 'MongoDB'],
-    color: '#378ADD',
-    img: 'https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/Screenshot%202026-04-24%20223201.png',
-    link: 'https://www.chikooconstructions.com/',
-    size: 'large'
-  },
-  {
-    title: 'WanderLust',
-    category: 'Web App',
-    desc: 'Premium Property Listing and Booking Website.',
-    tags: ['JavaScript', 'Express.js', 'REST APIs', 'Node.js', 'MySQL'],
-    color: '#D85A30',
-    img: 'https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/Screenshot%202026-03-11%20221731.png?updatedAt=1774033525183',
-    link: 'https://wanderlust-1k0r.onrender.com/listings',
-    size: 'large'
-  },
-  {
-    title: 'Tvastih Studio',
-    category: 'E-Commerce',
-    desc: 'Enterprise-grade project management dashboard featuring high-performance Kanban systems.',
-    tags: ['Wix'],
-    color: '#5DCAA5',
-    img: 'https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/Screenshot%202026-03-11%20221051.png?updatedAt=1774033525219',
-    link: '#',
-    size: 'small'
-  },
-  {
-    title: 'MR Corrugators',
-    category: 'Manufacturing',
-    desc: 'Packaging manufacturers of high-quality packaging solutions.',
-    tags: ['JavaScript', 'React.js', 'Express.js', 'REST APIs', 'Node.js', 'MySQL'],
-    color: '#EF9F27',
-    img: 'https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/Screenshot%202026-04-24%20222727.png',
-    link: 'https://mr-corrugators.vercel.app/',
-    size: 'small'
-  },
-]
-
-const filters = ['All', 'Custom Software', 'Web App', 'E-Commerce', 'Real Estate', 'Landing Page', 'Manufacturing']
-
-export default function WebProjectSection() {
-  const [active, setActive] = useState('All')
-  const [visible, setVisible] = useState(projects)
-  const containerRef = useRef(null)
-
-  useEffect(() => {
-    const filtered = active === 'All' ? projects : projects.filter((p) => p.category === active)
-    setVisible(filtered)
-  }, [active])
-
-  useEffect(() => {
-    const cards = containerRef.current?.querySelectorAll('[data-pcard]')
-    if (!cards) return
-    const obs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            e.target.style.opacity = '1'
-            e.target.style.transform = 'translateY(0)'
-          }
-        })
-      },
-      { threshold: 0.1 }
-    )
-    cards.forEach((c) => obs.observe(c))
-    return () => obs.disconnect()
-  }, [visible])
-
-  return (
-    <section className="port-container" id="portfolio">
-      <div className="port-header">
-        <div className="port-filters">
-          {filters.map((f) => (
-            <button
-              key={f}
-              className={`port-filter-btn ${active === f ? 'active' : ''}`}
-              onClick={() => setActive(f)}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="port-grid" ref={containerRef}>
-        {visible.map((p) => (
-          <div key={p.title} className="port-card" data-pcard>
-            <div className="port-card-inner">
-              <div className="port-image-container">
-                <img src={p.img} alt={p.title} />
-                <div className="port-overlay">
-                  <a href={p.link} className="port-view-btn">
-                    View
-                  </a>
-                </div>
-              </div>
-              
-              <div className="port-content">
-                <div className="port-meta">
-                  <span className="port-category">{p.category}</span>
-                  <div className="port-line" style={{ backgroundColor: p.color }} />
-                </div>
-                <h3 className="port-card-title">{p.title}</h3>
-                <p className="port-card-desc">{p.desc}</p>
-                
-                <div className="port-tags">
-                  {p.tags.map(tag => (
-                    <span key={tag} className="port-tag bg-yellow-400">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
+import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
+import { Play } from 'lucide-react'
+import { projects, filters } from '../../../data/projects'
+import "./Project.css"
+
+export default function WebProjectSection() {
+  const [active, setActive] = useState('All')
+  const [visible, setVisible] = useState(projects)
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    const filtered = active === 'All' ? projects : projects.filter((p) => p.category === active)
+    setVisible(filtered)
+  }, [active])
+
+  useEffect(() => {
+    const cards = containerRef.current?.querySelectorAll('[data-pcard]')
+    if (!cards) return
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.style.opacity = '1'
+            e.target.style.transform = 'translateY(0)'
+          }
+        })
+      },
+      { threshold: 0.1 }
+    )
+    cards.forEach((c) => obs.observe(c))
+    return () => obs.disconnect()
+  }, [visible])
+
+  const isCustomSoftware = (p) => p.category === 'Custom Software' && p.caseStudy
+  const hasDemo = (p) => p.link && p.link !== '#'
+
+  return (
+    <section className="port-container" id="portfolio">
+      <div className="port-header">
+        <div className="port-filters">
+          {filters.map((f) => (
+            <button
+              key={f}
+              className={`port-filter-btn ${active === f ? 'active' : ''}`}
+              onClick={() => setActive(f)}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="port-grid" ref={containerRef}>
+        {visible.map((p) => (
+          <div key={p.title} className="port-card" data-pcard>
+            <div className="port-card-inner">
+              <div className="port-image-container">
+                <img src={p.img} alt={p.title} />
+                <div className="port-overlay">
+                  {isCustomSoftware(p) ? (
+                    <div className="port-overlay-actions">
+                      <Link to={`/projects/case-study/${p.slug}`} className="port-view-btn">
+                        Case Study
+                      </Link>
+                      {hasDemo(p) && (
+                        <a
+                          href={p.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="port-view-btn port-demo-btn"
+                        >
+                          <Play size={14} />
+                          Demo
+                        </a>
+                      )}
+                    </div>
+                  ) : hasDemo(p) ? (
+                    <a href={p.link} target="_blank" rel="noopener noreferrer" className="port-view-btn">
+                      View
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+              
+              <div className="port-content">
+                <div className="port-meta">
+                  <span className="port-category">{p.category}</span>
+                  <div className="port-line" style={{ backgroundColor: p.color }} />
+                </div>
+                <h3 className="port-card-title">{p.title}</h3>
+                <p className="port-card-desc">{p.desc}</p>
+                
+                <div className="port-tags">
+                  {p.tags.map(tag => (
+                    <span key={tag} className="port-tag bg-yellow-400">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                {isCustomSoftware(p) && (
+                  <div className="port-card-actions">
+                    <Link to={`/projects/case-study/${p.slug}`} className="port-action-btn port-action-primary">
+                      Case Study
+                    </Link>
+                    {hasDemo(p) && (
+                      <a
+                        href={p.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="port-action-btn port-action-secondary"
+                      >
+                        <Play size={14} />
+                        Demo Video
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+

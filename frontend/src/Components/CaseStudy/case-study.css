@@ -1,0 +1,253 @@
+.case-study-page {
+  padding-top: 2rem;
+  padding-bottom: 5rem;
+}
+
+.case-study-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  margin-bottom: 2rem;
+  transition: color 0.2s ease;
+}
+
+.case-study-back:hover {
+  color: #fff;
+}
+
+.case-study-hero {
+  margin-bottom: 3rem;
+}
+
+.case-study-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.case-study-category {
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #378add;
+}
+
+.case-study-accent {
+  height: 2px;
+  width: 2rem;
+}
+
+.case-study-title {
+  font-family: "azonix", sans-serif;
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  line-height: 1.2;
+  color: #fff;
+  margin-bottom: 1.25rem;
+}
+
+.case-study-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.case-study-tag {
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #020617;
+  padding: 0.25rem 0.625rem;
+  border-radius: 4px;
+  background-color: #fbbf24;
+}
+
+.case-study-cover {
+  margin-bottom: 3rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  aspect-ratio: 16 / 9;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.case-study-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.case-study-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+  .case-study-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+    gap: 3.5rem;
+  }
+}
+
+.case-study-section + .case-study-section {
+  margin-top: 2.5rem;
+}
+
+.case-study-section-title {
+  font-family: "azonix", sans-serif;
+  font-size: 1.125rem;
+  color: #fff;
+  margin-bottom: 0.875rem;
+}
+
+.case-study-section-body {
+  font-family: "DM Sans", sans-serif;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.case-study-highlights {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.case-study-highlights li {
+  position: relative;
+  padding-left: 1.25rem;
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.case-study-highlights li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #5dcaa5;
+}
+
+.case-study-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+@media (min-width: 1024px) {
+  .case-study-sidebar-inner {
+    position: sticky;
+    top: 100px;
+  }
+}
+
+.case-study-widget {
+  padding: 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.case-study-widget-title {
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 1rem;
+}
+
+.case-study-demo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1.25rem;
+  border-radius: 100px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  color: #020617;
+  background: #fbbf24;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.case-study-demo-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(251, 191, 36, 0.25);
+}
+
+.case-study-video {
+  margin-top: 3rem;
+}
+
+.case-study-video-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #000;
+}
+
+.case-study-video-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.case-study-cta {
+  margin-top: 4rem;
+  padding: 2rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  text-align: center;
+}
+
+.case-study-cta p {
+  font-family: "DM Sans", sans-serif;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 1.25rem;
+}
+
+.case-study-cta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 100px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.case-study-cta-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.4);
+}

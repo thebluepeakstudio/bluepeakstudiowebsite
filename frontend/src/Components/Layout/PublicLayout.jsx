@@ -21,6 +21,7 @@ const PrivacyPolicy = lazy(() => import("../../Pages/PrivacyPolicy"));
 const TestimonialForm = lazy(() => import("../../Pages/TestimonialForm"));
 const Blogs = lazy(() => import("../../Pages/Blogs"));
 const BlogPost = lazy(() => import("../../Pages/BlogPost"));
+const CaseStudy = lazy(() => import("../../Pages/CaseStudy"));
 const NotFound = lazy(() => import("../../Pages/NotFound"));
 
 const PageLoader = () => (
@@ -66,6 +67,7 @@ export default function PublicLayout() {
             <Route path="/" element={<Home />} />
             <Route path="/about-us" element={<About />} />
             <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/case-study/:slug" element={<CaseStudy />} />
             <Route path="/services" element={<Services />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/blogs" element={<Blogs />} />

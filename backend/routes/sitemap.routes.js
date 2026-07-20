@@ -57,6 +57,19 @@ router.get("/sitemap.xml", async (req, res) => {
       priority: "0.5",
     }));
 
+    const caseStudySlugs = [
+      "client-management-system",
+      "inventory-management-system",
+      "foxnut-manufacturing-erp",
+    ];
+
+    const caseStudyPages = caseStudySlugs.map((slug) => ({
+      loc: `${base}/projects/case-study/${slug}`,
+      lastmod: new Date().toISOString().split("T")[0],
+      changefreq: "monthly",
+      priority: "0.7",
+    }));
+
     const urls = [
       ...staticPages.map(({ path, priority, changefreq }) => ({
         loc: `${base}${path}`,
@@ -64,6 +77,7 @@ router.get("/sitemap.xml", async (req, res) => {
         changefreq,
         priority,
       })),
+      ...caseStudyPages,
       ...categories.map((cat) => ({
         loc: `${base}/blogs?category=${cat.slug}`,
         lastmod: (cat.updatedAt || new Date()).toISOString().split("T")[0],
