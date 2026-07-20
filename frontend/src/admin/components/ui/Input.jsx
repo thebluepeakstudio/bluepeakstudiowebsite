@@ -17,16 +17,16 @@ function stripRequiredFromLabel(label) {
 
 function FieldWrapper({ label, hint, error, required, className = "", children }) {
   return (
-    <div className={className}>
+    <div className={`flex min-w-0 flex-col ${className}`}>
       {label && (
-        <label className="mb-1 block text-sm font-medium text-admin-text">
+        <label className="mb-1.5 block min-h-[1.25rem] text-sm font-medium leading-5 text-admin-text">
           {stripRequiredFromLabel(label)}
           {required && <RequiredMark />}
         </label>
       )}
-      {hint && !error && <p className="mb-1.5 text-xs text-admin-textMuted">{hint}</p>}
       {children}
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {hint && !error && <p className="mt-1.5 text-xs leading-4 text-admin-textMuted">{hint}</p>}
+      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

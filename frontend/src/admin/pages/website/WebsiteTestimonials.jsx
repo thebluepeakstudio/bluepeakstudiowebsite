@@ -118,7 +118,8 @@ export default function WebsiteTestimonials() {
         <div>
           <h1 className="text-xl font-semibold text-admin-text">Testimonials</h1>
           <p className="text-sm text-admin-textMuted">
-            Homepage shows Published items only. Form submissions arrive as Draft — add an image, then publish.
+            Client form submissions appear here automatically as Draft. Add an image URL, then set status to
+            Published to show on the homepage.
           </p>
         </div>
         <Button onClick={openCreate}>

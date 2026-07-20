@@ -38,9 +38,9 @@ export function FormSection({ title, description, children, variant = "default",
 
 export function FormGrid({ cols = 2, children, className = "" }) {
   const layouts = {
-    1: "grid grid-cols-1 gap-4",
-    2: "grid grid-cols-1 gap-4 sm:grid-cols-2",
-    3: "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3",
+    1: "grid grid-cols-1 items-start gap-4",
+    2: "grid grid-cols-1 items-start gap-4 sm:grid-cols-2",
+    3: "grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3",
   };
 
   return <div className={`${layouts[cols] || layouts[2]} ${className}`}>{children}</div>;
@@ -57,20 +57,25 @@ export function FormFooter({
   loading,
   submitForm,
   className = "",
+  children,
 }) {
   return (
     <div
       className={`-mx-4 border-t border-admin-border bg-admin-surface px-4 py-4 sm:-mx-5 sm:px-5 ${className}`}
     >
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        {onCancel && (
-          <Button type="button" variant="ghost" onClick={onCancel}>
-            {cancelLabel}
-          </Button>
+        {children ?? (
+          <>
+            {onCancel && (
+              <Button type="button" variant="ghost" onClick={onCancel}>
+                {cancelLabel}
+              </Button>
+            )}
+            <Button type="submit" form={submitForm || undefined} loading={loading}>
+              {submitLabel}
+            </Button>
+          </>
         )}
-        <Button type="submit" form={submitForm || undefined} loading={loading}>
-          {submitLabel}
-        </Button>
       </div>
     </div>
   );

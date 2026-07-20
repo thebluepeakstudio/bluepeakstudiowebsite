@@ -1,6 +1,8 @@
 const WebsiteTestimonial = require("../models/WebsiteTestimonial");
 const WebsiteProject = require("../models/WebsiteProject");
+const WebsiteProjectCategory = require("../models/WebsiteProjectCategory");
 const TestimonialForm = require("../models/testimonialForm");
+const { slugify } = require("./slugify");
 
 /** Names/slugs that were auto-inserted by the old seed — remove so CRM is the only source. */
 const SEEDED_TESTIMONIAL_NAMES = [
@@ -20,9 +22,17 @@ const SEEDED_PROJECT_SLUGS = [
   "mr-corrugators",
 ];
 
+const DEFAULT_CATEGORIES = [
+  "Custom Software",
+  "Web App",
+  "E-Commerce",
+  "Real Estate",
+  "Landing Page",
+  "Manufacturing",
+];
+
 /**
- * Soft-delete demo seed content, then sync all TestimonialForm submissions
- * into CRM WebsiteTestimonial (Draft until admin adds image + publishes).
+ * Soft-delete demo seed content, sync form testimonials, seed default categories.
  */
 async function ensureWebsiteContentSeed() {
   const now = new Date();
@@ -48,7 +58,12 @@ async function ensureWebsiteContentSeed() {
   const synced = await syncFormTestimonialsToCrm();
   if (synced > 0) {
     console.log(`[website-seed] Synced ${synced} form testimonial(s) into CRM`);
-  } else if (removed === 0) {
+  }
+
+  const categoriesSeeded = await seedDefaultCategories();
+  if (categoriesSeeded > 0) {
+    console.log(`[website-seed] Seeded ${categoriesSeeded} portfolio categor(y/ies)`);
+  } else if (removed === 0 && synced === 0) {
     console.log("[website-seed] Website content up to date");
   }
 
@@ -56,7 +71,23 @@ async function ensureWebsiteContentSeed() {
     testimonialsCleared: testimonials.modifiedCount || 0,
     projectsCleared: projects.modifiedCount || 0,
     formSynced: synced,
+    categoriesSeeded,
   };
+}
+
+async function seedDefaultCategories() {
+  let created = 0;
+  for (const name of DEFAULT_CATEGORIES) {
+    const exists = await WebsiteProjectCategory.findOne({
+      name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+    })
+      .select("_id")
+      .lean();
+    if (exists) continue;
+    await WebsiteProjectCategory.create({ name, slug: slugify(name) });
+    created += 1;
+  }
+  return created;
 }
 
 async function syncFormTestimonialsToCrm() {

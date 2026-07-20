@@ -110,7 +110,6 @@ const createProject = asyncHandler(async (req, res) => {
     color: req.body.color?.trim() || "#378ADD",
     img,
     link: req.body.link?.trim() || "",
-    size: req.body.size === "small" ? "small" : "large",
     caseStudy: parseCaseStudy(req.body.caseStudy),
     sortOrder: parseInt(req.body.sortOrder, 10) || 0,
     status: req.body.status || "Draft",
@@ -129,7 +128,6 @@ const updateProject = asyncHandler(async (req, res) => {
   if (req.body.img !== undefined) item.img = req.body.img.trim();
   if (req.body.link !== undefined) item.link = req.body.link.trim();
   if (req.body.color !== undefined) item.color = req.body.color.trim() || "#378ADD";
-  if (req.body.size !== undefined) item.size = req.body.size === "small" ? "small" : "large";
   if (req.body.tags !== undefined) item.tags = parseTags(req.body.tags);
   if (req.body.sortOrder !== undefined) item.sortOrder = parseInt(req.body.sortOrder, 10) || 0;
   if (req.body.status !== undefined) item.status = req.body.status;

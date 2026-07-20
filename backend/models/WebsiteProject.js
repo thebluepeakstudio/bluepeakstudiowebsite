@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 
 const WEBSITE_STATUSES = ["Draft", "Published"];
-const PROJECT_SIZES = ["large", "small"];
 
 const caseStudySchema = new mongoose.Schema(
   {
@@ -23,7 +22,6 @@ const websiteProjectSchema = new mongoose.Schema(
     color: { type: String, trim: true, default: "#378ADD" },
     img: { type: String, required: true, trim: true },
     link: { type: String, trim: true, default: "" },
-    size: { type: String, enum: PROJECT_SIZES, default: "large" },
     caseStudy: { type: caseStudySchema, default: null },
     sortOrder: { type: Number, default: 0 },
     status: { type: String, enum: WEBSITE_STATUSES, default: "Draft" },
@@ -38,4 +36,3 @@ websiteProjectSchema.index({ category: 1, status: 1 });
 
 module.exports = mongoose.model("WebsiteProject", websiteProjectSchema);
 module.exports.WEBSITE_STATUSES = WEBSITE_STATUSES;
-module.exports.PROJECT_SIZES = PROJECT_SIZES;

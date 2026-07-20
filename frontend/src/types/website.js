@@ -1,16 +1,5 @@
 export const WEBSITE_STATUSES = ["Draft", "Published"];
 
-export const PROJECT_SIZES = ["large", "small"];
-
-export const PROJECT_CATEGORIES = [
-  "Custom Software",
-  "Web App",
-  "E-Commerce",
-  "Real Estate",
-  "Landing Page",
-  "Manufacturing",
-];
-
 export const emptyTestimonial = {
   name: "",
   text: "",
@@ -23,13 +12,12 @@ export const emptyTestimonial = {
 export const emptyWebsiteProject = {
   title: "",
   slug: "",
-  category: "Custom Software",
+  category: "",
   desc: "",
   tags: "",
   color: "#378ADD",
   img: "",
   link: "",
-  size: "large",
   sortOrder: 0,
   status: "Published",
   caseStudy: {

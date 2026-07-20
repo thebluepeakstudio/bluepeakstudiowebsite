@@ -1,21 +1,27 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import {
   getWebsiteProject,
   createWebsiteProject,
   updateWebsiteProject,
 } from "../../api/websiteProjects.api";
+import {
+  getWebsiteProjectCategories,
+  createWebsiteProjectCategory,
+} from "../../api/websiteProjectCategories.api";
 import Button from "../../components/ui/Button";
+import Modal from "../../components/ui/Modal";
 import { Input, Textarea, Select } from "../../components/ui/Input";
 import { Form, FormSection, FormGrid, FormFooter } from "../../components/ui/Form";
 import {
   WEBSITE_STATUSES,
-  PROJECT_SIZES,
-  PROJECT_CATEGORIES,
   emptyWebsiteProject,
   slugify,
   hasCaseStudyContent,
 } from "../../../types/website";
+import { adminQueryKeys } from "../../queryKeys";
 import { adminPath } from "../../utils/adminPaths";
 import toast from "react-hot-toast";
 
@@ -28,6 +34,21 @@ export default function WebsiteProjectFormPage() {
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
   const [showCaseStudy, setShowCaseStudy] = useState(false);
+  const [catModalOpen, setCatModalOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+
+  const {
+    data: categories = [],
+    refetch: refetchCategories,
+  } = useQuery({
+    queryKey: adminQueryKeys.websiteProjectCategories(),
+    queryFn: async () => {
+      const { data } = await getWebsiteProjectCategories();
+      return data.data || [];
+    },
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
     if (!isEdit) return;
@@ -38,13 +59,12 @@ export default function WebsiteProjectFormPage() {
         setForm({
           title: item.title || "",
           slug: item.slug || "",
-          category: item.category || "Custom Software",
+          category: item.category || "",
           desc: item.desc || "",
           tags: Array.isArray(item.tags) ? item.tags.join(", ") : "",
           color: item.color || "#378ADD",
           img: item.img || "",
           link: item.link || "",
-          size: item.size || "large",
           sortOrder: item.sortOrder ?? 0,
           status: item.status || "Published",
           caseStudy: {
@@ -57,7 +77,7 @@ export default function WebsiteProjectFormPage() {
           },
         });
         setSlugManual(true);
-        setShowCaseStudy(hasCaseStudyContent(item.caseStudy) || item.category === "Custom Software");
+        setShowCaseStudy(hasCaseStudyContent(item.caseStudy));
       })
       .catch(() => {
         toast.error("Project not found");
@@ -66,14 +86,17 @@ export default function WebsiteProjectFormPage() {
       .finally(() => setLoading(false));
   }, [id, isEdit, navigate]);
 
+  useEffect(() => {
+    if (!form.category && categories.length) {
+      setForm((f) => ({ ...f, category: categories[0].name }));
+    }
+  }, [categories, form.category]);
+
   const setField = (key, value) => {
     setForm((f) => {
       const next = { ...f, [key]: value };
       if (key === "title" && !slugManual) {
         next.slug = slugify(value);
-      }
-      if (key === "category" && value === "Custom Software") {
-        setShowCaseStudy(true);
       }
       return next;
     });
@@ -86,8 +109,31 @@ export default function WebsiteProjectFormPage() {
     }));
   };
 
+  const handleCreateCategory = async (e) => {
+    e.preventDefault();
+    const name = newCategory.trim();
+    if (!name) return;
+    setCreatingCategory(true);
+    try {
+      const { data } = await createWebsiteProjectCategory({ name });
+      await refetchCategories();
+      setField("category", data.data.name);
+      setCatModalOpen(false);
+      setNewCategory("");
+      toast.success("Category created");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to create category");
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.category?.trim()) {
+      toast.error("Select or create a category");
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {
@@ -99,7 +145,6 @@ export default function WebsiteProjectFormPage() {
         color: form.color,
         img: form.img.trim(),
         link: form.link.trim(),
-        size: form.size,
         sortOrder: Number(form.sortOrder) || 0,
         status: form.status,
         caseStudy: showCaseStudy
@@ -135,6 +180,11 @@ export default function WebsiteProjectFormPage() {
     );
   }
 
+  const categoryOptions = categories.map((c) => ({ value: c.name, label: c.name }));
+  if (form.category && !categoryOptions.some((o) => o.value === form.category)) {
+    categoryOptions.unshift({ value: form.category, label: form.category });
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
@@ -164,18 +214,29 @@ export default function WebsiteProjectFormPage() {
               }}
               hint="Used in case study URL"
             />
-            <Select
-              label="Category"
-              value={form.category}
-              onChange={(e) => setField("category", e.target.value)}
-              options={PROJECT_CATEGORIES.map((c) => ({ value: c, label: c }))}
-            />
-            <Select
-              label="Size"
-              value={form.size}
-              onChange={(e) => setField("size", e.target.value)}
-              options={PROJECT_SIZES.map((s) => ({ value: s, label: s }))}
-            />
+            <div className="flex min-w-0 flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1">
+                <Select
+                  label="Category"
+                  value={form.category}
+                  onChange={(e) => setField("category", e.target.value)}
+                  options={
+                    categoryOptions.length
+                      ? categoryOptions
+                      : [{ value: "", label: "No categories yet" }]
+                  }
+                  required
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="shrink-0"
+                onClick={() => setCatModalOpen(true)}
+              >
+                <Plus size={16} /> New category
+              </Button>
+            </div>
             <Input
               label="Image URL"
               value={form.img}
@@ -187,7 +248,7 @@ export default function WebsiteProjectFormPage() {
               label="Demo / site link"
               value={form.link}
               onChange={(e) => setField("link", e.target.value)}
-              hint="For Custom Software: demo video URL. For websites: live site URL."
+              hint="Demo video URL or live site URL"
             />
             <Input
               label="Accent color"
@@ -276,6 +337,26 @@ export default function WebsiteProjectFormPage() {
           </Button>
         </FormFooter>
       </Form>
+
+      <Modal open={catModalOpen} onClose={() => setCatModalOpen(false)} title="New category">
+        <Form onSubmit={handleCreateCategory}>
+          <Input
+            label="Category name"
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            required
+            placeholder="e.g. SaaS Dashboard"
+          />
+          <FormFooter>
+            <Button type="button" variant="secondary" onClick={() => setCatModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={creatingCategory}>
+              Create
+            </Button>
+          </FormFooter>
+        </Form>
+      </Modal>
     </div>
   );
 }

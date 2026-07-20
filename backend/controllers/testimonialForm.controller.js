@@ -3,6 +3,46 @@ const WebsiteTestimonial = require("../models/WebsiteTestimonial");
 const Client = require("../models/Client");
 const Brand = require("../models/Brand");
 
+async function upsertCrmTestimonialFromForm(formDoc) {
+  const trimmedName = String(formDoc.name || "").trim();
+  const trimmedText = String(formDoc.message || "").trim();
+  if (!trimmedName || !trimmedText) return null;
+
+  const existing = await WebsiteTestimonial.findOne({
+    deletedAt: null,
+    $or: [
+      { formSubmissionId: formDoc._id },
+      { source: "form", name: trimmedName, text: trimmedText },
+    ],
+  });
+
+  if (existing) {
+    existing.name = trimmedName;
+    existing.text = trimmedText;
+    existing.rating = Math.min(5, Math.max(1, Number(formDoc.rating) || 5));
+    existing.formSubmissionId = formDoc._id;
+    existing.source = "form";
+    await existing.save();
+    return existing;
+  }
+
+  const maxOrder = await WebsiteTestimonial.findOne({ deletedAt: null })
+    .sort({ sortOrder: -1 })
+    .select("sortOrder")
+    .lean();
+
+  return WebsiteTestimonial.create({
+    name: trimmedName,
+    text: trimmedText,
+    img: "",
+    rating: Math.min(5, Math.max(1, Number(formDoc.rating) || 5)),
+    sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+    status: "Draft",
+    source: "form",
+    formSubmissionId: formDoc._id,
+  });
+}
+
 module.exports.createTestimonial = async (req, res) => {
   try {
     const { name, rating, message, clientId, brandId } = req.body;
@@ -47,36 +87,11 @@ module.exports.createTestimonial = async (req, res) => {
       brandId: resolvedBrandId,
     });
 
-    const trimmedName = String(name).trim();
-    const trimmedText = String(message).trim();
-
-    // Avoid duplicates if sync already imported this submission
-    const alreadyInCrm = await WebsiteTestimonial.findOne({
-      deletedAt: null,
-      $or: [
-        { formSubmissionId: formDoc._id },
-        { source: "form", name: trimmedName, text: trimmedText },
-      ],
-    })
-      .select("_id")
-      .lean();
-
-    if (!alreadyInCrm) {
-      const maxOrder = await WebsiteTestimonial.findOne({ deletedAt: null })
-        .sort({ sortOrder: -1 })
-        .select("sortOrder")
-        .lean();
-
-      await WebsiteTestimonial.create({
-        name: trimmedName,
-        text: trimmedText,
-        img: "",
-        rating: Math.min(5, Math.max(1, Number(rating) || 5)),
-        sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
-        status: "Draft",
-        source: "form",
-        formSubmissionId: formDoc._id,
-      });
+    try {
+      await upsertCrmTestimonialFromForm(formDoc);
+    } catch (crmErr) {
+      // Form is saved; CRM sync on next boot will pick it up
+      console.error("[testimonial] CRM upsert failed:", crmErr.message);
     }
 
     res.status(200).json({
@@ -92,3 +107,5 @@ module.exports.createTestimonial = async (req, res) => {
     });
   }
 };
+
+module.exports.upsertCrmTestimonialFromForm = upsertCrmTestimonialFromForm;

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, ExternalLink } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Pencil, Trash2, ExternalLink, Tags } from "lucide-react";
 import { getWebsiteProjects, deleteWebsiteProject } from "../../api/websiteProjects.api";
+import { getWebsiteProjectCategories } from "../../api/websiteProjectCategories.api";
 import { useDebounce } from "../../hooks/useDebounce";
 import { usePaginatedQuery } from "../../hooks/usePaginatedQuery";
 import { adminQueryKeys } from "../../queryKeys";
@@ -14,11 +15,7 @@ import Pagination from "../../components/ui/Pagination";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import Badge from "../../components/ui/Badge";
 import { TableSkeleton } from "../../components/ui/Skeleton";
-import {
-  WEBSITE_STATUSES,
-  PROJECT_CATEGORIES,
-  hasCaseStudyContent,
-} from "../../../types/website";
+import { WEBSITE_STATUSES, hasCaseStudyContent } from "../../../types/website";
 import toast from "react-hot-toast";
 import { adminPath } from "../../utils/adminPaths";
 
@@ -33,6 +30,15 @@ export default function WebsiteProjects() {
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const debouncedSearch = useDebounce(search);
+
+  const { data: categories = [] } = useQuery({
+    queryKey: adminQueryKeys.websiteProjectCategories(),
+    queryFn: async () => {
+      const { data } = await getWebsiteProjectCategories();
+      return data.data || [];
+    },
+    staleTime: 60_000,
+  });
 
   const listParams = {
     search: debouncedSearch || undefined,
@@ -76,9 +82,14 @@ export default function WebsiteProjects() {
             Projects and case studies shown on the public Projects page
           </p>
         </div>
-        <Button onClick={() => navigate(adminPath("portfolio", "new"))}>
-          <Plus size={18} /> New project
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => navigate(adminPath("portfolio", "categories"))}>
+            <Tags size={16} /> Categories
+          </Button>
+          <Button onClick={() => navigate(adminPath("portfolio", "new"))}>
+            <Plus size={18} /> New project
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
@@ -97,7 +108,7 @@ export default function WebsiteProjects() {
           onChange={setCategory}
           options={[
             { value: "", label: "All categories" },
-            ...PROJECT_CATEGORIES.map((c) => ({ value: c, label: c })),
+            ...categories.map((c) => ({ value: c.name, label: c.name })),
           ]}
         />
       </div>

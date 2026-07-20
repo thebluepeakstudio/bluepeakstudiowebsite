@@ -37,6 +37,7 @@ function resolveTitle(pathname) {
     }
     if (parent === "portfolio") {
       if (child === "new") return "New Portfolio Project";
+      if (child === "categories") return "Portfolio Categories";
       if (segments[2] === "edit") return "Edit Portfolio Project";
       return "Portfolio";
     }
