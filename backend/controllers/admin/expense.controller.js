@@ -56,15 +56,18 @@ const getExpenseSummary = asyncHandler(async (req, res) => {
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 0, 23, 59, 59);
 
-  const [monthlyTotal, byCategory] = await Promise.all([
+  const [monthlyAgg, byCategory, allTimeAgg] = await Promise.all([
     Expense.aggregate([
       { $match: { expenseDate: { $gte: start, $lte: end } } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
+      { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } },
     ]),
     Expense.aggregate([
       { $match: { expenseDate: { $gte: start, $lte: end } } },
       { $group: { _id: "$category", total: { $sum: "$amount" }, count: { $sum: 1 } } },
       { $sort: { total: -1 } },
+    ]),
+    Expense.aggregate([
+      { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } },
     ]),
   ]);
 
@@ -73,7 +76,10 @@ const getExpenseSummary = asyncHandler(async (req, res) => {
     data: {
       month,
       year,
-      total: monthlyTotal[0]?.total || 0,
+      total: monthlyAgg[0]?.total || 0,
+      count: monthlyAgg[0]?.count || 0,
+      allTimeTotal: allTimeAgg[0]?.total || 0,
+      allTimeCount: allTimeAgg[0]?.count || 0,
       byCategory,
     },
   });

@@ -5,6 +5,11 @@ export const testimonials = [
     img: "https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/Chikoo%20Constructions.jpeg",
   },
   {
+    name: "MR Corrugators",
+    text: "The work was done very professionally, according to what i needed. Well satisfied, highly recommended",
+    img: "https://ik.imagekit.io/bluepeakstudio/MR%20Corrugators/Logo%20with%20BG.png?updatedAt=1776526210039",
+  },
+  {
     name: "Tvastih Studio",
     text: "Had a really great experience working with BluePeak Studio—they understood exactly what we wanted and delivered a clean, modern website that looks great and works smoothly. Very happy with the final result and would definitely recommend them.",
     img: "https://ik.imagekit.io/bluepeakstudio/Chikoo%20Constructions/Logo.jpg",

@@ -31,7 +31,7 @@
     desc: "A centralized system designed to track inventory, stock and transfers, between stores and warehouses.",
     tags: ["React", "Node.js", "PostgreSQL", "Express.js"],
     color: "#EF9F27",
-    img: "https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/crm%20blue%20peak%20studio?updatedAt=1783882218230",
+    img: "https://ik.imagekit.io/bluepeakstudio/BluePeak%20Studio/Screenshot%202026-07-26%20230724.png",
     link: "",
     size: "large",
     caseStudy: {

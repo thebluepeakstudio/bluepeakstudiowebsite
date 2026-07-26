@@ -64,7 +64,12 @@ export default function Expenses() {
   const { list: expenses, pagination, page, setPage, loading } = usePaginatedQuery(
     adminQueryKeys.expenses(listParams),
     async (p) => {
-      const exp = await getExpenses({ page: p, limit: 10, search: debouncedSearch, category });
+      const exp = await getExpenses({
+        page: p,
+        limit: 50,
+        search: debouncedSearch || undefined,
+        category: category || undefined,
+      });
       return { list: exp.data.data, pagination: exp.data.pagination };
     },
     [debouncedSearch, category]
@@ -129,8 +134,24 @@ export default function Expenses() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard title="Total Expenses" value={formatCurrency(summary?.allTimeTotal || 0)} />
-        <StatCard title="This Month's Expenses" value={formatCurrency(summary?.total || 0)} />
+        <StatCard
+          title="Total Expenses"
+          value={formatCurrency(summary?.allTimeTotal || 0)}
+          trend={
+            summary?.allTimeCount != null
+              ? `${summary.allTimeCount} expense${summary.allTimeCount === 1 ? "" : "s"} all time`
+              : undefined
+          }
+        />
+        <StatCard
+          title="This Month's Expenses"
+          value={formatCurrency(summary?.total || 0)}
+          trend={
+            summary?.count != null
+              ? `${summary.count} expense${summary.count === 1 ? "" : "s"} this month`
+              : undefined
+          }
+        />
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
@@ -172,7 +193,12 @@ export default function Expenses() {
             ]}
             data={expenses}
           />
-          <Pagination page={page} pages={pagination.pages} onPageChange={setPage} />
+          <Pagination
+            page={page}
+            pages={pagination.pages}
+            total={pagination.total}
+            onPageChange={setPage}
+          />
         </>
       )}
 
