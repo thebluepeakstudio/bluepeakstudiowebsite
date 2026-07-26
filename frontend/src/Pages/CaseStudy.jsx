@@ -1,55 +1,16 @@
-import { useEffect, useState } from "react";
 import { Link, useParams, Navigate } from "react-router-dom";
 import { ArrowLeft, ExternalLink, Play } from "lucide-react";
 import PageMeta from "../Components/SEO/PageMeta";
 import PageContent from "../Components/Layout/PageContent";
 import { buildBreadcrumbs } from "../config/seo";
-import { getPublishedProjectBySlug, getEmbedUrl } from "../api/website.api";
-import { hasCaseStudyContent } from "../types/website";
+import { getCaseStudyBySlug, getEmbedUrl } from "../data/projects";
 import "../Components/CaseStudy/case-study.css";
 
 export default function CaseStudy() {
   const { slug } = useParams();
-  const [project, setProject] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const project = getCaseStudyBySlug(slug);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setNotFound(false);
-    getPublishedProjectBySlug(slug)
-      .then((res) => {
-        if (cancelled) return;
-        const item = res.data;
-        if (!item || !hasCaseStudyContent(item.caseStudy)) {
-          setNotFound(true);
-          return;
-        }
-        setProject(item);
-      })
-      .catch(() => {
-        if (!cancelled) setNotFound(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
-
-  if (loading) {
-    return (
-      <PageContent className="case-study-page page-top">
-        <div className="h-8 w-40 animate-pulse rounded bg-white/10" />
-        <div className="mt-8 h-10 w-2/3 max-w-lg animate-pulse rounded bg-white/10" />
-        <div className="mt-6 aspect-video animate-pulse rounded-2xl bg-white/5" />
-      </PageContent>
-    );
-  }
-
-  if (notFound || !project) {
+  if (!project) {
     return <Navigate to="/projects" replace />;
   }
 

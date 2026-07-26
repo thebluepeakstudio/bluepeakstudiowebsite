@@ -1,10 +1,10 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 import SectionHeader from "../../UI/SectionHeader";
 import { imageKitUrl } from "../../../utils/imageKit";
 import { usePrefersReducedMotion } from "../../../hooks/usePrefersReducedMotion";
-import { getPublishedProjects } from "../../../api/website.api";
+import { projects } from "../../../data/projects";
 import { hasCaseStudyContent } from "../../../types/website";
 import "./Projects.css";
 
@@ -24,21 +24,6 @@ export default function Projects() {
   const containerRef = useRef(null);
   const galleryRef = useRef(null);
   const reducedMotion = usePrefersReducedMotion();
-  const [projects, setProjects] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    getPublishedProjects()
-      .then((res) => {
-        if (!cancelled) setProjects(res.data || []);
-      })
-      .catch(() => {
-        if (!cancelled) setProjects([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -46,14 +31,6 @@ export default function Projects() {
   });
 
   const totalDistance = useTransform(scrollYProgress, [0, 1], [0, -1200]);
-
-  if (!projects.length) {
-    return (
-      <div id="example">
-        <SectionHeader title={"Projects"} />
-      </div>
-    );
-  }
 
   const renderItem = (project, index) => {
     const href = projectHref(project);
@@ -79,7 +56,7 @@ export default function Projects() {
     if (external) {
       return (
         <a
-          key={project._id || project.slug}
+          key={project.slug || project.title}
           href={href}
           target="_blank"
           rel="noopener noreferrer"
@@ -92,7 +69,7 @@ export default function Projects() {
 
     return (
       <Link
-        key={project._id || project.slug}
+        key={project.slug || project.title}
         to={href}
         className="gallery-item relative block aspect-[4/3] overflow-hidden rounded-2xl"
       >
@@ -143,7 +120,7 @@ export default function Projects() {
               if (external) {
                 return (
                   <a
-                    key={project._id || project.slug}
+                    key={project.slug || project.title}
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -155,7 +132,7 @@ export default function Projects() {
               }
 
               return (
-                <Link key={project._id || project.slug} to={href} className="gallery-item">
+                <Link key={project.slug || project.title} to={href} className="gallery-item">
                   {inner}
                 </Link>
               );

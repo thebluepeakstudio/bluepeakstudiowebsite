@@ -1,51 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Play } from "lucide-react";
-import { getPublishedProjects } from "../../../api/website.api";
+import { projects, filters } from "../../../data/projects";
 import { hasCaseStudyContent } from "../../../types/website";
 import "./Project.css";
 
 export default function WebProjectSection() {
   const [active, setActive] = useState("All");
-  const [projects, setProjects] = useState([]);
-  const [filters, setFilters] = useState(["All"]);
-  const [visible, setVisible] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [visible, setVisible] = useState(projects);
   const containerRef = useRef(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    getPublishedProjects()
-      .then((res) => {
-        if (cancelled) return;
-        const list = res.data || [];
-        setProjects(list);
-        setFilters(
-          res.filters?.length
-            ? res.filters
-            : ["All", ...new Set(list.map((p) => p.category).filter(Boolean))]
-        );
-        setVisible(list);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setProjects([]);
-          setVisible([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     const filtered =
       active === "All" ? projects : projects.filter((p) => p.category === active);
     setVisible(filtered);
-  }, [active, projects]);
+  }, [active]);
 
   useEffect(() => {
     const cards = containerRef.current?.querySelectorAll("[data-pcard]");
@@ -68,27 +37,6 @@ export default function WebProjectSection() {
   const showCaseStudy = (p) => hasCaseStudyContent(p.caseStudy) && p.slug;
   const hasDemo = (p) => p.link && p.link !== "#";
 
-  if (loading) {
-    return (
-      <section className="port-container" id="portfolio">
-        <div className="port-grid">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="port-card" style={{ opacity: 1, transform: "none" }}>
-              <div className="port-card-inner animate-pulse">
-                <div className="port-image-container bg-slate-100" />
-                <div className="port-content space-y-3">
-                  <div className="h-3 w-24 rounded bg-slate-100" />
-                  <div className="h-5 w-3/4 rounded bg-slate-100" />
-                  <div className="h-12 w-full rounded bg-slate-100" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-    );
-  }
-
   return (
     <section className="port-container" id="portfolio">
       <div className="port-header">
@@ -107,7 +55,7 @@ export default function WebProjectSection() {
 
       <div className="port-grid" ref={containerRef}>
         {visible.map((p) => (
-          <div key={p._id || p.slug || p.title} className="port-card" data-pcard>
+          <div key={p.slug || p.title} className="port-card" data-pcard>
             <div className="port-card-inner">
               <div className="port-image-container">
                 <img src={p.img} alt={p.title} />

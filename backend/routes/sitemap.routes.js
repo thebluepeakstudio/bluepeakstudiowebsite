@@ -1,9 +1,14 @@
 const express = require("express");
 const Blog = require("../models/Blog");
 const BlogCategory = require("../models/BlogCategory");
-const WebsiteProject = require("../models/WebsiteProject");
 const { publishedBlogFilter } = require("../utils/publishedBlogFilter");
-const { publishedWebsiteFilter } = require("../utils/publishedWebsiteFilter");
+
+/** Case study slugs from frontend/src/data/projects.js (static marketing content). */
+const CASE_STUDY_SLUGS = [
+  "client-management-system",
+  "inventory-management-system",
+  "foxnut-manufacturing-erp",
+];
 
 const router = express.Router();
 
@@ -45,39 +50,27 @@ router.get("/sitemap.xml", async (req, res) => {
       { path: "/privacy-policy", priority: "0.3", changefreq: "yearly" },
     ];
 
-    const [blogs, categories, blogCount, caseStudyProjects] = await Promise.all([
+    const [blogs, categories, blogCount] = await Promise.all([
       Blog.find(publishedFilter).select("slug updatedAt publishedAt").sort({ publishedAt: -1 }).lean(),
       BlogCategory.find({}).select("slug updatedAt").lean(),
       Blog.countDocuments(publishedFilter),
-      WebsiteProject.find({
-        ...publishedWebsiteFilter(),
-        caseStudy: { $ne: null },
-        $or: [
-          { "caseStudy.overview": { $exists: true, $nin: [null, ""] } },
-          { "caseStudy.problem": { $exists: true, $nin: [null, ""] } },
-          { "caseStudy.solution": { $exists: true, $nin: [null, ""] } },
-        ],
-      })
-        .select("slug updatedAt")
-        .lean(),
     ]);
 
     const blogPages = Math.ceil(blogCount / 9);
+    const today = new Date().toISOString().split("T")[0];
     const paginationUrls = Array.from({ length: Math.max(0, blogPages - 1) }, (_, i) => ({
       loc: `${base}/blogs?page=${i + 2}`,
-      lastmod: new Date().toISOString().split("T")[0],
+      lastmod: today,
       changefreq: "weekly",
       priority: "0.5",
     }));
 
-    const caseStudyPages = caseStudyProjects
-      .filter((p) => p.slug)
-      .map((p) => ({
-        loc: `${base}/projects/case-study/${p.slug}`,
-        lastmod: (p.updatedAt || new Date()).toISOString().split("T")[0],
-        changefreq: "monthly",
-        priority: "0.7",
-      }));
+    const caseStudyPages = CASE_STUDY_SLUGS.map((slug) => ({
+      loc: `${base}/projects/case-study/${slug}`,
+      lastmod: today,
+      changefreq: "monthly",
+      priority: "0.7",
+    }));
 
     const urls = [
       ...staticPages.map(({ path, priority, changefreq }) => ({
