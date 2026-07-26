@@ -1,33 +1,3 @@
-export const WEBSITE_STATUSES = ["Draft", "Published"];
-
-export const emptyTestimonial = {
-  name: "",
-  text: "",
-  img: "",
-  rating: 5,
-  sortOrder: 0,
-  status: "Draft",
-};
-
-export const emptyWebsiteProject = {
-  title: "",
-  slug: "",
-  category: "",
-  desc: "",
-  tags: "",
-  color: "#378ADD",
-  img: "",
-  link: "",
-  sortOrder: 0,
-  status: "Published",
-  caseStudy: {
-    overview: "",
-    problem: "",
-    solution: "",
-    highlights: "",
-  },
-};
-
 export function slugify(text) {
   return String(text || "")
     .toLowerCase()

@@ -15,8 +15,6 @@ const clientRoutes = require("./clients.routes");
 const leadRoutes = require("./leads.routes");
 const blogRoutes = require("./blogs.routes");
 const blogCategoryRoutes = require("./blogCategories.routes");
-const websiteTestimonialRoutes = require("./websiteTestimonials.routes");
-const websiteProjectRoutes = require("./websiteProjects.routes");
 
 const router = express.Router();
 
@@ -36,8 +34,5 @@ router.use("/clients", clientRoutes);
 router.use("/leads", leadRoutes);
 router.use("/blogs", blogRoutes);
 router.use("/blog-categories", blogCategoryRoutes);
-router.use("/website-testimonials", websiteTestimonialRoutes);
-router.use("/website-projects", websiteProjectRoutes);
-router.use("/website-project-categories", require("./websiteProjectCategories.routes"));
 
 module.exports = router;

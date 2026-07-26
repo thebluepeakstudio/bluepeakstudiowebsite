@@ -6,7 +6,6 @@ const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const connectDB = require("./config/db");
 const ensureAdminSeed = require("./utils/ensureAdminSeed");
-const ensureWebsiteContentSeed = require("./utils/ensureWebsiteContentSeed");
 const ensurePaymentSummariesRecalculated = require("./utils/ensurePaymentSummaries");
 const ensureDeprecatedFieldsDropped = require("./utils/ensureDeprecatedFieldsDropped");
 const validateEnv = require("./utils/validateEnv");
@@ -99,12 +98,6 @@ const startServer = async () => {
     await ensureAdminSeed();
   } catch (err) {
     console.error("[admin-seed] Failed:", err.message);
-  }
-
-  try {
-    await ensureWebsiteContentSeed();
-  } catch (err) {
-    console.error("[website-seed] Failed:", err.message);
   }
 
   try {

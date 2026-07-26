@@ -24,10 +24,6 @@ const LeadDetail = lazy(() => import("./pages/leads/LeadDetail"));
 const BlogList = lazy(() => import("./pages/blog/BlogList"));
 const BlogFormPage = lazy(() => import("./pages/blog/BlogFormPage"));
 const BlogCategories = lazy(() => import("./pages/blog/BlogCategories"));
-const WebsiteTestimonials = lazy(() => import("./pages/website/WebsiteTestimonials"));
-const WebsiteProjects = lazy(() => import("./pages/website/WebsiteProjects"));
-const WebsiteProjectFormPage = lazy(() => import("./pages/website/WebsiteProjectFormPage"));
-const WebsiteProjectCategories = lazy(() => import("./pages/website/WebsiteProjectCategories"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const PageLoader = () => (
@@ -52,11 +48,6 @@ const protectedRoutes = (
     <Route path="blog/new" element={<BlogFormPage />} />
     <Route path="blog/categories" element={<BlogCategories />} />
     <Route path="blog/:id/edit" element={<BlogFormPage />} />
-    <Route path="testimonials" element={<WebsiteTestimonials />} />
-    <Route path="portfolio" element={<WebsiteProjects />} />
-    <Route path="portfolio/categories" element={<WebsiteProjectCategories />} />
-    <Route path="portfolio/new" element={<WebsiteProjectFormPage />} />
-    <Route path="portfolio/:id/edit" element={<WebsiteProjectFormPage />} />
   </>
 );
 

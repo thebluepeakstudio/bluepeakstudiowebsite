@@ -12,8 +12,6 @@ const breadcrumbMeta = {
   projects: { group: "Operations", href: adminPath("projects") },
   freelancers: { group: "Operations", href: adminPath("freelancers") },
   blog: { group: "Content", href: adminPath("blog") },
-  testimonials: { group: "Content", href: adminPath("testimonials") },
-  portfolio: { group: "Content", href: adminPath("portfolio") },
   expenses: { group: "Finance", href: adminPath("expenses") },
   pl: { group: "Finance", href: adminPath("pl") },
 };
