@@ -23,7 +23,8 @@ export default function Dashboard() {
       const dashRes = await getDashboard();
       return dashRes.data.data;
     },
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const cards = data?.cards || {};

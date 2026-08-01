@@ -54,9 +54,10 @@ export default function Expenses() {
     queryKey: adminQueryKeys.expenseSummary(summaryParams),
     queryFn: async () => {
       const sum = await getExpenseSummary(summaryParams);
-      return sum.data.data;
+      return sum.data?.data ?? sum.data;
     },
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const listParams = { search: debouncedSearch, category };

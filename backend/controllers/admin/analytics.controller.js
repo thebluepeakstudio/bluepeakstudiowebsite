@@ -5,10 +5,11 @@ const Expense = require("../../models/Expense");
 const Freelancer = require("../../models/Freelancer");
 const asyncHandler = require("../../utils/asyncHandler");
 const { get, set, invalidatePrefix } = require("../../utils/responseCache");
+const { withLegacyServiceFields } = require("../../utils/serviceCompat");
 const {
   activeDeliverableFilter,
   groupDeliverablesByService,
-  enrichServiceWithDeliverables,
+  buildServicesSummary,
 } = require("../../services/serviceCalculations.service");
 const {
   getSharedFinancialMetrics,
@@ -16,7 +17,6 @@ const {
 } = require("../../utils/financialMetrics");
 const { runDaily } = require("../../services/recurringBillingJob.service");
 const { toSafeRegex } = require("../../utils/escapeRegex");
-const { withLegacyServiceFields } = require("../../utils/serviceCompat");
 
 const FINANCIAL_CACHE_KEY = "analytics:financial";
 const FINANCIAL_CACHE_TTL = 120_000;
@@ -64,7 +64,8 @@ const withFinancialMetrics = (payload, financials) => {
   };
 };
 
-const enrichLatestServices = async (services) => {
+/** Attach service labels only — keep stored work/payment status from Service. */
+const attachLatestServiceLabels = async (services) => {
   if (!services.length) return [];
   const ids = services.map((s) => s._id);
   const deliverables = await Deliverable.find({
@@ -80,7 +81,10 @@ const enrichLatestServices = async (services) => {
     const legacy = withLegacyServiceFields(s);
     const list = byService[s._id.toString()] || [];
     if (list.length) {
-      return enrichServiceWithDeliverables(legacy, list);
+      return {
+        ...legacy,
+        ...buildServicesSummary(list),
+      };
     }
     return {
       ...legacy,
@@ -99,11 +103,6 @@ const getDashboard = asyncHandler(async (req, res) => {
 
   const cacheKey = "analytics:dashboard";
   const financials = await loadCachedFinancialMetrics();
-  const cached = get(cacheKey);
-  if (cached) {
-    return res.json(withFinancialMetrics(cached, financials));
-  }
-
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -111,7 +110,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     Service.countDocuments({ workStatus: { $nin: ["Completed", "Delivered"] } }),
     Service.find()
       .select(
-        "clientName businessName name category billingModel workStatus paymentStatus totalPrice remainingAmount createdAt"
+        "clientName businessName name category billingModel workStatus paymentStatus totalPrice remainingAmount advanceReceived createdAt"
       )
       .sort({ createdAt: -1 })
       .limit(5)
@@ -119,7 +118,28 @@ const getDashboard = asyncHandler(async (req, res) => {
     aggregatePaymentsReceivedThisMonth(monthStart),
   ]);
 
-  const enrichedLatestProjects = await enrichLatestServices(latestServices);
+  const enrichedLatestProjects = await attachLatestServiceLabels(latestServices);
+
+  const cached = get(cacheKey);
+  if (cached?.data?.cards) {
+    return res.json(
+      withFinancialMetrics(
+        {
+          ...cached,
+          data: {
+            ...cached.data,
+            cards: {
+              ...cached.data.cards,
+              activeProjects,
+              paymentsReceivedThisMonth: paymentsThisMonth,
+            },
+            latestProjects: enrichedLatestProjects,
+          },
+        },
+        financials
+      )
+    );
+  }
 
   const payload = {
     success: true,
@@ -137,7 +157,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     },
   };
 
-  set(cacheKey, payload, 120_000);
+  set(cacheKey, payload, 30_000);
   res.json(withFinancialMetrics(payload, financials));
 });
 

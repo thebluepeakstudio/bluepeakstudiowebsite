@@ -122,9 +122,10 @@ const enrichServiceWithDeliverables = (service, deliverableList = []) => {
   const doc = withLegacyServiceFields(
     typeof service.toObject === "function" ? service.toObject() : { ...service }
   );
+  const totalFromDeliverables = roundMoney(sumDeliverablePrices(deliverableList));
   const totalAmount =
-    deliverableList.length > 0
-      ? roundMoney(sumDeliverablePrices(deliverableList))
+    deliverableList.length > 0 && totalFromDeliverables > 0
+      ? totalFromDeliverables
       : roundMoney(doc.totalPrice ?? doc.totalAmount);
 
   if (deliverableList.length) {
@@ -199,7 +200,12 @@ const enrichServicesWithDeliverables = async (services) => {
       const totalAmount = roundMoney(config?.monthlyClientAmount || legacy.totalPrice);
       return {
         ...legacy,
-        ...withPaymentSummary({ ...legacy, advanceReceived: 0 }, totalAmount),
+        totalAmount,
+        totalPrice: totalAmount,
+        totalReceived: roundMoney(legacy.advanceReceived),
+        remainingAmount: legacy.remainingAmount,
+        paymentStatus: legacy.paymentStatus,
+        advanceReceived: roundMoney(legacy.advanceReceived),
         workStatus: config?.status === "paused" ? "Paused" : p.workStatus || "In Progress",
         services: templates.slice(0, 3).map((t) => t.title),
         servicesCount: templates.length,
