@@ -3,6 +3,8 @@ const Service = require("../../models/Service");
 const Deliverable = require("../../models/Deliverable");
 const Expense = require("../../models/Expense");
 const Freelancer = require("../../models/Freelancer");
+const Lead = require("../../models/Lead");
+const BillingCycleInvoice = require("../../models/BillingCycleInvoice");
 const asyncHandler = require("../../utils/asyncHandler");
 const { get, set, invalidatePrefix } = require("../../utils/responseCache");
 const { withLegacyServiceFields } = require("../../utils/serviceCompat");
@@ -17,9 +19,80 @@ const {
 } = require("../../utils/financialMetrics");
 const { runDaily } = require("../../services/recurringBillingJob.service");
 const { toSafeRegex } = require("../../utils/escapeRegex");
+const { roundMoney } = require("../../utils/recurringDates");
 
 const FINANCIAL_CACHE_KEY = "analytics:financial";
 const FINANCIAL_CACHE_TTL = 120_000;
+
+const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+const loadDashboardAlerts = async () => {
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+
+  const followUpBase = {
+    nextFollowUpDate: { $exists: true, $ne: null },
+    followUpStatus: { $ne: "Completed" },
+    status: { $nin: ["Won", "Lost"] },
+  };
+
+  const [followUpsToday, followUpsOverdue, dueInvoices] = await Promise.all([
+    Lead.find({
+      ...followUpBase,
+      nextFollowUpDate: { $gte: todayStart, $lte: todayEnd },
+    })
+      .select("fullName companyName nextFollowUpDate reminderNotes followUpStatus status")
+      .sort({ nextFollowUpDate: 1 })
+      .limit(10)
+      .lean(),
+    Lead.find({
+      ...followUpBase,
+      nextFollowUpDate: { $lt: todayStart },
+    })
+      .select("fullName companyName nextFollowUpDate reminderNotes followUpStatus status")
+      .sort({ nextFollowUpDate: 1 })
+      .limit(10)
+      .lean(),
+    BillingCycleInvoice.find({
+      status: { $in: ["due", "partial", "overdue"] },
+    })
+      .select("serviceId amountDue creditApplied amountPaid dueDate status")
+      .populate("serviceId", "clientName businessName name")
+      .sort({ dueDate: 1 })
+      .limit(10)
+      .lean(),
+  ]);
+
+  const paymentsDue = dueInvoices
+    .map((inv) => {
+      const open = roundMoney(
+        (Number(inv.amountDue) || 0) -
+          (Number(inv.creditApplied) || 0) -
+          (Number(inv.amountPaid) || 0)
+      );
+      if (open <= 0) return null;
+      const service = inv.serviceId || {};
+      return {
+        _id: inv._id,
+        serviceId: service._id || inv.serviceId,
+        clientName: service.clientName || "—",
+        businessName: service.businessName || "",
+        projectName: service.name || "",
+        amountDue: open,
+        dueDate: inv.dueDate,
+        status: inv.status,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    followUpsToday,
+    followUpsOverdue,
+    paymentsDue,
+  };
+};
 
 const loadCachedFinancialMetrics = async () => {
   const cached = get(FINANCIAL_CACHE_KEY);
@@ -119,6 +192,7 @@ const getDashboard = asyncHandler(async (req, res) => {
   ]);
 
   const enrichedLatestProjects = await attachLatestServiceLabels(latestServices);
+  const alerts = await loadDashboardAlerts();
 
   const cached = get(cacheKey);
   if (cached?.data?.cards) {
@@ -134,6 +208,7 @@ const getDashboard = asyncHandler(async (req, res) => {
               paymentsReceivedThisMonth: paymentsThisMonth,
             },
             latestProjects: enrichedLatestProjects,
+            alerts,
           },
         },
         financials
@@ -154,6 +229,7 @@ const getDashboard = asyncHandler(async (req, res) => {
         paymentsReceivedThisMonth: paymentsThisMonth,
       },
       latestProjects: enrichedLatestProjects,
+      alerts,
     },
   };
 

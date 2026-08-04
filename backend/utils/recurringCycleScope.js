@@ -1,6 +1,6 @@
 const BillingCycle = require("../models/BillingCycle");
 const ApiError = require("./ApiError");
-const { startOfMonth, startOfToday } = require("./recurringDates");
+const { startOfMonth, getCurrentPeriodForFrequency } = require("./recurringDates");
 
 const APPLY_SCOPES = ["future_only", "current_and_future"];
 const DEFAULT_APPLY_SCOPE = "future_only";
@@ -11,7 +11,8 @@ const normalizeApplyScope = (scope) => {
   return value;
 };
 
-const getCurrentPeriodMonth = () => startOfMonth(startOfToday());
+const getCurrentPeriodMonth = (frequency = "monthly", startDate = null) =>
+  getCurrentPeriodForFrequency(frequency, startDate);
 
 const periodMonthKey = (date) => {
   const d = startOfMonth(new Date(date));

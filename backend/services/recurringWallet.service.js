@@ -118,6 +118,9 @@ const autoApplyWalletCredit = async (serviceId, session = null) => {
     await wallet.save(session ? { session } : undefined);
   }
 
+  const { syncRecurringServiceFinancials } = require("../utils/financialMetrics");
+  await syncRecurringServiceFinancials(serviceId, session);
+
   return { applied, invoicesUpdated };
 };
 

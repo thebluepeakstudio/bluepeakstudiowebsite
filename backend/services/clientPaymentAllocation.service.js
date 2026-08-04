@@ -9,6 +9,7 @@ const ApiError = require("../utils/ApiError");
 const { roundMoney, formatPeriodLabel } = require("../utils/recurringDates");
 const { addCredit, deriveInvoiceStatus } = require("./recurringWallet.service");
 const { createPayment } = require("./servicePayment.service");
+const { syncRecurringServiceFinancials } = require("../utils/financialMetrics");
 
 const OPEN_INVOICE_STATUSES = ["due", "partial", "overdue", "upcoming"];
 const ALLOCATABLE_INVOICE_STATUSES = ["due", "partial", "overdue"];
@@ -224,6 +225,10 @@ const executeAllocationPlan = async (
       session
     );
     results.push(paymentAllocation);
+  }
+
+  if (plan.billingModel === "recurring") {
+    await syncRecurringServiceFinancials(serviceId, session);
   }
 
   return results;

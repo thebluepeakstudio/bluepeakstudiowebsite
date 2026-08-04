@@ -18,9 +18,15 @@ const endOfMonth = (date) =>
 
 const addMonths = (date, count) => new Date(date.getFullYear(), date.getMonth() + count, 1);
 
-const formatPeriodLabel = (date) => {
+const addYears = (date, count) => new Date(date.getFullYear() + count, date.getMonth(), 1);
+
+const formatPeriodLabel = (date, frequency = "monthly") => {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  const d = new Date(date);
+  if (frequency === "yearly") {
+    return `${months[d.getMonth()]} ${d.getFullYear()}–${d.getFullYear() + 1}`;
+  }
+  return `${months[d.getMonth()]} ${d.getFullYear()}`;
 };
 
 const buildBillingDate = (year, month, billingDay) => {
@@ -52,15 +58,61 @@ const monthsFromStartToNow = (startDate) => {
   return months;
 };
 
+/** Period keys from start through current period (monthly = each month; yearly = anniversary months). */
+const periodsFromStartToNow = (startDate, frequency = "monthly") => {
+  if (frequency !== "yearly") return monthsFromStartToNow(startDate);
+
+  const start = parseLocalDate(startDate);
+  if (!start) return [];
+  const startPeriod = startOfMonth(start);
+  const nowPeriod = startOfMonth(new Date());
+  const periods = [];
+
+  for (let year = start.getFullYear(); year <= nowPeriod.getFullYear() + 1; year += 1) {
+    const period = new Date(year, start.getMonth(), 1);
+    if (period < startPeriod) continue;
+    if (period > nowPeriod) break;
+    periods.push(period);
+  }
+  return periods;
+};
+
+const advancePeriod = (periodDate, frequency = "monthly") =>
+  frequency === "yearly" ? addYears(periodDate, 1) : addMonths(periodDate, 1);
+
+/**
+ * Current billing period for a recurring config.
+ * Monthly: this calendar month. Yearly: this year's anniversary month (or last year if not reached yet).
+ */
+const getCurrentPeriodForFrequency = (frequency = "monthly", startDate = null) => {
+  const today = startOfMonth(startOfToday());
+  if (frequency !== "yearly" || !startDate) return today;
+
+  const start = parseLocalDate(startDate);
+  if (!start) return today;
+
+  let period = new Date(today.getFullYear(), start.getMonth(), 1);
+  if (period > today) {
+    period = new Date(today.getFullYear() - 1, start.getMonth(), 1);
+  }
+  const startPeriod = startOfMonth(start);
+  if (period < startPeriod) return startPeriod;
+  return period;
+};
+
 module.exports = {
   roundMoney,
   parseLocalDate,
   startOfMonth,
   endOfMonth,
   addMonths,
+  addYears,
   formatPeriodLabel,
   buildBillingDate,
   buildGenerationDate,
   startOfToday,
   monthsFromStartToNow,
+  periodsFromStartToNow,
+  advancePeriod,
+  getCurrentPeriodForFrequency,
 };

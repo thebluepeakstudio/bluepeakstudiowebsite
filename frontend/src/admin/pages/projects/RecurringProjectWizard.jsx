@@ -3,7 +3,7 @@ import { Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Form, FormSection, FormGrid } from "../../components/ui/Form";
 import { Input, Textarea, Select } from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
-import { SERVICE_CATEGORIES } from "../../utils/constants";
+import { SERVICE_CATEGORIES, BILLING_FREQUENCIES } from "../../utils/constants";
 import { getClients, getClientBrands } from "../../api/clients.api";
 import { formatCurrency } from "../../utils/formatCurrency";
 import toast from "react-hot-toast";
@@ -29,6 +29,7 @@ const emptyProject = {
 const emptyConfig = {
   startDate: new Date().toISOString().slice(0, 10),
   billingDay: 2,
+  billingFrequency: "monthly",
   monthlyClientAmount: "",
   monthlyFreelancerCost: "",
   generationLeadDays: 5,
@@ -135,8 +136,12 @@ export default function RecurringProjectWizard({
         toast.error("Start date is required");
         return false;
       }
+      if (!config.billingFrequency) {
+        toast.error("Select billing frequency");
+        return false;
+      }
       if (!config.monthlyClientAmount || Number(config.monthlyClientAmount) < 0) {
-        toast.error("Monthly client amount is required");
+        toast.error("Client amount is required");
         return false;
       }
     }
@@ -171,6 +176,7 @@ export default function RecurringProjectWizard({
       },
       config: {
         ...config,
+        billingFrequency: config.billingFrequency || "monthly",
         monthlyClientAmount: Number(config.monthlyClientAmount) || 0,
         monthlyFreelancerCost: Number(config.monthlyFreelancerCost) || 0,
         billingDay: Number(config.billingDay) || 2,
@@ -262,6 +268,13 @@ export default function RecurringProjectWizard({
               onChange={(e) => setConfigField("startDate", e.target.value)}
               required
             />
+            <Select
+              label="Billing frequency"
+              value={config.billingFrequency}
+              onChange={(e) => setConfigField("billingFrequency", e.target.value)}
+              options={BILLING_FREQUENCIES}
+              required
+            />
             <Input
               label="Billing day (1–28)"
               type="number"
@@ -272,7 +285,11 @@ export default function RecurringProjectWizard({
               required
             />
             <Input
-              label="Monthly client amount (₹)"
+              label={
+                config.billingFrequency === "yearly"
+                  ? "Yearly client amount (₹)"
+                  : "Monthly client amount (₹)"
+              }
               type="number"
               min={0}
               value={config.monthlyClientAmount}
@@ -280,7 +297,11 @@ export default function RecurringProjectWizard({
               required
             />
             <Input
-              label="Monthly freelancer cost (₹)"
+              label={
+                config.billingFrequency === "yearly"
+                  ? "Yearly freelancer cost (₹)"
+                  : "Monthly freelancer cost (₹)"
+              }
               type="number"
               min={0}
               value={config.monthlyFreelancerCost}
@@ -296,16 +317,23 @@ export default function RecurringProjectWizard({
             />
           </FormGrid>
           <p className="text-sm text-admin-textMuted">
-            Monthly retainer: {formatCurrency(Number(config.monthlyClientAmount) || 0)} · Cycles
-            generate {config.generationLeadDays || 5} days before each billing date.
+            {config.billingFrequency === "yearly" ? "Yearly" : "Monthly"} retainer:{" "}
+            {formatCurrency(Number(config.monthlyClientAmount) || 0)} · Cycles generate{" "}
+            {config.generationLeadDays || 5} days before each billing date.
           </p>
         </FormSection>
       )}
 
       {step === 2 && (
-        <FormSection title="Default monthly deliverables">
+        <FormSection
+          title={
+            config.billingFrequency === "yearly"
+              ? "Default yearly deliverables"
+              : "Default monthly deliverables"
+          }
+        >
           <p className="mb-4 text-sm text-admin-textMuted">
-            These checklist items are copied into each billing cycle. Edits here affect future months
+            These checklist items are copied into each billing cycle. Edits here affect future cycles
             only.
           </p>
           {templates.map((tpl, index) => (

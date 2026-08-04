@@ -6,6 +6,9 @@ const SERVICE_CATEGORIES = [
   "Branding",
   "Video Editing",
   "Software",
+  "Maintenance",
+  "Domain",
+  "Hosting",
 ];
 
 const DELIVERABLE_STATUSES = [
@@ -34,7 +37,7 @@ const WORK_STATUSES = [
 
 const BILLING_MODELS = ["one_time", "recurring"];
 
-const BILLING_FREQUENCIES = ["monthly"];
+const BILLING_FREQUENCIES = ["monthly", "yearly"];
 
 const RECURRING_STATUSES = ["active", "paused", "cancelled"];
 

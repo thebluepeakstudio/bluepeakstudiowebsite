@@ -26,7 +26,7 @@ const computeLeadMetrics = async () => {
   );
   const totalLeads = facetResult.total[0]?.count || 0;
   const newLeads = statusMap.New || 0;
-  const qualifiedLeads = statusMap.Qualified || 0;
+  const contactedLeads = statusMap.Contacted || 0;
   const wonLeads = statusMap.Won || 0;
   const lostLeads = statusMap.Lost || 0;
   const pipelineAgg = facetResult.pipeline;
@@ -38,7 +38,8 @@ const computeLeadMetrics = async () => {
   return {
     totalLeads,
     newLeads,
-    qualifiedLeads,
+    contactedLeads,
+    qualifiedLeads: contactedLeads,
     wonLeads,
     lostLeads,
     conversionRate,

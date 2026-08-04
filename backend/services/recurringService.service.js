@@ -20,10 +20,9 @@ const { getOrCreateWallet } = require("./recurringWallet.service");
 const {
   roundMoney,
   parseLocalDate,
-  startOfMonth,
   buildBillingDate,
   formatPeriodLabel,
-  addMonths,
+  advancePeriod,
 } = require("../utils/recurringDates");
 const { listClientPayments } = require("./clientPaymentAllocation.service");
 const {
@@ -333,22 +332,24 @@ const buildRecurringServiceDetail = async (service) => {
   );
 
   let nextBillingDate = null;
+  const frequency = config?.billingFrequency || "monthly";
   if (config?.billingDay && config?.startDate) {
     const sortedCycles = [...billingCycles].sort(
       (a, b) => new Date(b.periodMonth) - new Date(a.periodMonth)
     );
     if (sortedCycles.length) {
       const lastPeriod = new Date(sortedCycles[0].periodMonth);
-      const nextPeriod = addMonths(lastPeriod, 1);
+      const nextPeriod = advancePeriod(lastPeriod, frequency);
       nextBillingDate = buildBillingDate(
         nextPeriod.getFullYear(),
         nextPeriod.getMonth(),
         config.billingDay
       );
     } else {
+      const start = parseLocalDate(config.startDate);
       nextBillingDate = buildBillingDate(
-        parseLocalDate(config.startDate).getFullYear(),
-        parseLocalDate(config.startDate).getMonth(),
+        start.getFullYear(),
+        start.getMonth(),
         config.billingDay
       );
     }
@@ -373,7 +374,7 @@ const buildRecurringServiceDetail = async (service) => {
 
   const { withLegacyServiceFields } = require("../utils/serviceCompat");
   const legacy = withLegacyServiceFields(service);
-  const currentPeriod = getCurrentPeriodMonth();
+  const currentPeriod = getCurrentPeriodMonth(frequency, config?.startDate);
   const currentCycle = await getCurrentBillingCycle(service._id, currentPeriod);
 
   return {
@@ -384,13 +385,14 @@ const buildRecurringServiceDetail = async (service) => {
     wallet,
     prepaidCredit: roundMoney(wallet.balance),
     billingCycles,
+    billingFrequency: frequency,
     monthlyFee: roundMoney(config.monthlyClientAmount),
     currentRecurringAmount: roundMoney(config.monthlyClientAmount),
     currentBillingCycleId: currentCycle?._id || null,
-    currentPeriodLabel: formatPeriodLabel(currentPeriod),
+    currentPeriodLabel: formatPeriodLabel(currentPeriod, frequency),
     applyScopeOptions: {
       currentCycleExists: !!currentCycle,
-      currentPeriodLabel: formatPeriodLabel(currentPeriod),
+      currentPeriodLabel: formatPeriodLabel(currentPeriod, frequency),
     },
     nextBillingDate,
     outstandingAmount,

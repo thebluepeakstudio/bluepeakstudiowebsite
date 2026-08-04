@@ -5,21 +5,24 @@ const inputClass =
 
 export default function SearchInput({ value, onChange, placeholder = "Search...", label, className = "" }) {
   return (
-    <div className={`relative min-w-0 ${className}`}>
+    <div className={`min-w-0 ${className}`}>
       {label && (
         <label className="mb-1.5 block text-xs font-medium text-admin-textMuted">{label}</label>
       )}
-      <Search
-        size={17}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-admin-textMuted"
-      />
-      <input
-        type="search"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={inputClass}
-      />
+      <div className="relative">
+        <Search
+          size={17}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-admin-textMuted"
+          aria-hidden
+        />
+        <input
+          type="search"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={inputClass}
+        />
+      </div>
     </div>
   );
 }

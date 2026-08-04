@@ -31,6 +31,7 @@ import { Form, FormGrid, FormSection } from "../../components/ui/Form";
 import {
   DELIVERABLE_STATUSES,
   RECURRING_STATUSES,
+  BILLING_FREQUENCIES,
   getProjectLabel,
   formatInvoiceStatus,
   getInvoiceOpenAmount,
@@ -40,12 +41,12 @@ import { CardSkeleton } from "../../components/ui/Skeleton";
 import toast from "react-hot-toast";
 import { adminPath } from "../../utils/adminPaths";
 
-const TABS = [
+const TABS_BASE = [
   { id: "template", label: "Template" },
-  { id: "billing", label: "Monthly Invoices" },
+  { id: "billing", label: "Invoices" },
   { id: "payments", label: "Payment History" },
   { id: "credit", label: "Prepaid Credit" },
-  { id: "deliverables", label: "Monthly deliverables" },
+  { id: "deliverables", label: "Cycle deliverables" },
   { id: "files", label: "Files" },
 ];
 
@@ -76,6 +77,22 @@ export default function RecurringProjectDetail({ projectId }) {
   const [pendingTemplateSubmit, setPendingTemplateSubmit] = useState(null);
   const [configEditOpen, setConfigEditOpen] = useState(false);
 
+  const billingFrequency =
+    configForm?.billingFrequency || project?.billingFrequency || project?.recurringConfig?.billingFrequency || "monthly";
+  const isYearly = billingFrequency === "yearly";
+  const periodLabel = isYearly ? "yearly" : "monthly";
+  const tabs = useMemo(
+    () =>
+      TABS_BASE.map((t) => {
+        if (t.id === "billing") return { ...t, label: isYearly ? "Yearly Invoices" : "Monthly Invoices" };
+        if (t.id === "deliverables") {
+          return { ...t, label: isYearly ? "Yearly deliverables" : "Monthly deliverables" };
+        }
+        return t;
+      }),
+    [isYearly]
+  );
+
   useEffect(() => {
     getFreelancers({ lite: true, limit: 100 })
       .then(({ data }) => setFreelancers(data.data || []))
@@ -93,6 +110,7 @@ export default function RecurringProjectDetail({ projectId }) {
         setConfigForm({
           startDate: cfg.startDate?.slice(0, 10) || "",
           billingDay: cfg.billingDay,
+          billingFrequency: cfg.billingFrequency || "monthly",
           monthlyClientAmount: cfg.monthlyClientAmount,
           generationLeadDays: cfg.generationLeadDays,
           status: cfg.status,
@@ -198,6 +216,7 @@ export default function RecurringProjectDetail({ projectId }) {
       setConfigForm({
         startDate: cfg.startDate?.slice(0, 10) || "",
         billingDay: cfg.billingDay,
+        billingFrequency: cfg.billingFrequency || "monthly",
         monthlyClientAmount: cfg.monthlyClientAmount,
         generationLeadDays: cfg.generationLeadDays,
         status: cfg.status,
@@ -519,13 +538,13 @@ export default function RecurringProjectDetail({ projectId }) {
         </Card>
       </div>
 
-      <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === "template" && configForm && (
         <div className="space-y-6">
           <p className="text-sm text-admin-textMuted">
             The deliverable template and recurring amount define what gets copied into each new billing
-            cycle. Past months remain frozen snapshots.
+            cycle. Past {periodLabel === "yearly" ? "years" : "months"} remain frozen snapshots.
           </p>
           <FormSection title="Billing configuration">
             <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -536,11 +555,19 @@ export default function RecurringProjectDetail({ projectId }) {
                 </dd>
               </div>
               <div>
+                <dt className="text-xs text-admin-textMuted">Frequency</dt>
+                <dd className="mt-1 text-sm font-medium capitalize text-admin-text">
+                  {billingFrequency}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-xs text-admin-textMuted">Billing day</dt>
                 <dd className="mt-1 text-sm font-medium text-admin-text">{configForm.billingDay}</dd>
               </div>
               <div>
-                <dt className="text-xs text-admin-textMuted">Current Recurring Amount</dt>
+                <dt className="text-xs text-admin-textMuted">
+                  {isYearly ? "Yearly amount" : "Monthly amount"}
+                </dt>
                 <dd className="mt-1 text-sm font-medium text-admin-text">
                   {formatCurrency(configForm.monthlyClientAmount)}
                 </dd>
@@ -892,6 +919,12 @@ export default function RecurringProjectDetail({ projectId }) {
                 value={configForm.startDate}
                 onChange={(e) => setConfigForm((c) => ({ ...c, startDate: e.target.value }))}
               />
+              <Select
+                label="Billing frequency"
+                value={configForm.billingFrequency || "monthly"}
+                onChange={(e) => setConfigForm((c) => ({ ...c, billingFrequency: e.target.value }))}
+                options={BILLING_FREQUENCIES}
+              />
               <Input
                 label="Billing day"
                 type="number"
@@ -901,7 +934,11 @@ export default function RecurringProjectDetail({ projectId }) {
                 onChange={(e) => setConfigForm((c) => ({ ...c, billingDay: e.target.value }))}
               />
               <Input
-                label="Current Recurring Amount (Monthly Fee)"
+                label={
+                  (configForm.billingFrequency || "monthly") === "yearly"
+                    ? "Yearly client amount (₹)"
+                    : "Monthly client amount (₹)"
+                }
                 type="number"
                 value={configForm.monthlyClientAmount}
                 onChange={(e) =>

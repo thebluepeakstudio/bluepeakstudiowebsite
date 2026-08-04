@@ -6,13 +6,14 @@ const BillingCycleDeliverable = require("../models/BillingCycleDeliverable");
 const BillingCycleFreelancerDue = require("../models/BillingCycleFreelancerDue");
 const BillingJobRun = require("../models/BillingJobRun");
 const { autoApplyWalletCredit, deriveInvoiceStatus } = require("./recurringWallet.service");
+const { syncRecurringServiceFinancials } = require("../utils/financialMetrics");
 const {
   roundMoney,
   startOfMonth,
   startOfToday,
   buildBillingDate,
   buildGenerationDate,
-  monthsFromStartToNow,
+  periodsFromStartToNow,
 } = require("../utils/recurringDates");
 
 const generateCycleForMonth = async (config, periodMonth, session = null) => {
@@ -137,9 +138,9 @@ const syncRecurringBillingForConfig = async (config) => {
   let cyclesDueFlipped = 0;
   let creditsApplied = 0;
 
-  const months = monthsFromStartToNow(config.startDate);
+  const periods = periodsFromStartToNow(config.startDate, config.billingFrequency || "monthly");
 
-  for (const periodMonth of months) {
+  for (const periodMonth of periods) {
     const year = periodMonth.getFullYear();
     const month = periodMonth.getMonth();
     const generationDate = buildGenerationDate(
@@ -198,6 +199,8 @@ const syncRecurringBillingForConfig = async (config) => {
     if (refreshed.status === "paid" && !refreshed.paidAt) refreshed.paidAt = new Date();
     await refreshed.save();
   }
+
+  await syncRecurringServiceFinancials(config.serviceId);
 
   return { cyclesGenerated, cyclesDueFlipped, creditsApplied };
 };

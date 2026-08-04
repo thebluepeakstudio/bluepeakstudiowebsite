@@ -6,6 +6,9 @@ export const SERVICE_CATEGORIES = [
   "Branding",
   "Video Editing",
   "Software",
+  "Maintenance",
+  "Domain",
+  "Hosting",
 ];
 
 export const PROJECT_TYPES = SERVICE_CATEGORIES;
@@ -51,6 +54,11 @@ export const PAID_VIA = ["UPI", "Bank", "Cash", "Card"];
 
 export const BILLING_MODELS = ["one_time", "recurring"];
 
+export const BILLING_FREQUENCIES = [
+  { value: "monthly", label: "Monthly" },
+  { value: "yearly", label: "Yearly" },
+];
+
 export const RECURRING_STATUSES = ["active", "paused", "cancelled"];
 
 /** Map internal recurring invoice status to display label */
@@ -87,16 +95,7 @@ export const CLIENT_STATUSES = ["Active", "Inactive"];
 
 export const BRAND_STATUSES = ["Active", "Inactive"];
 
-export const LEAD_STAGES = [
-  "New",
-  "Contacted",
-  "Qualified",
-  "Proposal Sent",
-  "Negotiation",
-  "Won",
-  "Lost",
-  "On Hold",
-];
+export const LEAD_STAGES = ["New", "Contacted", "Won", "Lost"];
 
 export const LEAD_SOURCES = [
   "Website",

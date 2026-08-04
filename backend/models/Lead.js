@@ -1,15 +1,16 @@
 const mongoose = require("mongoose");
 
-const LEAD_STAGES = [
-  "New",
-  "Contacted",
+const LEAD_STAGES = ["New", "Contacted", "Won", "Lost"];
+
+const LEGACY_LEAD_STAGES = [
   "Qualified",
   "Proposal Sent",
   "Negotiation",
-  "Won",
-  "Lost",
   "On Hold",
 ];
+
+/** Stages allowed in status history (includes pre-migration values). */
+const LEAD_STAGE_HISTORY = [...LEAD_STAGES, ...LEGACY_LEAD_STAGES];
 
 const LEAD_SOURCES = [
   "Website",
@@ -80,6 +81,8 @@ leadSchema.index({ fullName: "text", companyName: "text", email: "text" });
 
 module.exports = mongoose.model("Lead", leadSchema);
 module.exports.LEAD_STAGES = LEAD_STAGES;
+module.exports.LEGACY_LEAD_STAGES = LEGACY_LEAD_STAGES;
+module.exports.LEAD_STAGE_HISTORY = LEAD_STAGE_HISTORY;
 module.exports.LEAD_SOURCES = LEAD_SOURCES;
 module.exports.LEAD_PRIORITIES = LEAD_PRIORITIES;
 module.exports.LEAD_REQUIREMENTS = LEAD_REQUIREMENTS;

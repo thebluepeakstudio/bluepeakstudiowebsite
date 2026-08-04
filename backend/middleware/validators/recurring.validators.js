@@ -2,6 +2,7 @@ const { body, param, query, validationResult } = require("express-validator");
 const mongoose = require("mongoose");
 const {
   RECURRING_STATUSES,
+  BILLING_FREQUENCIES,
   PAYMENT_ALLOCATION_TARGETS,
 } = require("../../constants/serviceCategories");
 const ApiError = require("../../utils/ApiError");
@@ -41,6 +42,7 @@ const createRecurringServiceValidators = [
   body("project.billingModel").optional().equals("recurring"),
   body("config.startDate").notEmpty(),
   body("config.billingDay").isInt({ min: 1, max: 28 }),
+  body("config.billingFrequency").optional().isIn(BILLING_FREQUENCIES),
   body("config.monthlyClientAmount").isFloat({ min: 0 }),
   body("config.monthlyFreelancerCost").optional().isFloat({ min: 0 }),
   body("config.generationLeadDays").optional().isInt({ min: 3, max: 7 }),
@@ -52,6 +54,7 @@ const createRecurringServiceValidators = [
 const patchRecurringConfigValidators = [
   param("id").isMongoId(),
   body("billingDay").optional().isInt({ min: 1, max: 28 }),
+  body("billingFrequency").optional().isIn(BILLING_FREQUENCIES),
   body("monthlyClientAmount").optional().isFloat({ min: 0 }),
   body("monthlyFreelancerCost").optional().isFloat({ min: 0 }),
   body("generationLeadDays").optional().isInt({ min: 3, max: 7 }),
