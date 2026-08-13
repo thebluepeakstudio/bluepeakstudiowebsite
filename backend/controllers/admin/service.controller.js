@@ -172,6 +172,10 @@ const buildFilter = (query) => {
         ? { $in: ["Unpaid", "Pending"] }
         : query.paymentStatus;
   }
+  if (query.billingModel) {
+    const normalizedModel = query.billingModel.replace("-", "_").toLowerCase();
+    filter.billingModel = normalizedModel;
+  }
   if (query.clientId) filter.clientId = query.clientId;
   if (query.brandId) filter.brandId = query.brandId;
   if (query.search) {

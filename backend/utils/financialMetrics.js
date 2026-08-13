@@ -107,6 +107,14 @@ async function aggregateTotalExpenses() {
   return roundMoney(rows[0]?.total || 0);
 }
 
+async function aggregateDecreeExpenses() {
+  const rows = await Expense.aggregate([
+    { $match: { category: "Decree" } },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+  return roundMoney(rows[0]?.total || 0);
+}
+
 /** Open balance on recurring invoices that are due / partial / overdue. */
 async function aggregateRecurringOutstanding() {
   const rows = await BillingCycleInvoice.aggregate([
@@ -312,11 +320,12 @@ async function syncRecurringServiceFinancials(serviceId, session = null) {
 }
 
 async function getSharedFinancialMetrics() {
-  const [clientOutstanding, totalRevenue, totalExpenses, freelancerCosts] = await Promise.all([
+  const [clientOutstanding, totalRevenue, totalExpenses, freelancerCosts, totalDecree] = await Promise.all([
     aggregateClientOutstanding(),
     aggregateBookedRevenue(),
     aggregateTotalExpenses(),
     aggregateFreelancerCostsTotal(),
+    aggregateDecreeExpenses(),
   ]);
 
   return {
@@ -325,6 +334,7 @@ async function getSharedFinancialMetrics() {
     totalRevenue,
     totalExpenses,
     freelancerCosts,
+    totalDecree,
     grossProfit: roundMoney(totalRevenue - freelancerCosts),
     netProfit: roundMoney(totalRevenue - totalExpenses - freelancerCosts),
   };
@@ -334,6 +344,7 @@ module.exports = {
   getMigratedLegacyProjectIds,
   aggregateBookedRevenue,
   aggregateTotalExpenses,
+  aggregateDecreeExpenses,
   aggregateClientOutstanding,
   aggregateRecurringOutstanding,
   aggregateFreelancerCostsTotal,

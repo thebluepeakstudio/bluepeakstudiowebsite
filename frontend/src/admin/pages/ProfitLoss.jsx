@@ -17,8 +17,8 @@ export default function ProfitLoss() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 7 }).map((_, i) => (
           <CardSkeleton key={i} />
         ))}
       </div>
@@ -27,9 +27,10 @@ export default function ProfitLoss() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Revenue" value={formatCurrency(data?.totalRevenue)} />
         <StatCard title="Total Expenses" value={formatCurrency(data?.totalExpenses)} />
+        <StatCard title="Total Decree Expenses" value={formatCurrency(data?.totalDecree)} />
         <StatCard title="Freelancer Costs" value={formatCurrency(data?.freelancerCosts)} />
         <StatCard title="Gross Profit" value={formatCurrency(data?.grossProfit)} />
         <StatCard title="Net Profit" value={formatCurrency(data?.netProfit)} />
@@ -41,7 +42,7 @@ export default function ProfitLoss() {
       <p className="text-sm text-admin-textMuted">
         Total revenue is the sum of booked project values (deliverable selling prices for one-time
         projects, cash received to date for recurring). Outstanding is the total client balance still
-        owed across all projects. Gross profit = revenue − freelancer costs. Net profit = revenue −
+        owed across all projects. Total Decree Expenses is the sum of all expenses marked under the Decree category. Gross profit = revenue − freelancer costs. Net profit = revenue −
         expenses − freelancer costs.
       </p>
     </div>

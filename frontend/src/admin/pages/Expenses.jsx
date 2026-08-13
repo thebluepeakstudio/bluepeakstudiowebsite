@@ -79,6 +79,8 @@ export default function Expenses() {
   const refreshExpenses = () => {
     queryClient.invalidateQueries({ queryKey: ["admin", "expenses"] });
     queryClient.invalidateQueries({ queryKey: ["admin", "expense-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["admin", "profit-loss"] });
+    queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] });
   };
 
   const openCreate = () => {

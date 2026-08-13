@@ -38,18 +38,10 @@ const loadDashboardAlerts = async () => {
     status: { $nin: ["Won", "Lost"] },
   };
 
-  const [followUpsToday, followUpsOverdue, dueInvoices] = await Promise.all([
+  const [followUpsToday, dueInvoices] = await Promise.all([
     Lead.find({
       ...followUpBase,
       nextFollowUpDate: { $gte: todayStart, $lte: todayEnd },
-    })
-      .select("fullName companyName nextFollowUpDate reminderNotes followUpStatus status")
-      .sort({ nextFollowUpDate: 1 })
-      .limit(10)
-      .lean(),
-    Lead.find({
-      ...followUpBase,
-      nextFollowUpDate: { $lt: todayStart },
     })
       .select("fullName companyName nextFollowUpDate reminderNotes followUpStatus status")
       .sort({ nextFollowUpDate: 1 })
@@ -89,7 +81,7 @@ const loadDashboardAlerts = async () => {
 
   return {
     followUpsToday,
-    followUpsOverdue,
+    followUpsOverdue: [],
     paymentsDue,
   };
 };
@@ -116,6 +108,7 @@ const withFinancialMetrics = (payload, financials) => {
           pendingPayments: financials.clientOutstanding,
           totalRevenue: financials.totalRevenue,
           totalExpenses: financials.totalExpenses,
+          totalDecree: financials.totalDecree,
           netProfit: financials.netProfit,
         },
       },
@@ -128,6 +121,7 @@ const withFinancialMetrics = (payload, financials) => {
       ...payload.data,
       totalRevenue: financials.totalRevenue,
       totalExpenses: financials.totalExpenses,
+      totalDecree: financials.totalDecree,
       grossProfit: financials.grossProfit,
       netProfit: financials.netProfit,
       clientOutstanding: financials.clientOutstanding,
@@ -250,6 +244,7 @@ const getPL = asyncHandler(async (req, res) => {
     data: {
       totalRevenue: financials.totalRevenue,
       totalExpenses: financials.totalExpenses,
+      totalDecree: financials.totalDecree,
       grossProfit: financials.grossProfit,
       netProfit: financials.netProfit,
       clientOutstanding: financials.clientOutstanding,

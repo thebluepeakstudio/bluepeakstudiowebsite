@@ -54,6 +54,11 @@ export const PAID_VIA = ["UPI", "Bank", "Cash", "Card"];
 
 export const BILLING_MODELS = ["one_time", "recurring"];
 
+export const BILLING_MODEL_FILTER_OPTIONS = [
+  { value: "one_time", label: "One-Time" },
+  { value: "recurring", label: "Recurring" },
+];
+
 export const BILLING_FREQUENCIES = [
   { value: "monthly", label: "Monthly" },
   { value: "yearly", label: "Yearly" },

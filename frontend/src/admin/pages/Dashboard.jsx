@@ -65,9 +65,8 @@ export default function Dashboard() {
   const cards = data?.cards || {};
   const alerts = data?.alerts || {};
   const followUpsToday = alerts.followUpsToday || [];
-  const followUpsOverdue = alerts.followUpsOverdue || [];
   const paymentsDue = alerts.paymentsDue || [];
-  const followUpCount = followUpsToday.length + followUpsOverdue.length;
+  const followUpCount = followUpsToday.length;
   const hasAlerts = followUpCount > 0 || paymentsDue.length > 0;
 
   return (
@@ -137,29 +136,16 @@ export default function Dashboard() {
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-admin-text">
                 <CalendarClock size={16} className="text-amber-600" />
                 Follow up today
-                {followUpsOverdue.length > 0 && (
-                  <span className="text-xs font-medium text-rose-600">
-                    · {followUpsOverdue.length} overdue
-                  </span>
-                )}
               </div>
               <AlertList
-                items={[...followUpsOverdue, ...followUpsToday]}
+                items={followUpsToday}
                 empty="No lead follow-ups scheduled for today."
                 onItemClick={(item) => navigate(adminPath("leads", item._id))}
                 renderPrimary={(item) => item.fullName || "—"}
                 renderSecondary={(item) =>
                   [item.companyName, item.reminderNotes].filter(Boolean).join(" · ") || null
                 }
-                renderMeta={(item) => (
-                  <>
-                    <p>{formatDate(item.nextFollowUpDate)}</p>
-                    {item.nextFollowUpDate &&
-                      new Date(item.nextFollowUpDate) < startOfToday() && (
-                        <p className="mt-0.5 font-medium text-rose-600">Overdue</p>
-                      )}
-                  </>
-                )}
+                renderMeta={(item) => <p>{formatDate(item.nextFollowUpDate)}</p>}
               />
             </div>
 
