@@ -19,7 +19,7 @@ import Badge from "../components/ui/Badge";
 import ServicesPillList from "../components/projects/ServicesPillList";
 import { CardSkeleton } from "../components/ui/Skeleton";
 import { formatCurrency, formatDate } from "../utils/formatCurrency";
-import { getProjectLabel } from "../utils/constants";
+import { getProjectLabel, normalizePaymentStatus } from "../utils/constants";
 import { adminPath } from "../utils/adminPaths";
 
 function AlertList({ items, empty, onItemClick, renderPrimary, renderSecondary, renderMeta }) {
@@ -202,11 +202,15 @@ export default function Dashboard() {
                   <ServicesPillList services={r.services} servicesCount={r.servicesCount} />
                 ),
               },
-              { key: "workStatus", label: "Status", render: (r) => <Badge status={r.workStatus} /> },
+              {
+                key: "workStatus",
+                label: "Status",
+                render: (r) => <Badge status={r.overallStatus || r.workStatus} />,
+              },
               {
                 key: "paymentStatus",
                 label: "Payment",
-                render: (r) => <Badge status={r.paymentStatus} />,
+                render: (r) => <Badge status={normalizePaymentStatus(r.paymentStatus)} />,
               },
             ]}
             data={data?.latestProjects || []}

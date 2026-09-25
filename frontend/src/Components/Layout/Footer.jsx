@@ -1,6 +1,7 @@
-import React from "react"
+import React from "react";
 import { NavLink } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import { CONTACT_PHONE_DISPLAY, TEL_URL } from "../../config/contact";
 
 const Footer = () => {
   const location = useLocation();
@@ -27,9 +28,9 @@ const Footer = () => {
               [ CALL US ]
             </p>
 
-            <p className="text-sm lg:text-lg text-white">
-              +91 93781 73053
-            </p>
+            <a href={TEL_URL} className="text-sm lg:text-lg text-white transition-opacity hover:opacity-80">
+              {CONTACT_PHONE_DISPLAY}
+            </a>
 
             <p className="text-sm text-white/40 tracking-widest mt-6">
               [ MAIL US ]

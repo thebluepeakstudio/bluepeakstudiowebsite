@@ -141,13 +141,23 @@ export default function CaseStudy() {
           </aside>
         </div>
 
-        <div className="case-study-cta">
-          <p>Need custom software built for your business?</p>
-          <Link to="/contact" className="case-study-cta-link">
-            Start a Project
-            <ArrowLeft size={16} className="rotate-180" />
-          </Link>
-        </div>
+        <section className="case-study-cta" aria-labelledby="case-study-cta-heading">
+          <div className="case-study-cta-glow" aria-hidden="true" />
+          <div className="case-study-cta-inner">
+            <p className="case-study-cta-eyebrow">Next step</p>
+            <h2 id="case-study-cta-heading" className="case-study-cta-title">
+              Need custom software built for your business?
+            </h2>
+            <p className="case-study-cta-desc">
+              Tell us what you&apos;re building — we&apos;ll reply with a clear plan, timeline, and
+              quote.
+            </p>
+            <Link to="/contact" className="case-study-cta-link">
+              Start a project
+              <ArrowLeft size={18} className="rotate-180" aria-hidden />
+            </Link>
+          </div>
+        </section>
       </PageContent>
     </>
   );

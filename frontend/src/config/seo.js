@@ -13,7 +13,7 @@ export const ORGANIZATION = {
   url: SITE_URL,
   logo: DEFAULT_OG_IMAGE,
   email: "thebluepeakstudio@gmail.com",
-  phone: "+91-9378173053",
+  phone: "+91-6294804277",
   sameAs: [
     "https://www.instagram.com/bluepeakstudio.in",
     "https://www.linkedin.com/company/bluepeak-studio",

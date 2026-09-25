@@ -1,18 +1,12 @@
 const Project = require("../../models/Project");
 const Service = require("../../models/Service");
-const Deliverable = require("../../models/Deliverable");
 const Expense = require("../../models/Expense");
 const Freelancer = require("../../models/Freelancer");
 const Lead = require("../../models/Lead");
 const BillingCycleInvoice = require("../../models/BillingCycleInvoice");
 const asyncHandler = require("../../utils/asyncHandler");
 const { get, set, invalidatePrefix } = require("../../utils/responseCache");
-const { withLegacyServiceFields } = require("../../utils/serviceCompat");
-const {
-  activeDeliverableFilter,
-  groupDeliverablesByService,
-  buildServicesSummary,
-} = require("../../services/serviceCalculations.service");
+const { enrichServicesWithDeliverables } = require("../../services/serviceCalculations.service");
 const {
   getSharedFinancialMetrics,
   aggregatePaymentsReceivedThisMonth,
@@ -131,36 +125,6 @@ const withFinancialMetrics = (payload, financials) => {
   };
 };
 
-/** Attach service labels only — keep stored work/payment status from Service. */
-const attachLatestServiceLabels = async (services) => {
-  if (!services.length) return [];
-  const ids = services.map((s) => s._id);
-  const deliverables = await Deliverable.find({
-    serviceId: { $in: ids },
-    ...activeDeliverableFilter,
-  })
-    .select("serviceId title status category")
-    .lean();
-
-  const byService = groupDeliverablesByService(deliverables);
-
-  return services.map((s) => {
-    const legacy = withLegacyServiceFields(s);
-    const list = byService[s._id.toString()] || [];
-    if (list.length) {
-      return {
-        ...legacy,
-        ...buildServicesSummary(list),
-      };
-    }
-    return {
-      ...legacy,
-      services: legacy.category ? [legacy.category] : [],
-      servicesCount: legacy.category ? 1 : 0,
-    };
-  });
-};
-
 const getDashboard = asyncHandler(async (req, res) => {
   try {
     await runDaily();
@@ -177,7 +141,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     Service.countDocuments({ workStatus: { $nin: ["Completed", "Delivered"] } }),
     Service.find()
       .select(
-        "clientName businessName name category billingModel workStatus paymentStatus totalPrice remainingAmount advanceReceived createdAt"
+        "clientName businessName name category billingModel workStatus paymentStatus totalPrice remainingAmount advanceReceived dateOfOnboarding clientId brandId createdAt"
       )
       .sort({ createdAt: -1 })
       .limit(5)
@@ -185,7 +149,7 @@ const getDashboard = asyncHandler(async (req, res) => {
     aggregatePaymentsReceivedThisMonth(monthStart),
   ]);
 
-  const enrichedLatestProjects = await attachLatestServiceLabels(latestServices);
+  const enrichedLatestProjects = await enrichServicesWithDeliverables(latestServices);
   const alerts = await loadDashboardAlerts();
 
   const cached = get(cacheKey);

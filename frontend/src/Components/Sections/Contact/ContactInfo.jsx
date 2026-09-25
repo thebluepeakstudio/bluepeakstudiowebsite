@@ -1,6 +1,7 @@
-import React from 'react'
+import React from "react";
 import { MdOutlineAttachEmail } from "react-icons/md";
 import { RiContactsLine } from "react-icons/ri";
+import { CONTACT_PHONE_DISPLAY, TEL_URL } from "../../../config/contact";
 
 const ContactInfo = () => {
     return (
@@ -12,9 +13,12 @@ const ContactInfo = () => {
             <div className="space-y-4 mt-8 mx-auto">
                 <div className='flex gap-4 items-center'>
                     <RiContactsLine className="shrink-0" size={50} />
-                    <p className="text-lg md:text-2xl dm-sans text-gray-400">
-                        +91 93781 73053
-                    </p>
+                    <a
+                      href={TEL_URL}
+                      className="text-lg md:text-2xl dm-sans text-gray-400 transition-colors hover:text-white"
+                    >
+                      {CONTACT_PHONE_DISPLAY}
+                    </a>
                 </div>
 
                 <div className='flex gap-4 items-center'>
