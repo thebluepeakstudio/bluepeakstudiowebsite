@@ -150,12 +150,8 @@ const softDeleteDeliverable = async (serviceId, deliverableId, session = null) =
   deliverable.deletedAt = new Date();
   await deliverable.save(session ? { session } : undefined);
 
-  const DeliverableAssignment = require("../models/DeliverableAssignment");
-  await DeliverableAssignment.updateMany(
-    { deliverableId: deliverable._id, deletedAt: null },
-    { deletedAt: new Date() },
-    session ? { session } : undefined
-  );
+  const { removeAssignmentsForDeliverable } = require("./deliverableAssignment.service");
+  await removeAssignmentsForDeliverable(deliverable._id, session);
 
   await syncServiceFromDeliverables(serviceId, session);
   return deliverable;

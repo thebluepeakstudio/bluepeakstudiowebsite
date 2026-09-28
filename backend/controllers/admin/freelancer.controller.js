@@ -156,18 +156,28 @@ const getFreelancerPayments = asyncHandler(async (req, res) => {
   const freelancer = await Freelancer.findById(req.params.id);
   if (!freelancer) throw new ApiError(404, "Freelancer not found");
 
-  const payments = await FreelancerPayment.find({ freelancerId: req.params.id })
-    .sort({ paymentDate: -1 })
-    .limit(50)
-    .lean();
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(50, parseInt(req.query.limit, 10) || 10);
+  const skip = (page - 1) * limit;
 
-  const deliverableMap = await fetchDeliverablesByIds(
-    payments.map((p) => p.deliverableId).filter(Boolean)
+  const DeliverableAssignment = require("../../models/DeliverableAssignment");
+  const activeAssignments = await DeliverableAssignment.find({
+    freelancerId: req.params.id,
+    deletedAt: null,
+  })
+    .select("_id")
+    .lean();
+  const activeAssignmentIds = new Set(
+    activeAssignments.map((a) => a._id.toString())
   );
+
+  const allPayments = await FreelancerPayment.find({ freelancerId: req.params.id })
+    .sort({ paymentDate: -1 })
+    .lean();
 
   const Service = require("../../models/Service");
   const ownerIds = [
-    ...new Set(payments.map((p) => p.projectId?.toString()).filter(Boolean)),
+    ...new Set(allPayments.map((p) => p.projectId?.toString()).filter(Boolean)),
   ];
   const [services, projects] = await Promise.all([
     Service.find({ _id: { $in: ownerIds } })
@@ -182,7 +192,26 @@ const getFreelancerPayments = asyncHandler(async (req, res) => {
     ...projects.map((p) => [p._id.toString(), p]),
   ]);
 
-  const enrichedPayments = payments.map((p) => ({
+  const deliverableMap = await fetchDeliverablesByIds(
+    allPayments.map((p) => p.deliverableId).filter(Boolean)
+  );
+
+  const visiblePayments = allPayments.filter((p) => {
+    if (p.assignmentId) {
+      return activeAssignmentIds.has(p.assignmentId.toString());
+    }
+    const ownerKey = p.projectId?.toString();
+    if (!ownerKey || !ownerMap[ownerKey]) return false;
+    if (p.deliverableId) {
+      return Boolean(deliverableMap[p.deliverableId.toString()]);
+    }
+    return true;
+  });
+
+  const total = visiblePayments.length;
+  const pageRows = visiblePayments.slice(skip, skip + limit);
+
+  const enrichedPayments = pageRows.map((p) => ({
     ...p,
     projectId: ownerMap[p.projectId?.toString()] || p.projectId,
     deliverableId: p.deliverableId
@@ -192,7 +221,14 @@ const getFreelancerPayments = asyncHandler(async (req, res) => {
 
   const financials = await getFinancialsForFreelancer(req.params.id);
 
-  res.json({ success: true, data: { payments: enrichedPayments, financials } });
+  res.json({
+    success: true,
+    data: {
+      payments: enrichedPayments,
+      financials,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 },
+    },
+  });
 });
 
 const recordFreelancerPayment = asyncHandler(async (req, res) => {

@@ -1,12 +1,9 @@
 const mongoose = require("mongoose");
 const Project = require("../../models/Project");
-const Freelancer = require("../../models/Freelancer");
 const ProjectDeliverable = require("../../models/ProjectDeliverable");
 const ProjectPayment = require("../../models/ProjectPayment");
 const Document = require("../../models/Document");
-const DeliverableAssignment = require("../../models/DeliverableAssignment");
 const Expense = require("../../models/Expense");
-const FreelancerPayment = require("../../models/FreelancerPayment");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
@@ -35,8 +32,8 @@ const {
   updateAssignment,
   softDeleteAssignment,
   createAssignmentsBatch,
-  updateFreelancerCount,
 } = require("../../services/deliverableAssignment.service");
+const { deleteLegacyProject } = require("../../services/serviceDelete.service");
 const { generateProjectInvoicePdf } = require("../../services/invoice.service");
 const {
   listPayments,
@@ -454,41 +451,14 @@ const deleteProject = asyncHandler(async (req, res) => {
     await deleteFromCloudinary(att.publicId);
   }
 
-  const deliverableIds = await ProjectDeliverable.find({
-    projectId: project._id,
-    deletedAt: null,
-  }).distinct("_id");
-
-  if (deliverableIds.length) {
-    const decrementByFreelancer = await DeliverableAssignment.aggregate([
-      { $match: { deliverableId: { $in: deliverableIds }, deletedAt: null } },
-      { $group: { _id: "$freelancerId", count: { $sum: 1 } } },
-    ]);
-    if (decrementByFreelancer.length) {
-      await Freelancer.bulkWrite(
-        decrementByFreelancer.map((row) => ({
-          updateOne: {
-            filter: { _id: row._id },
-            update: { $inc: { totalProjectsAssigned: -row.count } },
-          },
-        }))
-      );
-    }
-  }
-
   const documents = await Document.find({ projectId: project._id });
   for (const doc of documents) {
     await deleteFromCloudinary(doc.publicId, doc.resourceType || "image");
   }
 
+  await deleteLegacyProject(project._id);
+
   await Promise.all([
-    ProjectDeliverable.updateMany({ projectId: project._id }, { deletedAt: new Date() }),
-    DeliverableAssignment.updateMany(
-      { deliverableId: { $in: deliverableIds }, deletedAt: null },
-      { deletedAt: new Date() }
-    ),
-    FreelancerPayment.deleteMany({ projectId: project._id }),
-    ProjectPayment.deleteMany({ projectId: project._id }),
     Document.deleteMany({ projectId: project._id }),
     Expense.updateMany({ projectId: project._id }, { $unset: { projectId: 1 } }),
     Project.findByIdAndDelete(req.params.id),

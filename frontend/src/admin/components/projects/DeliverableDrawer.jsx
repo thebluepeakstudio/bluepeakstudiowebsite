@@ -42,6 +42,7 @@ export default function DeliverableDrawer({
     freelancerId: "",
     cost: 0,
   });
+  const [costDrafts, setCostDrafts] = useState({});
 
   const deliverableId = deliverable?._id;
 
@@ -54,7 +55,11 @@ export default function DeliverableDrawer({
       sellingPrice: deliverable.sellingPrice ?? 0,
       status: deliverable.status || "Not Started",
     });
-    setAssignments(cloneAssignments(deliverable.assignments));
+    const rows = cloneAssignments(deliverable.assignments);
+    setAssignments(rows);
+    setCostDrafts(
+      Object.fromEntries(rows.map((a) => [a._id, a.cost ?? 0]))
+    );
     setNewAssignment({ freelancerId: "", cost: 0 });
   }, [open, deliverableId, deliverable]);
 
@@ -133,16 +138,33 @@ export default function DeliverableDrawer({
     }
   };
 
-  const handleUpdateAssignmentCost = async (assignmentId, value) => {
+  const handleCostDraftChange = (assignmentId, value) => {
+    setCostDrafts((prev) => ({ ...prev, [assignmentId]: value }));
+  };
+
+  const handleCommitAssignmentCost = async (assignmentId) => {
+    const raw = costDrafts[assignmentId];
+    const parsed = raw === "" || raw === undefined ? NaN : Number(raw);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      toast.error("Enter a valid cost");
+      const current = assignments.find((a) => a._id === assignmentId);
+      setCostDrafts((prev) => ({ ...prev, [assignmentId]: current?.cost ?? 0 }));
+      return;
+    }
+    const current = assignments.find((a) => a._id === assignmentId);
+    if (current && Number(current.cost) === parsed) return;
+
     try {
       const { data } = await updateAssignment(projectId, deliverableId, assignmentId, {
-        cost: Number(value) || 0,
+        cost: parsed,
       });
       const next = assignments.map((a) => (a._id === assignmentId ? data.data : a));
       setAssignments(next);
+      setCostDrafts((prev) => ({ ...prev, [assignmentId]: data.data.cost ?? parsed }));
       await onAssignmentsChange?.();
     } catch (err) {
       toast.error(err.response?.data?.message || "Update failed");
+      setCostDrafts((prev) => ({ ...prev, [assignmentId]: current?.cost ?? 0 }));
     }
   };
 
@@ -224,8 +246,15 @@ export default function DeliverableDrawer({
                                 min="0"
                                 step="any"
                                 className="w-28 rounded border border-admin-border px-2 py-1 text-sm"
-                                value={a.cost ?? 0}
-                                onChange={(e) => handleUpdateAssignmentCost(a._id, e.target.value)}
+                                value={costDrafts[a._id] ?? a.cost ?? 0}
+                                onChange={(e) => handleCostDraftChange(a._id, e.target.value)}
+                                onBlur={() => handleCommitAssignmentCost(a._id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    e.currentTarget.blur();
+                                  }
+                                }}
                               />
                             </td>
                             <td className="px-3 py-2">

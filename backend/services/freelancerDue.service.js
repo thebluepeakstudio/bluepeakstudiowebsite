@@ -136,11 +136,15 @@ const upsertFreelancerDue = async (payload, session = null) => {
 };
 
 const syncDueForAssignment = async (assignment, session = null) => {
-  if (!assignment || assignment.deletedAt) return null;
+  if (!assignment || assignment.deletedAt) {
+    if (assignment?._id) {
+      await cancelOpenDue({ deliverableAssignmentId: assignment._id }, session);
+    }
+    return null;
+  }
 
-  const deliverableQuery = Deliverable.findById(assignment.deliverableId);
-  if (session) deliverableQuery.session(session);
-  const deliverable = await deliverableQuery;
+  const { fetchDeliverableById } = require("../utils/resolveDeliverableRecords");
+  const deliverable = await fetchDeliverableById(assignment.deliverableId);
   if (!deliverable || deliverable.deletedAt) {
     await cancelOpenDue({ deliverableAssignmentId: assignment._id }, session);
     return null;
@@ -153,6 +157,11 @@ const syncDueForAssignment = async (assignment, session = null) => {
   }
 
   if (!isDueTriggerStatus(deliverable.status)) {
+    await cancelOpenDue({ deliverableAssignmentId: assignment._id }, session);
+    return null;
+  }
+
+  if (!deliverable.serviceId) {
     await cancelOpenDue({ deliverableAssignmentId: assignment._id }, session);
     return null;
   }
@@ -479,9 +488,16 @@ const getFreelancerDashboard = async (freelancerId) => {
 };
 
 const aggregateFreelancerCosts = async (match = {}) => {
-  const rows = await FreelancerDue.aggregate([
+  const {
+    aggregateFreelancerCosts: sumAssignmentCosts,
+  } = require("../utils/freelancerCosts");
+
+  const assignmentTotal = await sumAssignmentCosts(match);
+
+  const recurringRows = await FreelancerDue.aggregate([
     {
       $match: {
+        billingCycleDeliverableId: { $ne: null },
         status: { $in: ["pending", "partial", "paid"] },
         ...match,
       },
@@ -493,16 +509,26 @@ const aggregateFreelancerCosts = async (match = {}) => {
       },
     },
   ]);
-  const fromDues = rows[0]?.total || 0;
-  if (fromDues > 0) return fromDues;
+  const recurringTotal = recurringRows[0]?.total || 0;
 
-  const DeliverableAssignment = require("../models/DeliverableAssignment");
-  const { activeAssignmentFilter } = require("./serviceCalculations.service");
-  const legacyRows = await DeliverableAssignment.aggregate([
-    { $match: { ...activeAssignmentFilter, ...match } },
-    { $group: { _id: null, total: { $sum: { $ifNull: ["$cost", 0] } } } },
+  const combined = roundMoney(assignmentTotal + recurringTotal);
+  if (combined > 0) return combined;
+
+  const Project = require("../models/Project");
+  const Service = require("../models/Service");
+  const migratedRows = await Service.find({ legacyProjectId: { $ne: null } })
+    .select("legacyProjectId")
+    .lean();
+  const migratedIds = migratedRows.map((r) => r.legacyProjectId);
+  const legacyMatch = { isOutsourced: true };
+  if (migratedIds.length) legacyMatch._id = { $nin: migratedIds };
+
+  const { legacyFreelancerCostPipeline } = require("../utils/freelancerCosts");
+  const legacyRows = await Project.aggregate([
+    { $match: legacyMatch },
+    legacyFreelancerCostPipeline[1],
   ]);
-  return legacyRows[0]?.total || 0;
+  return roundMoney(legacyRows[0]?.total || 0);
 };
 
 const aggregateFreelancerCostsByMonth = async (rangeStart, rangeEnd) => {

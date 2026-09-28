@@ -67,7 +67,7 @@ export default function Expenses() {
     async (p) => {
       const exp = await getExpenses({
         page: p,
-        limit: 50,
+        limit: 10,
         search: debouncedSearch || undefined,
         category: category || undefined,
       });

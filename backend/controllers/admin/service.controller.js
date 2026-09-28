@@ -4,9 +4,7 @@ const Freelancer = require("../../models/Freelancer");
 const Deliverable = require("../../models/Deliverable");
 const ServicePayment = require("../../models/ServicePayment");
 const Document = require("../../models/Document");
-const DeliverableAssignment = require("../../models/DeliverableAssignment");
 const Expense = require("../../models/Expense");
-const FreelancerPayment = require("../../models/FreelancerPayment");
 const ApiError = require("../../utils/ApiError");
 const asyncHandler = require("../../utils/asyncHandler");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../../utils/uploadToCloudinary");
@@ -43,8 +41,8 @@ const {
   updateAssignment,
   softDeleteAssignment,
   createAssignmentsBatch,
-  updateFreelancerCount,
 } = require("../../services/deliverableAssignment.service");
+const { deleteCrmService } = require("../../services/serviceDelete.service");
 const { generateServiceInvoicePdf } = require("../../services/invoice.service");
 const {
   listPayments,
@@ -560,41 +558,14 @@ const deleteService = asyncHandler(async (req, res) => {
     await deleteFromCloudinary(att.publicId);
   }
 
-  const deliverableIds = await Deliverable.find({
-    serviceId: service._id,
-    deletedAt: null,
-  }).distinct("_id");
-
-  if (deliverableIds.length) {
-    const decrementByFreelancer = await DeliverableAssignment.aggregate([
-      { $match: { deliverableId: { $in: deliverableIds }, deletedAt: null } },
-      { $group: { _id: "$freelancerId", count: { $sum: 1 } } },
-    ]);
-    if (decrementByFreelancer.length) {
-      await Freelancer.bulkWrite(
-        decrementByFreelancer.map((row) => ({
-          updateOne: {
-            filter: { _id: row._id },
-            update: { $inc: { totalProjectsAssigned: -row.count } },
-          },
-        }))
-      );
-    }
-  }
-
   const documents = await Document.find({ serviceId: service._id });
   for (const doc of documents) {
     await deleteFromCloudinary(doc.publicId, doc.resourceType || "image");
   }
 
+  await deleteCrmService(service);
+
   await Promise.all([
-    Deliverable.updateMany({ serviceId: service._id }, { deletedAt: new Date() }),
-    DeliverableAssignment.updateMany(
-      { deliverableId: { $in: deliverableIds }, deletedAt: null },
-      { deletedAt: new Date() }
-    ),
-    FreelancerPayment.deleteMany({ serviceId: service._id }),
-    ServicePayment.deleteMany({ serviceId: service._id }),
     Document.deleteMany({ serviceId: service._id }),
     Expense.updateMany({ serviceId: service._id }, { $unset: { serviceId: 1 } }),
     Service.findByIdAndDelete(req.params.id),

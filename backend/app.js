@@ -6,10 +6,7 @@ const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const connectDB = require("./config/db");
 const ensureAdminSeed = require("./utils/ensureAdminSeed");
-const ensurePaymentSummariesRecalculated = require("./utils/ensurePaymentSummaries");
-const ensureDeprecatedFieldsDropped = require("./utils/ensureDeprecatedFieldsDropped");
-const ensureLeadStagesMigrated = require("./utils/ensureLeadStagesMigrated");
-const ensureRecurringFinancialsSynced = require("./utils/ensureRecurringFinancialsSynced");
+const ensureDeployReconcile = require("./utils/ensureDeployReconcile");
 const validateEnv = require("./utils/validateEnv");
 const correlationIdMiddleware = require("./middleware/correlationId.middleware");
 const errorHandler = require("./middleware/error.middleware");
@@ -103,27 +100,9 @@ const startServer = async () => {
   }
 
   try {
-    await ensurePaymentSummariesRecalculated();
+    await ensureDeployReconcile();
   } catch (err) {
-    console.error("[payment-recompute] Failed:", err.message);
-  }
-
-  try {
-    await ensureDeprecatedFieldsDropped();
-  } catch (err) {
-    console.error("[schema-cleanup] Failed:", err.message);
-  }
-
-  try {
-    await ensureLeadStagesMigrated();
-  } catch (err) {
-    console.error("[lead-stages] Failed:", err.message);
-  }
-
-  try {
-    await ensureRecurringFinancialsSynced();
-  } catch (err) {
-    console.error("[recurring-financials] Failed:", err.message);
+    console.error("[deploy-reconcile] Failed:", err.message);
   }
 
   app.listen(PORT, () => {

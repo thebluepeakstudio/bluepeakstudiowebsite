@@ -34,6 +34,7 @@ cp frontend/.env.example frontend/.env
 | `ADMIN_SEED_PASSWORD` | Yes** | No | Bootstrap admin password — server only |
 | `ADMIN_SEED_NAME` | No | No | Display name for bootstrap admin |
 | `ADMIN_SEED_RESET` | No | No | Set `true` once to sync admin password on deploy |
+| `DEPLOY_RECONCILE` | No | No | `false` skips startup repair; default **on** when `NODE_ENV=production` |
 | `BILLING_JOB_SECRET` | Yes*** | No | Protects `POST /api/admin/jobs/billing-cycle` |
 | `SITE_URL` | No | Yes | Public site URL for sitemap/RSS |
 | `CORS_EXTRA_ORIGINS` | No | Yes | Comma-separated extra CORS origins |

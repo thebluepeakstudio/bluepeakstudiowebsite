@@ -92,9 +92,10 @@ After deploying the Clients module, run once: `npm run migrate:clients` (from `b
 
 1. Set all backend env vars on your host (Render, Railway, etc.).
 2. Run `npm run seed:admin` once to create the admin user.
-3. Set `VITE_BACKEND_URL` to your deployed API URL before `npm run build`.
-4. CORS already allows `https://bluepeakstudio.in` and your Render frontend URL.
-5. Ensure MongoDB and Cloudinary credentials are set in production.
+3. Set `NODE_ENV=production` on the API service so each deploy **reconciles** payment totals, P&amp;L inputs, freelancer counts, and recurring billing (override with `DEPLOY_RECONCILE=false` if needed).
+4. Set `VITE_BACKEND_URL` to your deployed API URL before `npm run build`.
+5. CORS already allows `https://bluepeakstudio.in` and your Render frontend URL.
+6. Ensure MongoDB and Cloudinary credentials are set in production.
 
 ## Security
 
